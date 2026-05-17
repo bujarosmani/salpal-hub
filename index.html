@@ -277,7 +277,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       <div class="fwrap"><label class="flabel">Username</label><input id="li-user" class="inp" type="text" placeholder="username" autocomplete="off"/></div>
       <div class="fwrap"><label class="flabel">Password</label><input id="li-pass" class="inp" type="password" placeholder="Password" autocomplete="off"/></div>
       <div id="li-err" class="ferr" style="margin-bottom:10px"></div>
-      <button class="btn btn-primary btn-full" id="li-btn">Sign In</button>
+      <button class="btn btn-primary btn-full" id="li-btn" onclick="doLogin()">Sign In</button>
     </div>
   </div>
 </div>
@@ -1023,9 +1023,6 @@ function tryRestoreSession(){
     return true;
   }catch(e){return false;}
 }
-document.getElementById('li-btn').onclick=doLogin;
-document.getElementById('li-pass').onkeydown=e=>{if(e.key==='Enter')doLogin();};
-document.getElementById('li-user').onkeydown=e=>{if(e.key==='Enter')document.getElementById('li-pass').focus();};
 
 /* ── NAV ── */
 let currentView='desktop';
@@ -2239,6 +2236,9 @@ function showLoginForm(){
   document.getElementById('li-form').style.display='';
   document.getElementById('li-user').value='';
   document.getElementById('li-pass').value='';
+  document.getElementById('li-btn').onclick=doLogin;
+  document.getElementById('li-pass').onkeydown=e=>{if(e.key==='Enter')doLogin();};
+  document.getElementById('li-user').onkeydown=e=>{if(e.key==='Enter')document.getElementById('li-pass').focus();};
 }
 
 /* ── INIT ── */
