@@ -782,7 +782,7 @@ const REPAIRERS=['Mohamed','Agim','Fidan','Nazz','Manu','Bairam'];
 const SHEETS_URL='https://script.google.com/macros/s/AKfycbwwEJC1ewE-VlgK1aMZwJmLmNhR-Fu7TxFWam2uJ84ohS--Y4S96ogJPDEcnp6e998CnA/exec';
 const SB_URL='https://mierymdbtsuwgwihtyiu.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pZXJ5bWRidHN1d2d3aWh0eWl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMjg1NTYsImV4cCI6MjA5NDYwNDU1Nn0.SZ1ivbb5gOF1-A6FnhJcJHWfXOptOa_O_k9RLbFJk5A';
-const SKEY='salpal-hub-v5';
+const SKEY='salpal-hub-v6';
 const SB_HEADERS={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'};
 
 function sbUpsert(table,id,data){
@@ -2242,6 +2242,11 @@ function showLoginForm(){
 }
 
 /* ── INIT ── */
+// Force clear any old cached data from previous versions
+try{
+  const oldKeys=['salpal-hub-v3','salpal-hub-v4'];
+  oldKeys.forEach(k=>localStorage.removeItem(k));
+}catch(e){}
 loadState();
 setSS('syncing');
 loadCloud().then(()=>{
