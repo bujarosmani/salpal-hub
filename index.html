@@ -984,10 +984,11 @@ function openCompanyModalInline(prefill,cb){
 
 /* ── AUTH ── */
 function doLogin(){
+  try{
   const u=document.getElementById('li-user').value.trim().toLowerCase();
   const p=document.getElementById('li-pass').value;
   const user=(S.users||[]).find(x=>x.username.toLowerCase()===u&&x.password===p);
-  if(!user){document.getElementById('li-err').textContent='Invalid username or password.';return;}
+  if(!user){document.getElementById('li-err').textContent='Invalid username or password. Users:'+((S.users||[]).length);return;}
   ME=user;
   try{sessionStorage.setItem('salpal-me',user.id);}catch(e){}
   document.getElementById('li-err').textContent='';
@@ -997,6 +998,7 @@ function doLogin(){
   if(ME.role==='Driver')goTo('driver');
   else if(ME.role==='Supervisor')goTo('dispatch');
   else goTo('dashboard');
+  }catch(err){document.getElementById('li-err').textContent='Error: '+err.message;}
 }
 function doLogout(){
   ME=null;
