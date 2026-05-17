@@ -833,10 +833,11 @@ async function loadCloud(){
       sbGet('sp_users'),sbGet('sp_companies'),sbGet('sp_ledger'),
       sbGet('sp_stock'),sbGet('sp_products')
     ]);
+    // Always overwrite with Supabase data if available (ensures password changes propagate)
+    if(users&&users.length)S.users=users.map(r=>r.data).filter(Boolean);
     if(orders&&orders.length)S.orders=orders.map(r=>r.data).filter(Boolean);
     if(repairs&&repairs.length)S.repairs=repairs.map(r=>r.data).filter(Boolean);
     if(sortings&&sortings.length)S.sortings=sortings.map(r=>r.data).filter(Boolean);
-    if(users&&users.length)S.users=users.map(r=>r.data).filter(Boolean);
     if(companies&&companies.length)S.companies=companies.map(r=>r.data).filter(Boolean);
     if(ledger&&ledger.length)S.ledger=ledger.map(r=>r.data).filter(Boolean);
     if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;}
@@ -2183,12 +2184,15 @@ loadState();
 // Clear any browser autofill
 document.getElementById('li-user').value='';
 document.getElementById('li-pass').value='';
-// Try restore session, else load cloud
-if(!tryRestoreSession()){
-  loadCloud().catch(()=>{});
-} else {
-  loadCloud().catch(()=>{});
-}
+// Always load fresh data from Supabase first, then restore session
+loadCloud().then(()=>{
+  if(!tryRestoreSession()){
+    // Not logged in, just show login screen
+  }
+}).catch(()=>{
+  // Supabase failed, try restore from localStorage
+  tryRestoreSession();
+});
 </script>
 </body>
 </html> ${j.loadPhotos&&j.loadPhotos.length?`<div class="card" style="margin-bottom:12px"><div class="card-body"><div style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">📷 Loading Photos</div><div style="display:flex;flex-wrap:wrap;gap:6px">${j.loadPhotos.map(p=>`<img src="${p}" onclick="openLightboxSrc(\`${p}\`)" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer;border:1.5px solid var(--line2)"/>`).join("")}</div></div></div>`:""} ${j.recPhotos&&j.recPhotos.length?`<div class="card" style="margin-bottom:12px"><div class="card-body"><div style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">📷 Receiving Photos</div><div style="display:flex;flex-wrap:wrap;gap:6px">${j.recPhotos.map(p=>`<img src="${p}" onclick="openLightboxSrc(\`${p}\`)" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer;border:1.5px solid var(--line2)"/>`).join("")}</div></div></div>`:""} 
