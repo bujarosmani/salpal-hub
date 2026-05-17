@@ -234,6 +234,24 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 .view-toggle{display:flex;gap:4px;padding:4px;background:var(--panel2);border-radius:9px;border:1.5px solid var(--line2)}
 .vt-btn{padding:5px 12px;border-radius:7px;font-size:11px;font-weight:800;color:var(--ink3);cursor:pointer;border:none;background:none;transition:all .15s}
 .vt-btn.on{background:var(--brand-dark);color:#fff}
+/* ── DRAG REORDER ── */
+.reorder-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:9px;margin-bottom:6px;cursor:grab;user-select:none;transition:border-color .15s}
+.reorder-item:active{cursor:grabbing}
+.reorder-item.drag-over{border-color:var(--brand);background:rgba(61,214,104,.05)}
+.reorder-item.dragging{opacity:.35}
+.reorder-handle{font-size:18px;color:var(--ink3);flex-shrink:0}
+.reorder-num{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--ink3);width:24px;text-align:center;flex-shrink:0}
+/* ── SCROLL GRID PICKER ── */
+.sgrid-wrap{max-height:220px;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:2px}
+.sgrid-wrap::-webkit-scrollbar{width:4px}
+.sgrid-wrap::-webkit-scrollbar-track{background:var(--panel)}
+.sgrid-wrap::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px}
+.sgrid-btn{padding:9px 6px;border-radius:8px;border:1.5px solid var(--line2);background:var(--panel2);color:var(--ink2);font-size:12px;font-weight:700;text-align:center;cursor:pointer;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sgrid-btn:hover{border-color:var(--brand-dim);color:var(--ink)}
+.sgrid-btn.pending{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}
+.sgrid-btn.sel{background:var(--brand-dark);color:#fff;border-color:var(--brand-dim)}
+.sgrid-confirm{margin-top:8px;display:none;gap:8px;align-items:center}
+.sgrid-confirm.show{display:flex}
 @media(max-width:767px){
   .sidebar{display:none;position:fixed;top:0;left:0;bottom:0;width:260px;z-index:200}
   .sidebar.open{display:flex}
@@ -386,6 +404,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
   <div class="tabs">
     <button class="tab-btn on" onclick="stkTab('inventory',this)">Inventory</button>
     <button class="tab-btn" onclick="stkTab('ledger',this)">Stock Ledger</button>
+    <button class="tab-btn" onclick="stkTab('reorder',this)">⇅ Reorder</button>
   </div>
   <div class="tpane on" id="stk-inventory-pane">
     <div class="card">
@@ -408,6 +427,15 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
           <th>Date</th><th>Type</th><th>Reference</th><th>Product</th><th class="right">In</th><th class="right">Out</th><th class="right">Balance After</th><th>Notes</th>
         </tr></thead><tbody id="ledger-tbody"></tbody></table>
       </div>
+    </div>
+  </div>
+  <div class="tpane" id="stk-reorder-pane">
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-hdr-title">Drag to reorder products</span>
+        <span style="font-size:11px;color:var(--ink3)">Order affects all pickers and dropdowns</span>
+      </div>
+      <div id="reorder-list" style="padding:8px"></div>
     </div>
   </div>
 </div>
@@ -621,7 +649,8 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <div class="mbody">
       <div class="fwrap"><label class="flabel">Supervisor *</label><div class="pick-grid c2" id="rep-sup"></div></div>
       <div class="fwrap"><label class="flabel">Repairer *</label><div class="pick-grid c3" id="rep-rep"></div></div>
-      <div class="fwrap"><label class="flabel">Pallet Class *</label><div class="pick-grid c3" id="rep-cls"></div></div>
+      <div class="fwrap"><label class="flabel">Defect Source *</label><div class="pick-grid c3" id="rep-src"></div></div>
+      <div class="fwrap"><label class="flabel">Repaired To Class *</label><div class="pick-grid c3" id="rep-cls"></div></div>
       <div class="fwrap"><label class="flabel">Qty *</label>
         <input class="qty-big" type="number" id="rep-qty" min="1" max="500" placeholder="0"/>
         <div class="qty-presets"><button class="qty-pre" type="button" onclick="setRepQty(15)">15</button><button class="qty-pre" type="button" onclick="setRepQty(25)">25</button><button class="qty-pre" type="button" onclick="setRepQty(30)">30</button></div>
@@ -739,7 +768,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 <div id="toast"></div>
 
 <script>
-const DEFAULT_SKUS=['A','B','C','EW 120x80','EW 120x100','Color 120x80'];
+const DEFAULT_SKUS=['A','B','C','EW 120x80','EW 120x100','Color 120x80','Unsorted','Defected Euro','Defected K'];
 function getSKUS(){return S&&S.products&&S.products.length?S.products:DEFAULT_SKUS;}
 const SKU_C={'A':{bg:'rgba(61,214,104,.12)',c:'#3dd668'},'B':{bg:'rgba(91,156,246,.12)',c:'#5b9cf6'},'C':{bg:'rgba(245,200,66,.12)',c:'#f5c842'},'EW 120x80':{bg:'rgba(167,139,250,.12)',c:'#a78bfa'},'EW 120x100':{bg:'rgba(56,189,248,.12)',c:'#38bdf8'},'Color 120x80':{bg:'rgba(251,146,60,.12)',c:'#fb923c'}};
 const SUPERVISORS=['Idi','Cristian'];
@@ -875,18 +904,6 @@ function renderChangesBox(order){
 }
 
 /* ── PALLET LINES ── */
-function addPltLine(cid,cls,qty){
-  cls=cls||'';qty=qty||'';
-  const c=document.getElementById(cid);if(!c)return;
-  const d=document.createElement('div');d.className='plt-line';
-  d.innerHTML=`<select class="inp" onchange="onSrtLinesChange()">${['<option value="">— Class —</option>',...getSKUS().map(s=>`<option${s===cls?` selected`:``}>${s}</option>`)].join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="onSrtLinesChange()"/><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove();onSrtLinesChange()">−</button>`;
-  c.appendChild(d);
-  onSrtLinesChange();
-}
-function getLines(cid){
-  return Array.from(document.querySelectorAll(`#${cid} .plt-line`)).map(row=>({cls:row.querySelector('select').value,qty:parseInt(row.querySelector('input').value)||0})).filter(p=>p.qty>0&&p.cls);
-}
-
 /* ── CHECKBOX DROPDOWN ── */
 function buildCbDropdown(id,options,selected,allLabel){
   const allSel=selected===null||selected===undefined||selected.length===options.length;
@@ -1348,6 +1365,7 @@ function confirmLoaded(){
 
 /* ── RECEIVING ── */
 let recF={statuses:null,dateFrom:'',dateTo:''};
+let disF={statuses:null,dateFrom:'',dateTo:''};
 function renderReceiving(){
   const cols=(S.orders||[]).filter(j=>j.type==='Collection');
   document.getElementById('rec-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${cols.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${cols.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${cols.filter(j=>j.status==='Collected'||j.status==='Delivered').length}</div><div class="stat-lbl">At Warehouse</div></div><div class="stat-box"><div class="stat-num">${cols.filter(j=>j.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
@@ -1429,7 +1447,7 @@ function renderRepTab(name){
   if(name==='history'){const grp={};(S.repairs||[]).forEach(r=>{const d=r.date.slice(0,10);if(!grp[d])grp[d]=[];grp[d].push(r);});document.getElementById('rep-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort().reverse().map(day=>{const rs=grp[day],dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right">${skuBadge(r.pallet_class)}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>';}
   if(name==='manager'){const tot=(S.repairs||[]).reduce((s,r)=>s+(r.qty||0),0);const byw=REPAIRERS.map(n=>({n,t:(S.repairs||[]).filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0).sort((a,b)=>b.t-a.t);const byc=getSKUS().map(c=>({c,t:(S.repairs||[]).filter(r=>r.pallet_class===c).reduce((s,r)=>s+(r.qty||0),0)})).filter(x=>x.t>0);document.getElementById('rep-manager').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px"><div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Total Repaired</div></div><div class="stat-box"><div class="stat-num">${(S.repairs||[]).length}</div><div class="stat-lbl">Total Entries</div></div></div>${byw.length?`<div class="sec-title" style="margin-bottom:10px">By Worker</div><div class="card" style="margin-bottom:16px">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)"><span style="font-weight:600">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join('')}</div>`:''}${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${x.t}</span></div>`).join('')}</div>`:''}`;}}
 function openRepairModal(){
-  RF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',rep:'',cls:''};
+  RF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',rep:'',cls:'',src:''};
   renderRepPickers();
   document.getElementById('rep-qty').value='';
   document.querySelectorAll('.qty-pre').forEach(b=>b.classList.remove('sel'));
@@ -1441,20 +1459,23 @@ function openRepairModal(){
 function renderRepPickers(){
   document.getElementById('rep-sup').innerHTML=mySups().map(s=>`<button type="button" class="pick-btn${RF.sup===s.firstName?' sel':''}" ${ME&&ME.role==='Supervisor'?'disabled style="opacity:1;cursor:default"':''} onclick="RF.sup='${s.firstName}';renderRepPickers()">${esc(s.firstName)}</button>`).join('');
   document.getElementById('rep-rep').innerHTML=REPAIRERS.map(r=>`<button type="button" class="pick-btn${RF.rep===r?' sel':''}" onclick="RF.rep='${r}';renderRepPickers()">${esc(r)}</button>`).join('');
-  document.getElementById('rep-cls').innerHTML=getSKUS().map(c=>{const cc=SKU_C[c]||{};return`<button type="button" class="pick-btn${RF.cls===c?' sel':''}" onclick="RF.cls='${c}';renderRepPickers()" style="color:${RF.cls===c?'#fff':cc.c||'var(--ink2)'}">${esc(c)}</button>`;}).join('');
+  // Defect sources — any product containing 'defect' (case insensitive)
+  const defectSrcs=getSKUS().filter(c=>c.toLowerCase().includes('defect'));
+  document.getElementById('rep-src').innerHTML=defectSrcs.map(c=>`<button type="button" class="pick-btn${RF.src===c?' sel':''}" onclick="RF.src='${c}';renderRepPickers()" style="color:${RF.src===c?'#fff':'var(--red)'}">${esc(c)}</button>`).join('');
+  document.getElementById('rep-cls').innerHTML=getSKUS().filter(c=>!c.toLowerCase().includes('defect')&&c!=='Unsorted').map(c=>{const cc=SKU_C[c]||{};return`<button type="button" class="pick-btn${RF.cls===c?' sel':''}" onclick="RF.cls='${c}';renderRepPickers()" style="color:${RF.cls===c?'#fff':cc.c||'var(--ink2)'}">${esc(c)}</button>`;}).join('');
 }
 function setRepQty(n){document.getElementById('rep-qty').value=n;document.querySelectorAll('.qty-pre').forEach(b=>b.classList.toggle('sel',+b.textContent===n));}
 function saveRepair(force){
   const qty=parseInt(document.getElementById('rep-qty').value);
-  if(!RF.sup||!RF.rep||!RF.cls||!qty){toast('Fill all fields','err');return;}
+  if(!RF.sup||!RF.rep||!RF.cls||!RF.src||!qty){toast('Fill all fields including defect source','err');return;}
   if(!force){
-    const defectedStock=(S.stock&&S.stock['Defected'])||0;
+    const defectedStock=(S.stock&&S.stock[RF.src])||0;
     if(qty>defectedStock){
       const short=qty-defectedStock;
       const warn=document.getElementById('rep-warn');
       if(warn){warn.style.display='';warn.innerHTML=`
         <div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:12px 14px">
-          <div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px">⚠ Defected stock: ${defectedStock} available, ${qty} needed (${short} short).<br>Do you want to proceed anyway?</div>
+          <div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px">⚠ ${RF.src} stock: ${defectedStock} available, ${qty} needed (${short} short).<br>Do you want to proceed anyway?</div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-primary btn-sm" onclick="saveRepair(true)">✓ Yes, proceed</button>
             <button class="btn btn-ghost btn-sm" onclick="document.getElementById('rep-warn').style.display='none'">✕ No, go back</button>
@@ -1469,14 +1490,14 @@ function saveRepair(force){
   const rec={id:mkId(),supervisor:RF.sup,repairer:RF.rep,pallet_class:RF.cls,qty,date:new Date().toISOString()};
   if(!S.repairs)S.repairs=[];
   S.repairs.unshift(rec);
-  // Stock transfer: Defected → specific class
+  // Stock transfer: RF.src (Defected/Euro Defect/K Defect) → specific class
   if(!S.stock)S.stock={};
   if(!S.stock[RF.cls])S.stock[RF.cls]=0;
   S.stock[RF.cls]+=qty;
-  addLedger('Repair',rec.id,RF.cls,'in',qty,`Repaired by ${RF.rep}`);
-  if(!S.stock['Defected'])S.stock['Defected']=0;
-  S.stock['Defected']-=qty;
-  addLedger('Repair',rec.id,'Defected','out',qty,`Repaired \u2192 ${RF.cls}`);
+  addLedger('Repair',rec.id,RF.cls,'in',qty,`Repaired by ${RF.rep} from ${RF.src}`);
+  if(!S.stock[RF.src])S.stock[RF.src]=0;
+  S.stock[RF.src]-=qty;
+  addLedger('Repair',rec.id,RF.src,'out',qty,`Repaired \u2192 ${RF.cls}`);
   persist();
   try{const d=new Date(rec.date);const ds=`${('0'+d.getDate()).slice(-2)}/${('0'+(d.getMonth()+1)).slice(-2)}/${d.getFullYear()}`;const sc=document.createElement('script');sc.src=SHEETS_URL+'?id='+encodeURIComponent(rec.id)+'&date='+encodeURIComponent(ds)+'&supervisor='+encodeURIComponent(rec.supervisor)+'&repairers='+encodeURIComponent(rec.repairer)+'&pallet_class='+encodeURIComponent(rec.pallet_class)+'&qty='+encodeURIComponent(rec.qty);sc.onload=sc.onerror=()=>{try{document.body.removeChild(sc)}catch(e){}};document.body.appendChild(sc);}catch(e){}
   toast(`${qty} \u00d7 ${RF.cls} repaired \u2014 stock updated`);
@@ -1739,7 +1760,6 @@ function onSrtLinesChange(){
   const unsortedPlt=(j.pallets||[]).find(p=>p.cls==='Unsorted');
   const ordered=unsortedPlt?unsortedPlt.qty:0;
   const alreadySorted=(S.sortings||[]).filter(r=>r.orderRef===awb).reduce((s,r)=>s+(r.totalQty||0),0);
-  // Current form total
   const currentQty=getLines('srt-lines').reduce((s,p)=>s+p.qty,0);
   const totalSorted=alreadySorted+currentQty;
   const remaining=ordered-totalSorted;
@@ -1917,6 +1937,126 @@ function stkTab(name,btn){
   page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));
   document.getElementById(`stk-${name}-pane`).classList.add('on');
   if(name==='ledger')renderLedger();
+  else if(name==='reorder')renderReorder();
+}
+
+function renderReorder(){
+  const list=document.getElementById('reorder-list');if(!list)return;
+  const skus=getSKUS();
+  list.innerHTML=skus.map((cls,i)=>`
+    <div class="reorder-item" draggable="true" data-cls="${cls}" data-idx="${i}">
+      <span class="reorder-handle">⠿</span>
+      <span class="reorder-num">${i+1}</span>
+      ${skuBadge(cls,true)}
+      <span style="font-size:13px;font-weight:600;margin-left:4px">${cls}</span>
+    </div>`).join('');
+  let dragSrc=null;
+  list.querySelectorAll('.reorder-item').forEach(item=>{
+    item.addEventListener('dragstart',e=>{dragSrc=item;item.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    item.addEventListener('dragend',()=>{item.classList.remove('dragging');list.querySelectorAll('.reorder-item').forEach(i=>i.classList.remove('drag-over'));});
+    item.addEventListener('dragover',e=>{e.preventDefault();if(item!==dragSrc){list.querySelectorAll('.reorder-item').forEach(i=>i.classList.remove('drag-over'));item.classList.add('drag-over');}});
+    item.addEventListener('drop',e=>{
+      e.preventDefault();
+      if(dragSrc===item)return;
+      const allItems=Array.from(list.querySelectorAll('.reorder-item'));
+      const fromIdx=allItems.indexOf(dragSrc);
+      const toIdx=allItems.indexOf(item);
+      const newOrder=getSKUS().slice();
+      const [moved]=newOrder.splice(fromIdx,1);
+      newOrder.splice(toIdx,0,moved);
+      if(!S.products)S.products=[...DEFAULT_SKUS];
+      S.products=newOrder;
+      persist();toast('Order saved');renderReorder();
+    });
+    // Touch support
+    item.addEventListener('touchstart',e=>{dragSrc=item;item.classList.add('dragging');},{passive:true});
+    item.addEventListener('touchend',e=>{
+      item.classList.remove('dragging');
+      const touch=e.changedTouches[0];
+      const target=document.elementFromPoint(touch.clientX,touch.clientY)?.closest('.reorder-item');
+      if(target&&target!==dragSrc){
+        const allItems=Array.from(list.querySelectorAll('.reorder-item'));
+        const fromIdx=allItems.indexOf(dragSrc);
+        const toIdx=allItems.indexOf(target);
+        const newOrder=getSKUS().slice();
+        const [moved]=newOrder.splice(fromIdx,1);
+        newOrder.splice(toIdx,0,moved);
+        if(!S.products)S.products=[...DEFAULT_SKUS];
+        S.products=newOrder;
+        persist();toast('Order saved');renderReorder();
+      }
+    });
+  });
+}
+
+/* ── SCROLLABLE GRID PICKER ── */
+// Replace old addPltLine with new sgrid version
+function addPltLine(cid,cls,qty){
+  cls=cls||'';qty=qty||'';
+  const c=document.getElementById(cid);if(!c)return;
+  const uid=mkId();
+  const d=document.createElement('div');d.className='plt-line';d.dataset.uid=uid;
+  const skus=getSKUS();
+  const gridBtns=skus.map(s=>`<button type="button" class="sgrid-btn${s===cls?' sel':''}" data-cls="${s}" onclick="sgridPick('${uid}','${s}')" title="${s}">${s}</button>`).join('');
+  d.innerHTML=`
+    <div style="grid-column:1/-1;margin-bottom:4px">
+      <div class="sgrid-wrap" id="sgrid-${uid}">${gridBtns}</div>
+      <div class="sgrid-confirm" id="sgrid-conf-${uid}">
+        <span style="font-size:13px;color:var(--ink2)">Selected: <strong id="sgrid-sel-${uid}" style="color:var(--brand)">${cls||'—'}</strong></span>
+        <button type="button" class="btn btn-primary btn-sm" onclick="sgridConfirm('${uid}')">✓ Confirm</button>
+        <button type="button" class="rm-btn" style="width:28px;height:28px" onclick="this.closest('.plt-line').remove()">−</button>
+      </div>
+      ${cls?`<div style="display:flex;align-items:center;gap:8px;margin-top:6px" id="sgrid-confirmed-${uid}">
+        ${skuBadge(cls,true)}
+        <input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="width:90px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800"/>
+        <button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove()">−</button>
+      </div>`:`<div style="display:none" id="sgrid-confirmed-${uid}"></div>`}
+    </div>`;
+  d.style.display='block';d.style.marginBottom='10px';
+  // Override grid styling for this use
+  d.style.gridTemplateColumns='1fr';
+  c.appendChild(d);
+  // If pre-filled, show confirm section
+  if(cls){const conf=document.getElementById(`sgrid-conf-${uid}`);if(conf)conf.classList.add('show');}
+}
+
+function sgridPick(uid,cls){
+  // Mark pending
+  const grid=document.getElementById(`sgrid-${uid}`);
+  if(grid)grid.querySelectorAll('.sgrid-btn').forEach(b=>{b.classList.remove('sel','pending');if(b.dataset.cls===cls)b.classList.add('pending');});
+  const selEl=document.getElementById(`sgrid-sel-${uid}`);if(selEl)selEl.textContent=cls;
+  const conf=document.getElementById(`sgrid-conf-${uid}`);if(conf)conf.classList.add('show');
+  // Store pending selection
+  const grid2=document.getElementById(`sgrid-${uid}`);if(grid2)grid2.dataset.pending=cls;
+}
+
+function sgridConfirm(uid){
+  const grid=document.getElementById(`sgrid-${uid}`);
+  const cls=grid?grid.dataset.pending:'';
+  if(!cls)return;
+  // Mark confirmed
+  grid.querySelectorAll('.sgrid-btn').forEach(b=>{b.classList.remove('pending');if(b.dataset.cls===cls)b.classList.add('sel');});
+  // Show qty input
+  const confDiv=document.getElementById(`sgrid-confirmed-${uid}`);
+  if(confDiv){
+    confDiv.style.display='flex';confDiv.style.alignItems='center';confDiv.style.gap='8px';confDiv.style.marginTop='6px';
+    confDiv.innerHTML=`${skuBadge(cls,true)}<input class="inp" type="number" min="1" placeholder="Qty" style="width:90px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800"/><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove()">−</button>`;
+    confDiv.querySelector('input').focus();
+  }
+  // Store confirmed cls on the line
+  const line=grid.closest('.plt-line');if(line)line.dataset.confirmedCls=cls;
+}
+
+function getLines(cid){
+  return Array.from(document.querySelectorAll(`#${cid} .plt-line`)).map(row=>{
+    // New sgrid style
+    const confirmedCls=row.dataset.confirmedCls;
+    const grid=row.querySelector('.sgrid-wrap');
+    const cls=confirmedCls||(grid?grid.dataset.pending:'');
+    const inp=row.querySelector('input[type=number]');
+    const qty=inp?parseInt(inp.value)||0:0;
+    return{cls,qty};
+  }).filter(p=>p.qty>0&&p.cls);
 }
 
 let ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null};
