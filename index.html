@@ -986,6 +986,7 @@ function doLogin(){
   const user=(S.users||[]).find(x=>x.username.toLowerCase()===u&&x.password===p);
   if(!user){document.getElementById('li-err').textContent='Invalid username or password.';return;}
   ME=user;
+  try{sessionStorage.setItem('salpal-me',user.id);}catch(e){}
   document.getElementById('li-err').textContent='';
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
@@ -994,7 +995,30 @@ function doLogin(){
   else if(ME.role==='Supervisor')goTo('dispatch');
   else goTo('dashboard');
 }
-function doLogout(){ME=null;document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('li-user').value='';document.getElementById('li-pass').value='';}
+function doLogout(){
+  ME=null;
+  try{sessionStorage.removeItem('salpal-me');}catch(e){}
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('li-user').value='';
+  document.getElementById('li-pass').value='';
+}
+function tryRestoreSession(){
+  try{
+    const id=sessionStorage.getItem('salpal-me');
+    if(!id)return false;
+    const user=(S.users||[]).find(x=>x.id===id);
+    if(!user)return false;
+    ME=user;
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='block';
+    setupNav();
+    if(ME.role==='Driver')goTo('driver');
+    else if(ME.role==='Supervisor')goTo('dispatch');
+    else goTo('dashboard');
+    return true;
+  }catch(e){return false;}
+}
 document.getElementById('li-btn').onclick=doLogin;
 document.getElementById('li-pass').onkeydown=e=>{if(e.key==='Enter')doLogin();};
 document.getElementById('li-user').onkeydown=e=>{if(e.key==='Enter')document.getElementById('li-pass').focus();};
@@ -2156,7 +2180,15 @@ function closeLightbox(){
 
 /* ── INIT ── */
 loadState();
-loadCloud().catch(()=>{});
+// Clear any browser autofill
+document.getElementById('li-user').value='';
+document.getElementById('li-pass').value='';
+// Try restore session, else load cloud
+if(!tryRestoreSession()){
+  loadCloud().catch(()=>{});
+} else {
+  loadCloud().catch(()=>{});
+}
 </script>
 </body>
 </html> ${j.loadPhotos&&j.loadPhotos.length?`<div class="card" style="margin-bottom:12px"><div class="card-body"><div style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">📷 Loading Photos</div><div style="display:flex;flex-wrap:wrap;gap:6px">${j.loadPhotos.map(p=>`<img src="${p}" onclick="openLightboxSrc(\`${p}\`)" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer;border:1.5px solid var(--line2)"/>`).join("")}</div></div></div>`:""} ${j.recPhotos&&j.recPhotos.length?`<div class="card" style="margin-bottom:12px"><div class="card-body"><div style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">📷 Receiving Photos</div><div style="display:flex;flex-wrap:wrap;gap:6px">${j.recPhotos.map(p=>`<img src="${p}" onclick="openLightboxSrc(\`${p}\`)" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer;border:1.5px solid var(--line2)"/>`).join("")}</div></div></div>`:""} 
