@@ -841,8 +841,8 @@ async function loadCloud(){
       sbGet('sp_users'),sbGet('sp_companies'),sbGet('sp_ledger'),
       sbGet('sp_stock'),sbGet('sp_products')
     ]);
-    // Always overwrite with Supabase data if available (ensures password changes propagate)
-    if(users&&users.length)S.users=users.map(r=>r.data).filter(Boolean);
+    // Only overwrite users if Supabase has user data (prevents lockout on network failure)
+    if(users&&users.length>0)S.users=users.map(r=>r.data).filter(Boolean);
     if(orders&&orders.length)S.orders=orders.map(r=>r.data).filter(Boolean);
     if(repairs&&repairs.length)S.repairs=repairs.map(r=>r.data).filter(Boolean);
     if(sortings&&sortings.length)S.sortings=sortings.map(r=>r.data).filter(Boolean);
@@ -2232,18 +2232,11 @@ loadState();
 // Clear any browser autofill
 document.getElementById('li-user').value='';
 document.getElementById('li-pass').value='';
-// Wipe cached users so stale passwords can't be used — always get fresh from Supabase
-S.users=[];
-localStorage.setItem(SKEY,JSON.stringify(S));
-// Load fresh data from Supabase before allowing login
+// Load fresh data from Supabase, only replace users if Supabase has them
 setSS('syncing');
 loadCloud().then(()=>{
-  if(!tryRestoreSession()){
-    // Show login — data is now fresh
-  }
+  if(!tryRestoreSession()){}
 }).catch(()=>{
-  // Supabase failed — restore from localStorage as fallback
-  loadState();
   tryRestoreSession();
 });
 </script>
