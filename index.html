@@ -89,17 +89,7 @@ tr:hover td{background:rgba(255,255,255,.02)}.right{text-align:right}
 .empty{text-align:center;padding:36px 20px;color:var(--ink3);font-size:13px}
 .sku{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800}
 canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px;background:var(--panel2);touch-action:none;display:block}
-.photo-upload-wrap{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.photo-thumb{position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;border:1.5px solid var(--line2);flex-shrink:0}
-.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer}
-.photo-thumb-del{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;line-height:1}
-.photo-add-btn{width:72px;height:72px;border-radius:8px;border:1.5px dashed var(--line2);background:var(--panel2);color:var(--ink3);font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s}
-.photo-add-btn:hover{border-color:var(--brand-dim);color:var(--brand)}
-.photo-input{display:none}
-#photo-lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;align-items:center;justify-content:center;cursor:pointer}
-#photo-lightbox.open{display:flex}
-#photo-lightbox img{max-width:92vw;max-height:92vh;border-radius:10px;object-fit:contain}
-#photo-lb-close{position:fixed;top:16px;right:20px;color:#fff;font-size:32px;cursor:pointer;background:none;border:none;z-index:1001}
+
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
 .tab-btn{padding:8px 14px;border-radius:9px 9px 0 0;font-size:12px;font-weight:700;color:var(--ink3);border:1.5px solid transparent;border-bottom:none;cursor:pointer;transition:all .15s;background:none}
 .tab-btn.on{background:var(--panel);color:var(--ink);border-color:var(--line);margin-bottom:-1px}
@@ -537,7 +527,6 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       <div class="sec-row"><div class="sec-title">Confirm / Edit Pallets</div><button class="btn btn-ghost btn-sm" type="button" onclick="addPltLine('load-lines')">+ Add</button></div>
       <div id="load-lines"></div>
       <div class="fwrap" style="margin-top:10px"><label class="flabel">Notes</label><textarea class="inp" id="load-notes" rows="2"></textarea></div>
-      <div class="fwrap"><label class="flabel">Photos (optional)</label><div id="load-photos-ui"></div></div>
       <div class="ferr" id="load-err"></div>
       <input type="hidden" id="load-order-id"/>
     </div>
@@ -560,7 +549,6 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       <div class="sec-row"><div class="sec-title">Confirm / Edit Pallets</div><button class="btn btn-ghost btn-sm" type="button" onclick="addPltLine('crec-lines')">+ Add</button></div>
       <div id="crec-lines"></div>
       <div class="fwrap" style="margin-top:10px"><label class="flabel">Notes</label><textarea class="inp" id="crec-notes" rows="2"></textarea></div>
-      <div class="fwrap"><label class="flabel">Photos (optional)</label><div id="crec-photos-ui"></div></div>
       <div class="ferr" id="crec-err"></div>
       <input type="hidden" id="crec-order-id"/>
     </div>
@@ -600,9 +588,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       <div class="sec-row"><div class="sec-title">Pallets</div><button class="btn btn-ghost btn-sm" type="button" onclick="addPltLine('do-lines')">+ Add Line</button></div>
       <div id="do-lines"></div>
       <div class="fwrap" style="margin-top:12px"><label class="flabel">Notes</label><textarea class="inp" id="do-notes" rows="2"></textarea></div>
-      <div class="fwrap"><label class="flabel">Signature</label><canvas id="do-canvas"></canvas><button class="btn btn-ghost btn-sm" style="margin-top:6px" type="button" onclick="clearCanvas('do-canvas')">Clear</button></div>
-      <div class="fwrap"><label class="flabel">Photos (optional)</label><div id="do-photos-ui"></div></div>
-      <div class="ferr" id="do-err"></div>
+            <div class="ferr" id="do-err"></div>
     </div>
     <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-dropoff')">Cancel</button><button class="btn btn-primary" onclick="saveDropoff()">Submit &amp; Complete ✓</button></div>
   </div>
@@ -622,9 +608,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <div class="mbody">
       <div class="fwrap"><label class="flabel">Recipient Name *</label><input class="inp" id="prf-name" placeholder="Name on site"/></div>
       <div class="fwrap"><label class="flabel">Company *</label><input class="inp" id="prf-co" placeholder="Company name"/></div>
-      <div class="fwrap"><label class="flabel">Signature *</label><canvas id="prf-canvas"></canvas><button class="btn btn-ghost btn-sm" style="margin-top:6px" type="button" onclick="clearCanvas('prf-canvas')">Clear</button></div>
-      <div class="fwrap"><label class="flabel">Photos (optional)</label><div id="prf-photos-ui"></div></div>
-      <div class="ferr" id="prf-err"></div>
+            <div class="ferr" id="prf-err"></div>
       <input type="hidden" id="prf-task-id"/>
     </div>
     <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-proof')">Cancel</button><button class="btn btn-primary" onclick="submitProof()">Submit ✓</button></div>
@@ -750,11 +734,6 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       <button class="btn btn-primary" onclick="saveProduct()">Save ✓</button>
     </div>
   </div>
-</div>
-
-<div id="photo-lightbox" onclick="closeLightbox()">
-  <button id="photo-lb-close" onclick="closeLightbox()">✕</button>
-  <img id="photo-lb-img" src="" alt=""/>
 </div>
 
 <div id="toast"></div>
@@ -1311,19 +1290,14 @@ function viewOrder(id){
   const pr=(j.pallets||[]).map(p=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">${skuBadge(p.cls,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--brand)">\u00d7${p.qty}</span></div>`).join('');
   const pl=isD?'Customer':'Supplier';
   document.getElementById('det-title').textContent=j.awb;
-  document.getElementById('det-body').innerHTML=`${prog}<div style="display:flex;gap:8px;margin-bottom:14px">${typeChip(j.type)} ${stChip(j.status)}</div><div class="card" style="margin-bottom:12px"><div class="card-body" style="display:grid;gap:7px">${[[pl,j.companyName||'\u2014'],['Address',[j.companyAddress,j.city,j.postcode].filter(Boolean).join(', ')||'\u2014'],['Date',fd(j.deliveryDate)],['Window',j.timeFrom&&j.timeTo?j.timeFrom+'\u2013'+j.timeTo:'Any time'],['Driver',j.driverId?uname(j.driverId):j.driver||'\u2014'],['WH By',j.whBy||'\u2014'],['Notes',j.driverNotes||'\u2014']].map(([l,v])=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;flex-shrink:0">${l}</span><span style="font-weight:600;text-align:right;font-size:13px">${esc(v)}</span></div>`).join('')}</div></div><div class="sec-title" style="margin-bottom:8px">Pallets</div><div class="card" style="margin-bottom:12px"><div class="card-body">${pr}<div style="display:flex;justify-content:space-between;padding:8px 0 0"><strong>TOTAL</strong><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--brand)">${j.totalQty}</span></div></div></div>${renderChangesBox(j)}${j.proof?`<div class="card" style="margin-bottom:12px;background:rgba(61,214,104,.05);border-color:var(--brand-dim)"><div class="card-body"><div style="color:var(--brand);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px">\u2713 Delivered</div><div style="font-weight:600;margin-top:4px">${esc(j.proof.recipientName)} \u00b7 ${esc(j.proof.companyName)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(j.proof.completedAt)}</div></div></div>`:''} ${j.loadPhotos&&j.loadPhotos.length?`<div class="card" style="margin-bottom:12px"><div class="card-body"><div style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">📷 Loading Photos</div><div style="display:flex;flex-wrap:wrap;gap:6px">${j.loadPhotos.map(p=>`<img src="${p}" onclick="openLightboxSrc(\`${p}\`)" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer;border:1.5px solid var(--line2)"/>`).join("")}</div></div></div>`:""} ${j.recPhotos&&j.recPhotos.length?`<div class="card" style="margin-bottom:12px"><div class="card-body"><div style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">📷 Receiving Photos</div><div style="display:flex;flex-wrap:wrap;gap:6px">${j.recPhotos.map(p=>`<img src="${p}" onclick="openLightboxSrc(\`${p}\`)" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer;border:1.5px solid var(--line2)"/>`).join("")}</div></div></div>`:""} <div class="sec-title" style="margin-bottom:10px">Timeline</div>${renderTL(j)}`;
-  const isSup=ME&&(ME.role==='Admin'||ME.role==='Supervisor');
+  document.getElementById('det-body').innerHTML=`${prog}<div style="display:flex;gap:8px;margin-bottom:14px">${typeChip(j.type)} ${stChip(j.status)}</div><div class="card" style="margin-bottom:12px"><div class="card-body" style="display:grid;gap:7px">${[[pl,j.companyName||'\u2014'],['Address',[j.companyAddress,j.city,j.postcode].filter(Boolean).join(', ')||'\u2014'],['Date',fd(j.deliveryDate)],['Window',j.timeFrom&&j.timeTo?j.timeFrom+'\u2013'+j.timeTo:'Any time'],['Driver',j.driverId?uname(j.driverId):j.driver||'\u2014'],['WH By',j.whBy||'\u2014'],['Notes',j.driverNotes||'\u2014']].map(([l,v])=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;flex-shrink:0">${l}</span><span style="font-weight:600;text-align:right;font-size:13px">${esc(v)}</span></div>`).join('')}</div></div><div class="sec-title" style="margin-bottom:8px">Pallets</div><div class="card" style="margin-bottom:12px"><div class="card-body">${pr}<div style="display:flex;justify-content:space-between;padding:8px 0 0"><strong>TOTAL</strong><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--brand)">${j.totalQty}</span></div></div></div>${renderChangesBox(j)}${j.proof?`<div class="card" style="margin-bottom:12px;background:rgba(61,214,104,.05);border-color:var(--brand-dim)"><div class="card-body"><div style="color:var(--brand);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px">\u2713 Delivered</div><div style="font-weight:600;margin-top:4px">${esc(j.proof.recipientName)} \u00b7 ${esc(j.proof.companyName)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(j.proof.completedAt)}</div></div></div>`:''}  <div class="sec-title" style="margin-bottom:10px">Timeline</div>${renderTL(j)}`;
+  const isSup=ME&&(ME.role==='Admin'||ME.role==='Supervisor'||ME.role==='Manager');
   let foot=`<button class="btn btn-ghost" onclick="closeM('m-detail')">Close</button>`;
   if(isSup&&isD&&j.status==='Open')foot+=` <button class="btn btn-amber" onclick="closeM('m-detail');openLoadModal('${j.id}')">📦 Mark Loaded</button>`;
   if(isSup&&!isD){if(j.status==='Collected')foot+=` <button class="btn btn-ghost" onclick="setOrdStatus('${j.id}','Delivered')">🏭 At Warehouse</button>`;if(j.status==='Delivered')foot+=` <button class="btn btn-primary" onclick="closeM('m-detail');openCompleteRecModal('${j.id}')">✓ Complete</button>`;}
-  
   document.getElementById('det-foot').innerHTML=foot;
   openM('m-detail');
 }
-function setOrdStatus(id,status){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;const old=j.status;j.status=status;j.updatedAt=new Date().toISOString();addTL(j,`Status: ${old} \u2192 ${status}`,'status');if(old!=='Completed'&&status==='Completed')adjustStockOnComplete(j);persist();toast(`${j.awb} \u2192 ${status}`);closeM('m-detail');renderOrders();renderDash();if(j.type==='Delivery')renderDispatch();else renderReceiving();}
-
-/* ── DISPATCH ── */
-let disF={statuses:null,dateFrom:'',dateTo:''};
 function renderDispatch(){
   const dis=(S.orders||[]).filter(j=>j.type==='Delivery');
   document.getElementById('dis-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${dis.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${dis.filter(j=>j.status==='Loaded').length}</div><div class="stat-lbl">Loaded</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${dis.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num">${dis.filter(j=>j.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
@@ -1352,7 +1326,6 @@ function openLoadModal(id){
   document.getElementById('load-trailer').value=j.trailerPlate||'';
   document.getElementById('load-notes').value='';
   document.getElementById('load-err').textContent='';
-  initPhotos('load-photos-ui');
   const supSel=document.getElementById('load-by');supSel.innerHTML=supSelectHtml();supSel.disabled=ME&&ME.role==='Supervisor';
   document.getElementById('load-lines').innerHTML='';
   (j.pallets||[]).forEach(p=>addPltLine('load-lines',p.cls,p.qty));
@@ -1368,7 +1341,6 @@ function confirmLoaded(){
   const oldPs=palletStr(j.pallets),newPs=palletStr(newPallets),newTotal=newPallets.reduce((s,p)=>s+(p.qty||0),0);
   const changes=[];if(oldPs!==newPs)changes.push(`Pallets: ${oldPs} \u2192 ${newPs}`);
   j.status='Loaded';j.whBy=sup;j.truckPlate=document.getElementById('load-truck').value.trim();j.trailerPlate=document.getElementById('load-trailer').value.trim();j.loadNotes=document.getElementById('load-notes').value.trim();j.loadedAt=new Date().toISOString();j.updatedAt=j.loadedAt;
-  j.loadPhotos=getPhotos('load-photos-ui');
   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Load check',value:`Ordered: ${oldPs} \u00b7 Actual: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
   addTL(j,`Marked Loaded by ${sup}`,'status',[...changes,...(j.loadNotes?[`Notes: ${j.loadNotes}`]:[])]);
   persist();toast(`${j.awb} Loaded by ${sup}`);closeM('m-load');renderDispatch();renderOrders();renderDash();
@@ -1400,7 +1372,6 @@ function openCompleteRecModal(id){
   document.getElementById('crec-ref').textContent=j.awb;
   document.getElementById('crec-co').textContent=j.companyName||'\u2014';
   document.getElementById('crec-err').textContent='';document.getElementById('crec-notes').value='';document.getElementById('crec-cond').value='';
-  initPhotos('crec-photos-ui');
   const supSel=document.getElementById('crec-by');supSel.innerHTML=supSelectHtml();supSel.disabled=ME&&ME.role==='Supervisor';
   document.getElementById('crec-lines').innerHTML='';(j.pallets||[]).forEach(p=>addPltLine('crec-lines',p.cls,p.qty));
   openM('m-crec');
@@ -1416,7 +1387,6 @@ function confirmReceived(){
   const cond=document.getElementById('crec-cond').value,notes=document.getElementById('crec-notes').value.trim();
   const changes=[];if(oldPs!==newPs)changes.push(`Pallets: ${oldPs} \u2192 ${newPs}`);if(cond)changes.push(`Condition: ${cond}`);
   j.status='Completed';j.whBy=sup;j.condition=cond;j.updatedAt=new Date().toISOString();
-  j.recPhotos=getPhotos('crec-photos-ui');
   adjustStockOnComplete(j);
   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Receive check',value:`Ordered: ${oldPs} \u00b7 Actual: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
   addTL(j,`Completed by ${sup}`,'status',[...changes,...(notes?[`Notes: ${notes}`]:[])]);
@@ -1431,7 +1401,6 @@ function openDropoffModal(){
   document.getElementById('do-cond').value='';document.getElementById('do-co-search').value='';document.getElementById('do-co-id').value='';document.getElementById('do-co-dd').classList.remove('open');document.getElementById('do-err').textContent='';
   document.getElementById('do-lines').innerHTML='';addPltLine('do-lines');
   initCanvas('do-canvas');
-  initPhotos('do-photos-ui');
   bindCoSearch('do-co-search','do-co-dd',co=>{document.getElementById('do-co-id').value=co.id;document.getElementById('do-addr').value=co.address||'';document.getElementById('do-city').value=co.city||'';document.getElementById('do-post').value=co.postcode||'';});
   openM('m-dropoff');
 }
@@ -1444,7 +1413,7 @@ function saveDropoff(){
   const pallets=getLines('do-lines');if(!pallets.length){document.getElementById('do-err').textContent='Add at least one pallet line.';return;}
   const totalQty=pallets.reduce((s,p)=>s+(p.qty||0),0);
   const awb=makeAWB(),now=new Date().toISOString();
-  const order={id:mkId(),awb,type:'Collection',orderDate:document.getElementById('do-date').value,deliveryDate:document.getElementById('do-date').value,companyId:document.getElementById('do-co-id').value,companyName:coSearch,companyAddress:document.getElementById('do-addr').value.trim(),city,postcode:post,pallets,totalQty,driver:'Customer Drop Off',driverId:'',condition:document.getElementById('do-cond').value,truckPlate:document.getElementById('do-truck').value.trim(),trailerPlate:document.getElementById('do-trailer').value.trim(),collectionRef:document.getElementById('do-ref').value.trim(),driverNotes:document.getElementById('do-notes').value.trim(),status:'Completed',whBy:by,whChanges:[],history:[],createdAt:now,updatedAt:now,source:'dropoff',signature:sigCtxs['do-canvas']&&sigCtxs['do-canvas']._has?document.getElementById('do-canvas').toDataURL('image/png'):null,photos:getPhotos('do-photos-ui')};
+  const order={id:mkId(),awb,type:'Collection',orderDate:document.getElementById('do-date').value,deliveryDate:document.getElementById('do-date').value,companyId:document.getElementById('do-co-id').value,companyName:coSearch,companyAddress:document.getElementById('do-addr').value.trim(),city,postcode:post,pallets,totalQty,driver:'Customer Drop Off',driverId:'',condition:document.getElementById('do-cond').value,truckPlate:document.getElementById('do-truck').value.trim(),trailerPlate:document.getElementById('do-trailer').value.trim(),collectionRef:document.getElementById('do-ref').value.trim(),driverNotes:document.getElementById('do-notes').value.trim(),status:'Completed',whBy:by,whChanges:[],history:[],createdAt:now,updatedAt:now,source:'dropoff',signature:sigCtxs['do-canvas']&&sigCtxs['do-canvas']._has?document.getElementById('do-canvas').toDataURL('image/png'):null};
   addTL(order,`Drop-off received by ${by}`,'create',[`${totalQty} pallets`,`Supplier: ${coSearch}`,`Condition: ${order.condition||'\u2014'}`]);
   S.orders.unshift(order);
   adjustStockOnComplete(order);
@@ -1589,15 +1558,14 @@ function startCollect(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return
 function markCollected(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Collected';j.updatedAt=new Date().toISOString();addTL(j,'Pallets collected \u2014 returning to warehouse','status');persist();toast('Pallets collected');closeM('m-detail');renderDriver();}
 
 /* ── PROOF ── */
-function openProofModal(taskId){const j=(S.orders||[]).find(x=>x.id===taskId);document.getElementById('prf-task-id').value=taskId;document.getElementById('prf-co').value=j?j.companyName:'';document.getElementById('prf-name').value='';document.getElementById('prf-err').textContent='';initCanvas('prf-canvas');initPhotos('prf-photos-ui');closeM('m-detail');openM('m-proof');}
+function openProofModal(taskId){const j=(S.orders||[]).find(x=>x.id===taskId);document.getElementById('prf-task-id').value=taskId;document.getElementById('prf-co').value=j?j.companyName:'';document.getElementById('prf-name').value='';document.getElementById('prf-err').textContent='';closeM('m-detail');openM('m-proof');}
 function submitProof(){
   const id=document.getElementById('prf-task-id').value;
   const name=document.getElementById('prf-name').value.trim();
   const co=document.getElementById('prf-co').value.trim();
   if(!name||!co){document.getElementById('prf-err').textContent='Name and company required.';return;}
-  if(!sigCtxs['prf-canvas']||!sigCtxs['prf-canvas']._has){document.getElementById('prf-err').textContent='Signature required.';return;}
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
-  const at=new Date().toISOString();j.status='Completed';j.updatedAt=at;j.proof={recipientName:name,companyName:co,completedAt:at,sig:document.getElementById('prf-canvas').toDataURL('image/png'),photos:getPhotos('prf-photos-ui')};
+  const at=new Date().toISOString();j.status='Completed';j.updatedAt=at;j.proof={recipientName:name,companyName:co,completedAt:at};
   addTL(j,`Delivered \u2014 signed by ${name} (${co})`,'status');
   adjustStockOnComplete(j);persist();toast('Delivered \u2713');closeM('m-proof');renderDriver();renderDash();
 }
@@ -2117,66 +2085,6 @@ function adjustStockOnComplete(order){
       addLedger('Order In',order.awb,p.cls,'in',p.qty,`Received from ${order.companyName||''}`);
     }
   });
-}
-
-/* ── PHOTOS ── */
-const photoStores={};
-
-function initPhotos(uiId){
-  photoStores[uiId]=[];
-  renderPhotoUI(uiId);
-}
-
-function renderPhotoUI(uiId){
-  const wrap=document.getElementById(uiId);if(!wrap)return;
-  const photos=photoStores[uiId]||[];
-  wrap.innerHTML=`<div class="photo-upload-wrap" id="${uiId}-wrap">
-    ${photos.map((p,i)=>`<div class="photo-thumb"><img src="${p}" onclick="openLightbox('${uiId}',${i})"/><button class="photo-thumb-del" onclick="removePhoto('${uiId}',${i})" title="Remove">✕</button></div>`).join('')}
-    <label class="photo-add-btn" title="Add photo">
-      <span>📷</span>
-      <input class="photo-input" type="file" accept="image/*" multiple capture="environment" onchange="addPhotos('${uiId}',this)"/>
-    </label>
-  </div>`;
-}
-
-function addPhotos(uiId,input){
-  const files=Array.from(input.files);
-  if(!photoStores[uiId])photoStores[uiId]=[];
-  let loaded=0;
-  files.forEach(file=>{
-    const reader=new FileReader();
-    reader.onload=e=>{
-      photoStores[uiId].push(e.target.result);
-      loaded++;
-      if(loaded===files.length)renderPhotoUI(uiId);
-    };
-    reader.readAsDataURL(file);
-  });
-  input.value='';
-}
-
-function removePhoto(uiId,idx){
-  if(photoStores[uiId])photoStores[uiId].splice(idx,1);
-  renderPhotoUI(uiId);
-}
-
-function getPhotos(uiId){return photoStores[uiId]||[];}
-
-function openLightbox(uiId,idx){
-  const photos=photoStores[uiId]||[];
-  if(!photos[idx])return;
-  document.getElementById('photo-lb-img').src=photos[idx];
-  document.getElementById('photo-lightbox').classList.add('open');
-}
-
-function openLightboxSrc(src){
-  document.getElementById('photo-lb-img').src=src;
-  document.getElementById('photo-lightbox').classList.add('open');
-}
-
-function closeLightbox(){
-  document.getElementById('photo-lightbox').classList.remove('open');
-  document.getElementById('photo-lb-img').src='';
 }
 
 /* ── INIT ── */
