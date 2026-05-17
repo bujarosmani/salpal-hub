@@ -269,10 +269,16 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
   <div class="login-card">
     <div class="login-logo">Sal<span>Pal</span> Hub</div>
     <div class="login-sub">Warehouse Operations</div>
-    <div class="fwrap"><label class="flabel">Username</label><input id="li-user" class="inp" type="text" placeholder="username" autocomplete="off"/></div>
-    <div class="fwrap"><label class="flabel">Password</label><input id="li-pass" class="inp" type="password" placeholder="Password" autocomplete="off"/></div>
-    <div id="li-err" class="ferr" style="margin-bottom:10px"></div>
-    <button class="btn btn-primary btn-full" id="li-btn">Sign In</button>
+    <div id="li-loading" style="text-align:center;padding:20px 0;color:var(--ink3);font-size:13px">
+      <div style="font-size:28px;margin-bottom:8px">⏳</div>
+      Loading latest data...
+    </div>
+    <div id="li-form" style="display:none">
+      <div class="fwrap"><label class="flabel">Username</label><input id="li-user" class="inp" type="text" placeholder="username" autocomplete="off"/></div>
+      <div class="fwrap"><label class="flabel">Password</label><input id="li-pass" class="inp" type="password" placeholder="Password" autocomplete="off"/></div>
+      <div id="li-err" class="ferr" style="margin-bottom:10px"></div>
+      <button class="btn btn-primary btn-full" id="li-btn">Sign In</button>
+    </div>
   </div>
 </div>
 <div id="app">
@@ -997,8 +1003,9 @@ function doLogout(){
   try{sessionStorage.removeItem('salpal-me');}catch(e){}
   document.getElementById('app').style.display='none';
   document.getElementById('login-screen').style.display='flex';
-  document.getElementById('li-user').value='';
-  document.getElementById('li-pass').value='';
+  document.getElementById('li-loading').style.display='';
+  document.getElementById('li-form').style.display='none';
+  loadCloud().then(()=>showLoginForm()).catch(()=>showLoginForm());
 }
 function tryRestoreSession(){
   try{
@@ -2227,17 +2234,21 @@ function adjustStockOnComplete(order){
   });
 }
 
+function showLoginForm(){
+  document.getElementById('li-loading').style.display='none';
+  document.getElementById('li-form').style.display='';
+  document.getElementById('li-user').value='';
+  document.getElementById('li-pass').value='';
+}
+
 /* ── INIT ── */
 loadState();
-// Clear any browser autofill
-document.getElementById('li-user').value='';
-document.getElementById('li-pass').value='';
-// Load fresh data from Supabase, only replace users if Supabase has them
 setSS('syncing');
 loadCloud().then(()=>{
-  if(!tryRestoreSession()){}
+  if(!tryRestoreSession()) showLoginForm();
 }).catch(()=>{
   tryRestoreSession();
+  showLoginForm();
 });
 </script>
 </body>
