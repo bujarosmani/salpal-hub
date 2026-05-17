@@ -2232,13 +2232,18 @@ loadState();
 // Clear any browser autofill
 document.getElementById('li-user').value='';
 document.getElementById('li-pass').value='';
-// Always load fresh data from Supabase first, then restore session
+// Wipe cached users so stale passwords can't be used — always get fresh from Supabase
+S.users=[];
+localStorage.setItem(SKEY,JSON.stringify(S));
+// Load fresh data from Supabase before allowing login
+setSS('syncing');
 loadCloud().then(()=>{
   if(!tryRestoreSession()){
-    // Not logged in, just show login screen
+    // Show login — data is now fresh
   }
 }).catch(()=>{
-  // Supabase failed, try restore from localStorage
+  // Supabase failed — restore from localStorage as fallback
+  loadState();
   tryRestoreSession();
 });
 </script>
