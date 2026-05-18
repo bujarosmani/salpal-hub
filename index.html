@@ -399,7 +399,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 </div>
 
 <div class="page" id="page-repairs">
-  <div class="phdr"><div><div class="ptitle">Pallet Repairs</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="rep-sort-btn" onclick="toggleRepSort()">Newest First</button><button class="btn btn-primary" onclick="openRepairModal()">+ Log Repair</button></div></div>
+  <div class="phdr"><div><div class="ptitle">Pallet Repairs</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="rep-sort-btn" onclick="toggleRepSort()">Newest First</button><button class="btn btn-primary" id="btn-log-repair" onclick="openRepairModal()">+ Log Repair</button></div></div>
   <div style="padding:0 0 12px"><input class="inp" id="rep-search" placeholder="🔍 Search repairer, class, supervisor..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderRepairs()"/></div>
   <div class="stats" id="rep-stats"></div>
   <div id="rep-tasks"></div>
@@ -414,7 +414,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 </div>
 
 <div class="page" id="page-sorting">
-  <div class="phdr"><div><div class="ptitle">Sorting</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="srt-sort-btn" onclick="toggleSrtSort()">Newest First</button><button class="btn btn-primary" onclick="openSortModal()">+ Log Sorting</button></div></div>
+  <div class="phdr"><div><div class="ptitle">Sorting</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="srt-sort-btn" onclick="toggleSrtSort()">Newest First</button><button class="btn btn-primary" id="btn-log-sort" onclick="openSortModal()">+ Log Sorting</button></div></div>
   <div style="padding:0 0 12px"><input class="inp" id="srt-search" placeholder="🔍 Search sorter, class, supervisor, order ref..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderSorting()"/></div>
   <div class="stats" id="srt-stats"></div>
   <div id="srt-tasks"></div>
@@ -444,10 +444,18 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
   </div>
   <div class="tpane on" id="stk-inventory-pane">
     <div class="card">
-      <div class="card-hdr"><span class="card-hdr-title">Inventory</span></div>
+      <div class="card-hdr">
+        <span class="card-hdr-title">Inventory</span>
+        <div style="display:flex;gap:8px;align-items:center" id="stk-inv-filters"></div>
+      </div>
       <div class="tbl-wrap">
-        <table><thead><tr>
-          <th>Class</th><th class="right">On Hand</th><th class="right">Incoming</th><th class="right">Outgoing</th><th class="right">Free to Use</th><th class="right">Actions</th>
+        <table id="stk-table"><thead><tr>
+          <th data-col="cls" onclick="thClick('stk-table','cls',renderStock)" style="cursor:pointer">Class</th>
+          <th class="right" data-col="onHand" onclick="thClick('stk-table','onHand',renderStock)" style="cursor:pointer">On Hand</th>
+          <th class="right" data-col="incoming" onclick="thClick('stk-table','incoming',renderStock)" style="cursor:pointer">Incoming</th>
+          <th class="right" data-col="outgoing" onclick="thClick('stk-table','outgoing',renderStock)" style="cursor:pointer">Outgoing</th>
+          <th class="right" data-col="free" onclick="thClick('stk-table','free',renderStock)" style="cursor:pointer">Free to Use</th>
+          <th class="right">Actions</th>
         </tr></thead><tbody id="stk-tbody"></tbody></table>
       </div>
     </div>
@@ -733,7 +741,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
         <div class="fwrap"><label class="flabel">First Name *</label><input class="inp" id="uf-first" placeholder="First"/></div>
         <div class="fwrap"><label class="flabel">Last Name *</label><input class="inp" id="uf-last" placeholder="Last"/></div>
         <div class="fwrap"><label class="flabel">Username *</label><input class="inp" id="uf-user" placeholder="first.last"/></div>
-        <div class="fwrap"><label class="flabel">Role *</label><select class="inp" id="uf-role"><option value="Admin">Admin</option><option value="Manager">Manager</option><option value="Supervisor">Supervisor</option><option value="Driver">Driver</option></select></div>
+        <div class="fwrap"><label class="flabel">Role *</label><select class="inp" id="uf-role"><option value="Admin">Admin</option><option value="Manager">Manager</option><option value="Viewer">Viewer</option><option value="Supervisor">Supervisor</option><option value="Driver">Driver</option></select></div>
         <div class="fwrap"><label class="flabel" id="uf-pw-lbl">Password *</label><input class="inp" id="uf-pw" type="password" placeholder="Min 6 chars"/></div>
         <div class="fwrap"><label class="flabel">Confirm *</label><input class="inp" id="uf-pw2" type="password" placeholder="Repeat"/></div>
       </div>
@@ -933,6 +941,7 @@ const drvs=()=>(S.users||[]).filter(u=>u.role==='Driver');
 const sups=()=>(S.users||[]).filter(u=>u.role==='Supervisor'||u.role==='Admin'||u.role==='Manager');
 const isAdmin=()=>ME&&(ME.role==='Admin'||ME.role==='Manager');
 const canDelete=()=>ME&&ME.role==='Admin';
+const isViewer=()=>ME&&ME.role==='Viewer';
 // Returns filtered supervisors for current user: if Supervisor, only themselves
 function mySups(){
   if(ME&&ME.role==='Supervisor') return [{id:ME.id,firstName:ME.firstName,lastName:ME.lastName}];
@@ -1120,12 +1129,15 @@ function setupNav(){
   document.getElementById('who-name').textContent=`${ME.firstName} ${ME.lastName}`;
   document.getElementById('who-role').textContent=ME.role;
   const r=ME.role;
-  document.getElementById('nav-admin').style.display=(r==='Admin'||r==='Manager')?'':'none';
+  document.getElementById('nav-admin').style.display=(r==='Admin'||r==='Manager'||r==='Viewer')?'':'none';
   document.getElementById('nav-driver').style.display=r==='Driver'?'':'none';
-  const vis={Admin:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'],Manager:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'],Supervisor:['dispatch','receiving','repairs','sorting'],Driver:[]};
+  const vis={Admin:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'],Manager:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'],Viewer:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'],Supervisor:['dispatch','receiving','repairs','sorting'],Driver:[]};
   const allowed=vis[r]||[];
   ['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'].forEach(p=>{const el=document.getElementById(`snav-${p}`);if(el)el.style.display=allowed.includes(p)?'':'none';});
   document.getElementById('btn-new-order').style.display=(r==='Admin'||r==='Manager')?'':'none';
+  // Hide all create/edit buttons for Viewer
+  const isV=r==='Viewer';
+  ['btn-log-repair','btn-log-sort'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isV?'none':'';});
   document.getElementById('btn-dropoff').style.display=(r==='Admin'||r==='Supervisor')?'':'none';
   const mvt=document.getElementById('mob-vt');
   if((r==='Admin'||r==='Manager')&&mvt)mvt.innerHTML=`<div class="view-toggle"><button class="vt-btn on" id="vt-d" onclick="setView('desktop')">🖥</button><button class="vt-btn" id="vt-m" onclick="setView('mobile')">📱</button></div>`;
@@ -1140,7 +1152,7 @@ function resetPageFilters(page){
   if(page==='repairs'){const s=document.getElementById('rep-search');if(s)s.value='';window.rmfDateFrom='';window.rmfDateTo='';window.rhfDateFrom='';window.rhfDateTo='';}
   if(page==='sorting'){const s=document.getElementById('srt-search');if(s)s.value='';}
   if(page==='companies'){coSortAsc=true;const s=document.getElementById('co-search');if(s)s.value='';tableSort['co-table']=null;}
-  if(page==='stock'){ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null};}
+  if(page==='stock'){ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null};const s=document.getElementById('stk-search');if(s)s.value='';const d=document.getElementById('stk-cls-filter');if(d)d.value='';tableSort['stk-table']=null;}
 }
 let currentPage=null;
 function goTo(page){
@@ -1507,7 +1519,7 @@ function viewOrder(id){
   const pl=isD?'Customer':'Supplier';
   document.getElementById('det-title').textContent=j.awb;
   document.getElementById('det-body').innerHTML=`${prog}<div style="display:flex;gap:8px;margin-bottom:14px">${typeChip(j.type)} ${stChip(j.status)}</div><div class="card" style="margin-bottom:12px"><div class="card-body" style="display:grid;gap:7px">${[[pl,j.companyName||'\u2014'],['Address',[j.companyAddress,j.city,j.postcode].filter(Boolean).join(', ')||'\u2014'],['Order Ref',j.orderRef||'\u2014'],['Date',fd(j.deliveryDate)],['Window',j.timeFrom&&j.timeTo?j.timeFrom+'\u2013'+j.timeTo:'Any time'],['Driver',j.driverId?uname(j.driverId):j.driver||'\u2014'],['WH By',j.whBy||'\u2014'],['Notes',j.driverNotes||'\u2014']].map(([l,v])=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;flex-shrink:0">${l}</span><span style="font-weight:600;text-align:right;font-size:13px">${esc(v)}</span></div>`).join('')}</div></div><div class="sec-title" style="margin-bottom:8px">Pallets</div><div class="card" style="margin-bottom:12px"><div class="card-body">${pr}<div style="display:flex;justify-content:space-between;padding:8px 0 0"><strong>TOTAL</strong><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--brand)">${j.totalQty}</span></div></div></div>${renderChangesBox(j)}${j.proof?`<div class="card" style="margin-bottom:12px;background:rgba(61,214,104,.05);border-color:var(--brand-dim)"><div class="card-body"><div style="color:var(--brand);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px">\u2713 Delivered</div><div style="font-weight:600;margin-top:4px">${esc(j.proof.recipientName)} \u00b7 ${esc(j.proof.companyName)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(j.proof.completedAt)}</div></div></div>`:''}  <div class="sec-title" style="margin-bottom:10px">Timeline</div>${renderTL(j)}`;
-  const isSup=ME&&(ME.role==='Admin'||ME.role==='Supervisor'||ME.role==='Manager');
+  const isSup=ME&&(ME.role==='Admin'||ME.role==='Supervisor'||ME.role==='Manager')&&!isViewer();
   let foot=`<button class="btn btn-ghost" onclick="closeM('m-detail')">Close</button>`;
   if(isSup&&isD&&j.status==='Open')foot+=` <button class="btn btn-amber" onclick="closeM('m-detail');openLoadModal('${j.id}')">📦 Mark Loaded</button>`;
   if(isSup&&!isD){if(j.status==='Collected')foot+=` <button class="btn btn-ghost" onclick="setOrdStatus('${j.id}','Delivered')">🏭 At Warehouse</button>`;if(j.status==='Delivered')foot+=` <button class="btn btn-primary" onclick="closeM('m-detail');openCompleteRecModal('${j.id}')">✓ Complete</button>`;}
@@ -1943,7 +1955,7 @@ function initCanvas(id){
 function clearCanvas(id){const cv=document.getElementById(id);if(!cv)return;cv.getContext('2d').clearRect(0,0,cv.width,cv.height);if(sigCtxs[id])sigCtxs[id]._has=false;}
 
 /* ── USERS ── */
-function renderUsers(){const rC={'Admin':'chip-blue','Manager':'chip-purple','Supervisor':'chip-amber','Driver':'chip-green'};document.getElementById('users-tbody').innerHTML=(S.users||[]).map(u=>`<tr><td><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:var(--brand-dark);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:var(--brand);flex-shrink:0">${u.firstName[0]}${u.lastName[0]}</div><div><div style="font-weight:700">${esc(u.firstName)} ${esc(u.lastName)}</div></div></div></td><td style="font-family:'DM Mono',monospace;font-size:12px">${esc(u.username)}</td><td><span class="chip ${rC[u.role]||'chip-gray'}" style="font-size:10px">${u.role}</span></td><td class="right"><button class="btn btn-ghost btn-sm" onclick="editUser('${u.id}')">Edit</button> <button class="btn btn-danger btn-sm" onclick="delUser('${u.id}')">Delete</button></td></tr>`).join('');}
+function renderUsers(){const rC={'Admin':'chip-blue','Manager':'chip-purple','Viewer':'chip-gray','Supervisor':'chip-amber','Driver':'chip-green'};document.getElementById('users-tbody').innerHTML=(S.users||[]).map(u=>`<tr><td><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:var(--brand-dark);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:var(--brand);flex-shrink:0">${u.firstName[0]}${u.lastName[0]}</div><div><div style="font-weight:700">${esc(u.firstName)} ${esc(u.lastName)}</div></div></div></td><td style="font-family:'DM Mono',monospace;font-size:12px">${esc(u.username)}</td><td><span class="chip ${rC[u.role]||'chip-gray'}" style="font-size:10px">${u.role}</span></td><td class="right"><button class="btn btn-ghost btn-sm" onclick="editUser('${u.id}')">Edit</button> <button class="btn btn-danger btn-sm" onclick="delUser('${u.id}')">Delete</button></td></tr>`).join('');}
 function openUserModal(){['uf-first','uf-last','uf-user','uf-pw','uf-pw2'].forEach(id=>document.getElementById(id).value='');document.getElementById('uf-role').value='Driver';document.getElementById('uf-id').value='';document.getElementById('uf-err').textContent='';document.getElementById('uf-del').style.display='none';document.getElementById('user-modal-title').textContent='Add User';document.getElementById('uf-pw-lbl').textContent='Password *';openM('m-user');}
 function editUser(id){const u=(S.users||[]).find(x=>x.id===id);if(!u)return;document.getElementById('uf-first').value=u.firstName;document.getElementById('uf-last').value=u.lastName;document.getElementById('uf-user').value=u.username;document.getElementById('uf-role').value=u.role;document.getElementById('uf-pw').value='';document.getElementById('uf-pw2').value='';document.getElementById('uf-id').value=u.id;document.getElementById('uf-err').textContent='';document.getElementById('uf-del').style.display=canDelete()?'':'none';document.getElementById('user-modal-title').textContent='Edit User';document.getElementById('uf-pw-lbl').textContent='New Password (blank = keep)';openM('m-user');}
 function saveUser(){const id=document.getElementById('uf-id').value;const first=document.getElementById('uf-first').value.trim();const last=document.getElementById('uf-last').value.trim();const username=document.getElementById('uf-user').value.trim();const role=document.getElementById('uf-role').value;const pw=document.getElementById('uf-pw').value;const pw2=document.getElementById('uf-pw2').value;const err=document.getElementById('uf-err');if(!first||!last||!username||!role){err.textContent='All fields required.';return;}if(!id&&!pw){err.textContent='Password required for new users.';return;}if(pw&&pw.length<6){err.textContent='Password min 6 chars.';return;}if(pw&&pw!==pw2){err.textContent='Passwords do not match.';return;}if((S.users||[]).some(u=>u.username.toLowerCase()===username.toLowerCase()&&u.id!==id)){err.textContent='Username taken.';return;}if(id){const i=(S.users||[]).findIndex(x=>x.id===id);S.users[i]={...S.users[i],firstName:first,lastName:last,username,role,...(pw?{password:pw}:{})}}else{if(!S.users)S.users=[];S.users.push({id:mkId(),firstName:first,lastName:last,username,role,password:pw});}persist();toast(id?'User updated':'User added');closeM('m-user');renderUsers();}
@@ -2552,6 +2564,27 @@ function getStock(){
 
 function renderStock(){
   const stk=getStock();
+  const stkQ=(document.getElementById('stk-search')?.value||'').toLowerCase();
+  const stkClsFilter=document.getElementById('stk-cls-filter')?.value||'';
+
+  // Build filter bar
+  const filtersEl=document.getElementById('stk-inv-filters');
+  if(filtersEl&&!document.getElementById('stk-search')){
+    filtersEl.innerHTML=`
+      <input class="inp" id="stk-search" placeholder="🔍 Search class..." autocomplete="off" style="width:160px;padding:7px 10px;font-size:12px" oninput="renderStock()"/>
+      <select class="inp" id="stk-cls-filter" style="width:160px;padding:7px 10px;font-size:12px" onchange="renderStock()">
+        <option value="">All Products</option>
+        ${getSKUS().map(c=>`<option value="${c}">${c}</option>`).join('')}
+      </select>
+      <button class="btn btn-ghost btn-sm" id="stk-clear-btn" style="display:none" onclick="document.getElementById('stk-search').value='';document.getElementById('stk-cls-filter').value='';renderStock()">Clear</button>
+    `;
+  } else if(filtersEl){
+    // Update clear button visibility
+    const hasFilter=(document.getElementById('stk-search')?.value||'')+(document.getElementById('stk-cls-filter')?.value||'');
+    const clrBtn=document.getElementById('stk-clear-btn');
+    if(clrBtn)clrBtn.style.display=hasFilter?'':'none';
+  }
+
   const totOnHand=getSKUS().reduce((s,c)=>s+stk[c].onHand,0);
   const totFree=getSKUS().reduce((s,c)=>s+stk[c].free,0);
   const totIn=getSKUS().reduce((s,c)=>s+stk[c].incoming,0);
@@ -2562,17 +2595,27 @@ function renderStock(){
     <div class="stat-box"><div class="stat-num" style="color:var(--blue)">${totIn}</div><div class="stat-lbl">Incoming</div></div>
     <div class="stat-box"><div class="stat-num" style="color:var(--amber)">${totOut}</div><div class="stat-lbl">Outgoing</div></div>
   `;
-  document.getElementById('stk-tbody').innerHTML=getSKUS().map(cls=>{
-    const s=stk[cls];
-    const freeColor=s.free<=0?'var(--red)':s.free<s.onHand*0.2?'var(--amber)':'var(--brand)';
+
+  // Filter and sort
+  let skuList=getSKUS().filter(cls=>{
+    if(stkClsFilter&&cls!==stkClsFilter)return false;
+    if(stkQ&&!cls.toLowerCase().includes(stkQ))return false;
+    return true;
+  });
+  // Build sortable objects
+  let rows=skuList.map(cls=>({cls,...stk[cls]}));
+  rows=sortList(rows,'stk-table','cls',true);
+
+  document.getElementById('stk-tbody').innerHTML=rows.map(({cls,onHand,incoming,outgoing,free})=>{
+    const freeColor=free<=0?'var(--red)':free<onHand*0.2?'var(--amber)':'var(--brand)';
     const isAdminRow=isAdmin();
     const inUse=isProductInUse(cls);
     return`<tr>
       <td>${skuBadge(cls,true)}</td>
-      <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800">${s.onHand}</span></td>
-      <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--blue)">${s.incoming}</span></td>
-      <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--amber)">${s.outgoing}</span></td>
-      <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:${freeColor}">${s.free}</span></td>
+      <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800">${onHand}</span></td>
+      <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--blue)">${incoming}</span></td>
+      <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--amber)">${outgoing}</span></td>
+      <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:${freeColor}">${free}</span></td>
       <td class="right" style="white-space:nowrap">
         ${isAdminRow?`<button class="btn btn-ghost btn-sm" onclick="editProduct('${esc(cls)}')">Edit</button> ${canDelete()?`<button class="btn btn-danger btn-sm" onclick="deleteProductDirect('${esc(cls)}')" ${inUse?'title="In use by orders" style="opacity:.35;cursor:not-allowed" disabled':''}>Delete</button>`:""}`:''}
       </td>
