@@ -1137,7 +1137,7 @@ function resetPageFilters(page){
   if(page==='orders'){ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('ord-search');if(s)s.value='';tableSort['ord-table']=null;}
   if(page==='dispatch'){disF={statuses:null,dateFrom:'',dateTo:''};const s=document.getElementById('dis-search');if(s)s.value='';tableSort['dis-table']=null;}
   if(page==='receiving'){recF={statuses:null,dateFrom:'',dateTo:''};const s=document.getElementById('rec-search');if(s)s.value='';tableSort['rec-table']=null;}
-  if(page==='repairs'){const s=document.getElementById('rep-search');if(s)s.value='';}
+  if(page==='repairs'){const s=document.getElementById('rep-search');if(s)s.value='';window.rmfDateFrom='';window.rmfDateTo='';}
   if(page==='sorting'){const s=document.getElementById('srt-search');if(s)s.value='';}
   if(page==='companies'){coSortAsc=true;const s=document.getElementById('co-search');if(s)s.value='';tableSort['co-table']=null;}
   if(page==='stock'){ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null};}
@@ -1660,8 +1660,8 @@ function renderRepTab(name){
     const repMF={
       worker:document.getElementById('rmf-worker')?.value||'',
       cls:document.getElementById('rmf-cls')?.value||'',
-      dateFrom:document.getElementById('rmf-from')?.value||'',
-      dateTo:document.getElementById('rmf-to')?.value||''
+      dateFrom:window.rmfDateFrom||'',
+      dateTo:window.rmfDateTo||''
     };
     let rlist=S.repairs||[];
     if(repMF.worker)rlist=rlist.filter(r=>r.repairer===repMF.worker);
@@ -1671,8 +1671,9 @@ function renderRepTab(name){
     const tot=rlist.reduce((s,r)=>s+(r.qty||0),0);
     const byw=REPAIRERS.map(n=>({n,t:rlist.filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0).sort((a,b)=>b.t-a.t);
     const byc=getSKUS().map(c=>({c,t:rlist.filter(r=>r.pallet_class===c).reduce((s,r)=>s+(r.qty||0),0)})).filter(x=>x.t>0);
+    const dlabel=repMF.dateFrom&&repMF.dateTo?`${fd(repMF.dateFrom)}\u2013${fd(repMF.dateTo)}`:repMF.dateFrom?fd(repMF.dateFrom):'All Dates';
     document.getElementById('rep-manager').innerHTML=`
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
         <select class="inp" id="rmf-worker" style="flex:1;min-width:120px" onchange="renderRepTab('manager')">
           <option value="">All Workers</option>
           ${REPAIRERS.map(n=>`<option value="${n}"${repMF.worker===n?' selected':''}>${n}</option>`).join('')}
@@ -1681,10 +1682,13 @@ function renderRepTab(name){
           <option value="">All Classes</option>
           ${getSKUS().filter(c=>!c.toLowerCase().includes('defect')&&c!=='Unsorted').map(c=>`<option value="${c}"${repMF.cls===c?' selected':''}>${c}</option>`).join('')}
         </select>
-        <input class="inp" type="date" id="rmf-from" value="${repMF.dateFrom}" onchange="renderRepTab('manager')" style="flex:1;min-width:120px"/>
-        <input class="inp" type="date" id="rmf-to" value="${repMF.dateTo}" onchange="renderRepTab('manager')" style="flex:1;min-width:120px"/>
-        ${repMF.worker||repMF.cls||repMF.dateFrom?`<button class="btn btn-ghost btn-sm" onclick="document.getElementById('rmf-worker').value='';document.getElementById('rmf-cls').value='';document.getElementById('rmf-from').value='';document.getElementById('rmf-to').value='';renderRepTab('manager')">Clear</button>`:''}
-      </div>
+        <button class="dp-btn${repMF.dateFrom?' active':''}" id="rmf-dp-btn">📅 ${esc(dlabel)}</button>
+        ${repMF.dateFrom?`<button class="dp-clear" onclick="window.rmfDateFrom='';window.rmfDateTo='';renderRepTab('manager')">✕</button>`:''}
+        ${repMF.worker||repMF.cls||repMF.dateFrom?`<button class="btn btn-ghost btn-sm" onclick="window.rmfDateFrom='';window.rmfDateTo='';document.getElementById('rmf-worker').value='';document.getElementById('rmf-cls').value='';renderRepTab('manager')">Clear all</button>`:''}
+      </div>`;
+    // Bind date picker
+    setTimeout(()=>{const dpb=document.getElementById('rmf-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(window.rmfDateFrom||'',window.rmfDateTo||'',(f,t)=>{window.rmfDateFrom=f;window.rmfDateTo=t;renderRepTab('manager');});},0);
+    document.getElementById('rep-manager').innerHTML+=`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
         <div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Total Repaired</div></div>
         <div class="stat-box"><div class="stat-num">${rlist.length}</div><div class="stat-lbl">Entries</div></div>
