@@ -71,12 +71,12 @@ tr:hover td{background:rgba(255,255,255,.02)}.right{text-align:right}
 .rm-btn:hover{background:rgba(245,107,107,.2)}
 .mbackdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:center;justify-content:center;padding:16px}
 .mbackdrop.open{display:flex}
-.mbox{background:var(--panel);border:1.5px solid var(--line2);border-radius:16px;width:100%;max-width:540px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.mbox{background:var(--panel);border:1.5px solid var(--line2);border-radius:16px;width:100%;max-width:540px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.6)}
 .mbox.wide{max-width:660px}.mbox.xl{max-width:820px}
 .mhdr{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--panel);z-index:2}
 .mtitle{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:.5px}
 .mclose{font-size:20px;color:var(--ink3);padding:2px 8px;border-radius:6px;cursor:pointer;border:none;background:none}.mclose:hover{color:var(--red)}
-.mbody{padding:18px}.mfoot{padding:13px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.mbody{padding:18px;overflow-y:auto;flex:1}.mfoot{padding:13px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;flex-shrink:0;position:sticky;bottom:0;background:var(--panel);z-index:2}
 #toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:10px;font-size:12px;font-weight:700;z-index:9999;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s}
 #toast.show{opacity:1}.toast-ok{background:linear-gradient(135deg,var(--brand-dark),var(--brand-dim));color:#fff}
 .toast-err{background:var(--red-bg);color:var(--red);border:1.5px solid rgba(245,107,107,.4)}
@@ -434,7 +434,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       </div>
       <div class="tbl-wrap">
         <table><thead><tr>
-          <th>Date</th><th>Type</th><th>Reference</th><th>Product</th><th class="right">In</th><th class="right">Out</th><th class="right">Balance After</th><th>Notes</th>
+          <th>Date</th><th>Type</th><th>Reference</th><th>Product</th><th class="right">In</th><th class="right">Out</th><th class="right">Balance After</th><th>By</th><th>Notes</th>
         </tr></thead><tbody id="ledger-tbody"></tbody></table>
       </div>
     </div>
@@ -660,7 +660,9 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       <div class="fwrap"><label class="flabel">Supervisor *</label><div class="pick-grid c2" id="rep-sup"></div></div>
       <div class="fwrap"><label class="flabel">Repairer *</label><div class="pick-grid c3" id="rep-rep"></div></div>
       <div class="fwrap"><label class="flabel">Defect Source *</label><div class="pick-grid c3" id="rep-src"></div></div>
-      <div class="fwrap"><label class="flabel">Repaired To Class *</label><div class="pick-grid c3" id="rep-cls"></div></div>
+      <div class="fwrap"><label class="flabel">Repaired To Class *</label>
+        <select class="inp" id="rep-cls-sel"><option value="">— Select class —</option></select>
+      </div>
       <div class="fwrap"><label class="flabel">Qty *</label>
         <input class="qty-big" type="number" id="rep-qty" min="1" max="500" placeholder="0"/>
         <div class="qty-presets"><button class="qty-pre" type="button" onclick="setRepQty(15)">15</button><button class="qty-pre" type="button" onclick="setRepQty(25)">25</button><button class="qty-pre" type="button" onclick="setRepQty(30)">30</button></div>
@@ -1501,10 +1503,14 @@ function openRepairModal(){
 function renderRepPickers(){
   document.getElementById('rep-sup').innerHTML=mySups().map(s=>`<button type="button" class="pick-btn${RF.sup===s.firstName?' sel':''}" ${ME&&ME.role==='Supervisor'?'disabled style="opacity:1;cursor:default"':''} onclick="RF.sup='${s.firstName}';renderRepPickers()">${esc(s.firstName)}</button>`).join('');
   document.getElementById('rep-rep').innerHTML=REPAIRERS.map(r=>`<button type="button" class="pick-btn${RF.rep===r?' sel':''}" onclick="RF.rep='${r}';renderRepPickers()">${esc(r)}</button>`).join('');
-  // Defect sources — any product containing 'defect' (case insensitive)
   const defectSrcs=getSKUS().filter(c=>c.toLowerCase().includes('defect'));
   document.getElementById('rep-src').innerHTML=defectSrcs.map(c=>`<button type="button" class="pick-btn${RF.src===c?' sel':''}" onclick="RF.src='${c}';renderRepPickers()" style="color:${RF.src===c?'#fff':'var(--red)'}">${esc(c)}</button>`).join('');
-  document.getElementById('rep-cls').innerHTML=getSKUS().filter(c=>!c.toLowerCase().includes('defect')&&c!=='Unsorted').map(c=>{const cc=SKU_C[c]||{};return`<button type="button" class="pick-btn${RF.cls===c?' sel':''}" onclick="RF.cls='${c}';renderRepPickers()" style="color:${RF.cls===c?'#fff':cc.c||'var(--ink2)'}">${esc(c)}</button>`;}).join('');
+  const clsSel=document.getElementById('rep-cls-sel');
+  if(clsSel){
+    const repairableClasses=getSKUS().filter(c=>!c.toLowerCase().includes('defect')&&c!=='Unsorted');
+    clsSel.innerHTML='<option value="">— Select class —</option>'+repairableClasses.map(c=>`<option value="${c}"${RF.cls===c?' selected':''}>${c}</option>`).join('');
+    clsSel.onchange=()=>{RF.cls=clsSel.value;};
+  }
 }
 function setRepQty(n){document.getElementById('rep-qty').value=n;document.querySelectorAll('.qty-pre').forEach(b=>b.classList.toggle('sel',+b.textContent===n));}
 function saveRepair(force){
@@ -1955,20 +1961,20 @@ function deleteProductDirect(cls){
 
 /* ── STOCK LEDGER ── */
 function addLedger(type, ref, cls, dir, qty, notes){
-  // dir: 'in' or 'out'
   if(!S.ledger)S.ledger=[];
   if(!S.stock)S.stock={};
   const balance=S.stock[cls]||0;
   S.ledger.unshift({
     id:mkId(),
     date:new Date().toISOString(),
-    type,     // 'Order In','Order Out','Sorting','Repair','Manual'
-    ref,      // AWB or sorting/repair ID
-    cls,      // pallet class
-    dir,      // 'in' or 'out'
+    type,
+    ref,
+    cls,
+    dir,
     qty,
-    balance,  // balance AFTER this movement (stock already updated before calling addLedger)
-    notes:notes||''
+    balance,
+    notes:notes||'',
+    by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():''
   });
 }
 
@@ -2035,8 +2041,14 @@ function addPltLine(cid,cls,qty){
   cls=cls||'';qty=qty||'';
   const c=document.getElementById(cid);if(!c)return;
   const d=document.createElement('div');d.className='plt-line';
-  d.innerHTML=`<select class="inp" onchange="onSrtLinesChange()"><option value="">— Class —</option>${getSKUS().map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="onSrtLinesChange()"/><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove();onSrtLinesChange()">−</button>`;
+  d.innerHTML=`<select class="inp"><option value="">— Class —</option>${getSKUS().map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800"/><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove()">−</button>`;
   c.appendChild(d);
+  // Only trigger srt live counter if in sorting context
+  if(cid==='srt-lines'){
+    d.querySelector('select').addEventListener('change',onSrtLinesChange);
+    d.querySelector('input').addEventListener('input',onSrtLinesChange);
+    d.querySelector('.rm-btn').addEventListener('click',onSrtLinesChange);
+  }
 }
 function getLines(cid){
   return Array.from(document.querySelectorAll(`#${cid} .plt-line`)).map(row=>({cls:row.querySelector('select').value,qty:parseInt(row.querySelector('input').value)||0})).filter(p=>p.qty>0&&p.cls);
@@ -2089,6 +2101,7 @@ function renderLedgerTable(){
     <td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--brand)">${e.dir==='in'?'+'+e.qty:'\u2014'}</td>
     <td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--red)">${e.dir==='out'?'\u2212'+e.qty:'\u2014'}</td>
     <td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:${e.balance<0?'var(--red)':'var(--ink2)'}">${e.balance}</td>
+    <td style="font-size:12px;color:var(--ink2);white-space:nowrap">${esc(e.by||'\u2014')}</td>
     <td style="font-size:11px;color:var(--ink3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.notes||'\u2014')}</td>
   </tr>`).join('');
 }
@@ -2108,6 +2121,7 @@ function viewLedgerEntry(id){
         ['Product',skuBadge(e.cls,true)],
         ['Movement',e.dir==='in'?`<span style="color:var(--brand);font-weight:800;font-size:16px">+${e.qty}</span>`:`<span style="color:var(--red);font-weight:800;font-size:16px">\u2212${e.qty}</span>`],
         ['Balance After',`<span style="font-weight:800;font-size:16px;color:${e.balance<0?'var(--red)':'var(--ink2)'}">${e.balance}</span>`],
+        ['By',e.by||'\u2014'],
         ['Notes',e.notes||'\u2014'],
       ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700">${l}</span><span>${v}</span></div>`).join('')}
     </div></div>
