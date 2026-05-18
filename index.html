@@ -1656,7 +1656,44 @@ function renderRepTab(name){
   const filterRep=r=>!repQ||(r.repairer||'').toLowerCase().includes(repQ)||(r.pallet_class||'').toLowerCase().includes(repQ)||(r.supervisor||'').toLowerCase().includes(repQ)||(r.src||'').toLowerCase().includes(repQ);
   if(name==='today'){const tr=(S.repairs||[]).filter(r=>isToday(r.date)&&filterRep(r));document.getElementById('rep-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class,true)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}</div></div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand);margin-top:6px">${r.qty} repaired · from ${esc(r.src||r.pallet_class||'—')}</div></div>`).join(''):'<div class="empty">No repairs today</div>';}
   if(name==='history'){const grp={};(S.repairs||[]).filter(filterRep).forEach(r=>{const d=r.date.slice(0,10);if(!grp[d])grp[d]=[];grp[d].push(r);});document.getElementById('rep-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort(repSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{const rs=grp[day],dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right;display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>';}
-  if(name==='manager'){const tot=(S.repairs||[]).reduce((s,r)=>s+(r.qty||0),0);const byw=REPAIRERS.map(n=>({n,t:(S.repairs||[]).filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0).sort((a,b)=>b.t-a.t);const byc=getSKUS().map(c=>({c,t:(S.repairs||[]).filter(r=>r.pallet_class===c).reduce((s,r)=>s+(r.qty||0),0)})).filter(x=>x.t>0);document.getElementById('rep-manager').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px"><div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Total Repaired</div></div><div class="stat-box"><div class="stat-num">${(S.repairs||[]).length}</div><div class="stat-lbl">Total Entries</div></div></div>${byw.length?`<div class="sec-title" style="margin-bottom:10px">By Worker</div><div class="card" style="margin-bottom:16px">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)"><span style="font-weight:600">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join('')}</div>`:''}${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${x.t}</span></div>`).join('')}</div>`:''}`;}}
+  if(name==='manager'){
+    const repMF={
+      worker:document.getElementById('rmf-worker')?.value||'',
+      cls:document.getElementById('rmf-cls')?.value||'',
+      dateFrom:document.getElementById('rmf-from')?.value||'',
+      dateTo:document.getElementById('rmf-to')?.value||''
+    };
+    let rlist=S.repairs||[];
+    if(repMF.worker)rlist=rlist.filter(r=>r.repairer===repMF.worker);
+    if(repMF.cls)rlist=rlist.filter(r=>r.pallet_class===repMF.cls);
+    if(repMF.dateFrom)rlist=rlist.filter(r=>r.date&&r.date.slice(0,10)>=repMF.dateFrom);
+    if(repMF.dateTo)rlist=rlist.filter(r=>r.date&&r.date.slice(0,10)<=repMF.dateTo);
+    const tot=rlist.reduce((s,r)=>s+(r.qty||0),0);
+    const byw=REPAIRERS.map(n=>({n,t:rlist.filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0).sort((a,b)=>b.t-a.t);
+    const byc=getSKUS().map(c=>({c,t:rlist.filter(r=>r.pallet_class===c).reduce((s,r)=>s+(r.qty||0),0)})).filter(x=>x.t>0);
+    document.getElementById('rep-manager').innerHTML=`
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <select class="inp" id="rmf-worker" style="flex:1;min-width:120px" onchange="renderRepTab('manager')">
+          <option value="">All Workers</option>
+          ${REPAIRERS.map(n=>`<option value="${n}"${repMF.worker===n?' selected':''}>${n}</option>`).join('')}
+        </select>
+        <select class="inp" id="rmf-cls" style="flex:1;min-width:120px" onchange="renderRepTab('manager')">
+          <option value="">All Classes</option>
+          ${getSKUS().filter(c=>!c.toLowerCase().includes('defect')&&c!=='Unsorted').map(c=>`<option value="${c}"${repMF.cls===c?' selected':''}>${c}</option>`).join('')}
+        </select>
+        <input class="inp" type="date" id="rmf-from" value="${repMF.dateFrom}" onchange="renderRepTab('manager')" style="flex:1;min-width:120px"/>
+        <input class="inp" type="date" id="rmf-to" value="${repMF.dateTo}" onchange="renderRepTab('manager')" style="flex:1;min-width:120px"/>
+        ${repMF.worker||repMF.cls||repMF.dateFrom?`<button class="btn btn-ghost btn-sm" onclick="document.getElementById('rmf-worker').value='';document.getElementById('rmf-cls').value='';document.getElementById('rmf-from').value='';document.getElementById('rmf-to').value='';renderRepTab('manager')">Clear</button>`:''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Total Repaired</div></div>
+        <div class="stat-box"><div class="stat-num">${rlist.length}</div><div class="stat-lbl">Entries</div></div>
+      </div>
+      ${byw.length?`<div class="sec-title" style="margin-bottom:10px">By Worker</div><div class="card" style="margin-bottom:16px">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)"><span style="font-weight:600">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join('')}</div>`:''}
+      ${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${x.t}</span></div>`).join('')}</div>`:''}
+    `;
+  }
+}
 
 function editRepair(id){
   const r=(S.repairs||[]).find(x=>x.id===id);if(!r)return;
