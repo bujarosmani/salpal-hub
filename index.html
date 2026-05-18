@@ -52,6 +52,8 @@ a{color:inherit;text-decoration:none}img{display:block}h1,h2,h3,p{margin:0}
 table{width:100%;border-collapse:collapse}
 th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
 th{background:var(--panel2);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);font-weight:700;white-space:nowrap}
+th[data-col]:hover{color:var(--brand)}
+.sort-ic{color:var(--brand);font-size:10px;margin-left:2px}
 tr:hover td{background:rgba(255,255,255,.02)}.right{text-align:right}
 .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .frow.c3{grid-template-columns:1fr 1fr 1fr}
@@ -363,8 +365,18 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     </div>
     <div id="ord-active-tags" style="display:flex;gap:6px;flex-wrap:wrap;padding:6px 16px 4px"></div>
     <div class="tbl-wrap">
-      <table><thead id="ord-thead"><tr>
-        <th>AWB</th><th id="th-orderRef">Order Ref</th><th id="th-type">Type</th><th id="th-company">Company</th><th id="th-date">Date</th><th id="th-pallets">Pallets</th><th id="th-driver">Driver</th><th id="th-whBy">WH By</th><th id="th-whNotes">WH Notes</th><th id="th-status">Status</th><th class="right">Actions</th>
+      <table id="ord-table"><thead id="ord-thead"><tr>
+        <th data-col="awb" onclick="thClick('ord-table','awb',renderOrdTable)" style="cursor:pointer">AWB</th>
+        <th id="th-orderRef" data-col="orderRef" onclick="thClick('ord-table','orderRef',renderOrdTable)" style="cursor:pointer">Order Ref</th>
+        <th id="th-type" data-col="type" onclick="thClick('ord-table','type',renderOrdTable)" style="cursor:pointer">Type</th>
+        <th id="th-company" data-col="companyName" onclick="thClick('ord-table','companyName',renderOrdTable)" style="cursor:pointer">Company</th>
+        <th id="th-date" data-col="deliveryDate" onclick="thClick('ord-table','deliveryDate',renderOrdTable)" style="cursor:pointer">Date</th>
+        <th id="th-pallets" data-col="totalQty" onclick="thClick('ord-table','totalQty',renderOrdTable)" style="cursor:pointer">Pallets</th>
+        <th id="th-driver" data-col="driverId" onclick="thClick('ord-table','driverId',renderOrdTable)" style="cursor:pointer">Driver</th>
+        <th id="th-whBy" data-col="whBy" onclick="thClick('ord-table','whBy',renderOrdTable)" style="cursor:pointer">WH By</th>
+        <th id="th-whNotes">WH Notes</th>
+        <th id="th-status" data-col="status" onclick="thClick('ord-table','status',renderOrdTable)" style="cursor:pointer">Status</th>
+        <th class="right">Actions</th>
       </tr></thead><tbody id="ord-tbody"></tbody></table>
     </div>
   </div>
@@ -492,7 +504,12 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <input class="inp" id="co-search" placeholder="🔍 Search name, city, postcode, address..." style="flex:1" oninput="renderCompanies()"/>
     <button class="btn btn-ghost btn-sm" id="co-sort-btn" onclick="toggleCoSort()">A → Z</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Company</th><th>City</th><th>Postcode</th><th class="right">Actions</th></tr></thead><tbody id="co-tbody"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table id="co-table"><thead><tr>
+    <th data-col="name" onclick="thClick('co-table','name',renderCompanies)" style="cursor:pointer">Company</th>
+    <th data-col="city" onclick="thClick('co-table','city',renderCompanies)" style="cursor:pointer">City</th>
+    <th data-col="postcode" onclick="thClick('co-table','postcode',renderCompanies)" style="cursor:pointer">Postcode</th>
+    <th class="right">Actions</th>
+  </tr></thead><tbody id="co-tbody"></tbody></table></div></div>
 </div>
 
 <div class="page" id="page-driver">
@@ -1192,7 +1209,33 @@ function clearOrdFilter(key){
   renderOrders();
 }
 
-let ordSortAsc=false; // default newest first
+/* ── TABLE SORT ── */
+const tableSort={};
+function thSort(tableId,col,type){
+  const s=tableSort[tableId]||{col:null,asc:true};
+  if(s.col===col){s.asc=!s.asc;}else{s.col=col;s.asc=true;}
+  tableSort[tableId]=s;
+  // Update header indicators
+  document.querySelectorAll(`#${tableId} th[data-col]`).forEach(th=>{
+    th.querySelector('.sort-ic')&&(th.querySelector('.sort-ic').textContent='');
+    if(th.dataset.col===col){
+      let ic=th.querySelector('.sort-ic');
+      if(!ic){ic=document.createElement('span');ic.className='sort-ic';th.appendChild(ic);}
+      ic.textContent=' '+(s.asc?'▲':'▼');
+    }
+  });
+}
+function sortList(list,tableId,defaultCol,defaultAsc){
+  const s=tableSort[tableId]||{col:defaultCol,asc:defaultAsc};
+  if(!s.col)return list;
+  return list.slice().sort((a,b)=>{
+    let va=a[s.col]||'',vb=b[s.col]||'';
+    if(typeof va==='number'||!isNaN(+va)){va=+va;vb=+vb;return s.asc?va-vb:vb-va;}
+    return s.asc?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va));
+  });
+}
+function thClick(tableId,col,renderFn){thSort(tableId,col);renderFn();}
+ // default newest first
 function toggleOrdSort(){ordSortAsc=!ordSortAsc;const btn=document.getElementById('ord-sort-btn');if(btn)btn.textContent=ordSortAsc?'A → Z':'Z → A';renderOrdTable();}
 function renderOrdTable(){
   let list=S.orders||[];
@@ -1217,7 +1260,7 @@ function renderOrdTable(){
     if(ordF.source.includes('dropoff')&&!ordF.source.includes('driver'))list=list.filter(j=>j.driver==='Customer Drop Off'||j.source==='dropoff');
     else if(ordF.source.includes('driver')&&!ordF.source.includes('dropoff'))list=list.filter(j=>j.driver!=='Customer Drop Off'&&j.source!=='dropoff');
   }
-  list=list.slice().sort((a,b)=>ordSortAsc?a.awb.localeCompare(b.awb):b.awb.localeCompare(a.awb));
+  list=sortList(list,'ord-table','awb',false);
 
   // Active filter tags
   const tags=[];
@@ -1468,7 +1511,7 @@ function renderDispatch(){
   const fb=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px" id="dis-fb">${buildCbDropdown('disStat',statOpts,disF.statuses,'All Statuses')} <button class="dp-btn${disF.dateFrom?' active':''}" id="dis-dp-btn">📅 ${esc(dl)}</button>${disF.dateFrom?`<button class="dp-clear" onclick="disF.dateFrom='';disF.dateTo='';renderDispatch()">\u2715</button>`:''} <button class="btn btn-ghost btn-sm" id="dis-sort-btn" onclick="toggleDisSort()">Z → A</button></div>`;
   const body=document.getElementById('dis-body');
   if(isMob){body.innerHTML=fb+(list.length?list.map(j=>{const canLoad=j.status==='Open'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<div class="mob-card" onclick="viewOrder('${j.id}')"><div class="mob-card-hdr"><span class="mob-card-ref">${esc(j.awb)}</span>${stChip(j.status)}</div><div class="mob-card-body">${esc(j.companyName||'\u2014')}</div><div class="mob-card-sub">${fd(j.deliveryDate)} \u00b7 ${esc(palletStr(j.pallets))}</div><div class="mob-card-foot"><span style="font-size:12px;color:${j.whBy?'var(--brand)':'var(--ink3)'}">WH: ${esc(j.whBy||'\u2014')}</span>${canLoad?`<button class="btn btn-amber btn-sm" onclick="event.stopPropagation();openLoadModal('${j.id}')">📦 Mark Loaded</button>`:''}</div></div>`;}).join(''):'<div class="empty">No dispatch orders</div>');}
-  else{body.innerHTML=fb+`<div class="card"><div class="tbl-wrap"><table><thead><tr><th>REF</th><th>Date</th><th>Customer</th><th>Pallets</th><th>Driver</th><th>Loaded By</th><th>Truck</th><th>Status</th><th class="right">Actions</th></tr></thead><tbody id="dis-tb"></tbody></table></div></div>`;document.getElementById('dis-tb').innerHTML=list.length?list.map(j=>{const canLoad=j.status==='Open'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</td><td>${fd(j.deliveryDate)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div></td><td style="font-size:12px;font-family:'DM Mono',monospace">${esc(palletStr(j.pallets))}</td><td style="font-size:12px">${j.driverId?uname(j.driverId):'<span style="color:var(--ink3)">TBD</span>'}</td><td style="font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td style="font-size:12px;color:var(--ink3)">${esc(j.truckPlate||'\u2014')}</td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap">${canLoad?`<button class="btn btn-amber btn-sm" onclick="openLoadModal('${j.id}')">📦 Load</button> `:''}<button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No dispatch orders</td></tr>';}
+  else{body.innerHTML=fb+`<div class="card"><div class="tbl-wrap"><table id="dis-table"><thead><tr><th data-col="awb" onclick="thClick('dis-table','awb',renderDispatch)" style="cursor:pointer">REF</th><th data-col="deliveryDate" onclick="thClick('dis-table','deliveryDate',renderDispatch)" style="cursor:pointer">Date</th><th data-col="companyName" onclick="thClick('dis-table','companyName',renderDispatch)" style="cursor:pointer">Customer</th><th data-col="totalQty" onclick="thClick('dis-table','totalQty',renderDispatch)" style="cursor:pointer">Pallets</th><th data-col="driverId" onclick="thClick('dis-table','driverId',renderDispatch)" style="cursor:pointer">Driver</th><th data-col="whBy" onclick="thClick('dis-table','whBy',renderDispatch)" style="cursor:pointer">Loaded By</th><th>Truck</th><th data-col="status" onclick="thClick('dis-table','status',renderDispatch)" style="cursor:pointer">Status</th><th class="right">Actions</th></tr></thead><tbody id="dis-tb"></tbody></table></div></div>`;document.getElementById('dis-tb').innerHTML=list.length?list.map(j=>{const canLoad=j.status==='Open'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</td><td>${fd(j.deliveryDate)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div></td><td style="font-size:12px;font-family:'DM Mono',monospace">${esc(palletStr(j.pallets))}</td><td style="font-size:12px">${j.driverId?uname(j.driverId):'<span style="color:var(--ink3)">TBD</span>'}</td><td style="font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td style="font-size:12px;color:var(--ink3)">${esc(j.truckPlate||'\u2014')}</td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap">${canLoad?`<button class="btn btn-amber btn-sm" onclick="openLoadModal('${j.id}')">📦 Load</button> `:''}<button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No dispatch orders</td></tr>';}
   bindCbDropdown('disStat',statOpts,v=>{disF.statuses=v;renderDispatch();});
   const dpb=document.getElementById('dis-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(disF.dateFrom,disF.dateTo,(f,t)=>{disF.dateFrom=f;disF.dateTo=t;renderDispatch();});
 }
@@ -1523,7 +1566,7 @@ function renderReceiving(){
   const fb=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px" id="rec-fb">${buildCbDropdown('recStat',statOpts,recF.statuses,'All Statuses')} <button class="dp-btn${recF.dateFrom?' active':''}" id="rec-dp-btn">📅 ${esc(dl)}</button>${recF.dateFrom?`<button class="dp-clear" onclick="recF.dateFrom='';recF.dateTo='';renderReceiving()">\u2715</button>`:''} <button class="btn btn-ghost btn-sm" id="rec-sort-btn" onclick="toggleRecSort()">Z → A</button></div>`;
   const body=document.getElementById('rec-body');
   if(isMob){body.innerHTML=fb+(list.length?list.map(j=>{const canAW=j.status==='Collected'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const canC=j.status==='Delivered'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<div class="mob-card" onclick="viewOrder('${j.id}')"><div class="mob-card-hdr"><span class="mob-card-ref">${esc(j.awb)}</span>${stChip(j.status)}</div><div class="mob-card-body">${esc(j.companyName||'\u2014')}</div><div class="mob-card-sub">${fd(j.deliveryDate)} \u00b7 ${esc(palletStr(j.pallets))} \u00b7 ${j.driver==='Customer Drop Off'?'Drop-off':j.driverId?uname(j.driverId):'\u2014'}</div><div class="mob-card-foot"><span style="font-size:12px;color:${j.whBy?'var(--brand)':'var(--ink3)'}">WH: ${esc(j.whBy||'\u2014')}</span><div style="display:flex;gap:6px">${canAW?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();setOrdStatus('${j.id}','Delivered')">At WH</button>`:''}${canC?`<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openCompleteRecModal('${j.id}')">✓ Complete</button>`:''}</div></div></div>`;}).join(''):'<div class="empty">No collection orders</div>');}
-  else{body.innerHTML=fb+`<div class="card"><div class="tbl-wrap"><table><thead><tr><th>REF</th><th>Date</th><th>Supplier</th><th>Pallets</th><th>Driver/Source</th><th>WH By</th><th>Condition</th><th>Status</th><th class="right">Actions</th></tr></thead><tbody id="rec-tb"></tbody></table></div></div>`;document.getElementById('rec-tb').innerHTML=list.length?list.map(j=>{const canAW=j.status==='Collected'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const canC=j.status==='Delivered'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const src=j.driver==='Customer Drop Off'?`<span class="chip chip-blue" style="font-size:10px">Drop-off</span>`:(j.driverId?uname(j.driverId):'\u2014');return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</td><td>${fd(j.deliveryDate)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div></td><td style="font-size:12px;font-family:'DM Mono',monospace">${esc(palletStr(j.pallets))}</td><td style="font-size:12px">${src}</td><td style="font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td><span class="chip ${j.condition==='Good'?'chip-green':j.condition==='Damaged'?'chip-red':'chip-gray'}" style="font-size:10px">${esc(j.condition||'\u2014')}</span></td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap">${canAW?`<button class="btn btn-ghost btn-sm" onclick="setOrdStatus('${j.id}','Delivered')">At WH</button> `:''}${canC?`<button class="btn btn-primary btn-sm" onclick="openCompleteRecModal('${j.id}')">✓ Complete</button> `:''}<button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No collection orders</td></tr>';}
+  else{body.innerHTML=fb+`<div class="card"><div class="tbl-wrap"><table id="rec-table"><thead><tr><th data-col="awb" onclick="thClick('rec-table','awb',renderReceiving)" style="cursor:pointer">REF</th><th data-col="deliveryDate" onclick="thClick('rec-table','deliveryDate',renderReceiving)" style="cursor:pointer">Date</th><th data-col="companyName" onclick="thClick('rec-table','companyName',renderReceiving)" style="cursor:pointer">Supplier</th><th data-col="totalQty" onclick="thClick('rec-table','totalQty',renderReceiving)" style="cursor:pointer">Pallets</th><th>Driver/Source</th><th data-col="whBy" onclick="thClick('rec-table','whBy',renderReceiving)" style="cursor:pointer">WH By</th><th data-col="condition" onclick="thClick('rec-table','condition',renderReceiving)" style="cursor:pointer">Condition</th><th data-col="status" onclick="thClick('rec-table','status',renderReceiving)" style="cursor:pointer">Status</th><th class="right">Actions</th></tr></thead><tbody id="rec-tb"></tbody></table></div></div>`;document.getElementById('rec-tb').innerHTML=list.length?list.map(j=>{const canAW=j.status==='Collected'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const canC=j.status==='Delivered'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const src=j.driver==='Customer Drop Off'?`<span class="chip chip-blue" style="font-size:10px">Drop-off</span>`:(j.driverId?uname(j.driverId):'\u2014');return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</td><td>${fd(j.deliveryDate)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div></td><td style="font-size:12px;font-family:'DM Mono',monospace">${esc(palletStr(j.pallets))}</td><td style="font-size:12px">${src}</td><td style="font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td><span class="chip ${j.condition==='Good'?'chip-green':j.condition==='Damaged'?'chip-red':'chip-gray'}" style="font-size:10px">${esc(j.condition||'\u2014')}</span></td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap">${canAW?`<button class="btn btn-ghost btn-sm" onclick="setOrdStatus('${j.id}','Delivered')">At WH</button> `:''}${canC?`<button class="btn btn-primary btn-sm" onclick="openCompleteRecModal('${j.id}')">✓ Complete</button> `:''}<button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No collection orders</td></tr>';}
   bindCbDropdown('recStat',statOpts,v=>{recF.statuses=v;renderReceiving();});
   const dpb=document.getElementById('rec-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(recF.dateFrom,recF.dateTo,(f,t)=>{recF.dateFrom=f;recF.dateTo=t;renderReceiving();});
 }
@@ -1828,7 +1871,7 @@ function renderCompanies(){
   const q=(document.getElementById('co-search')?.value||'').toLowerCase();
   let list=S.companies||[];
   if(q)list=list.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.city||'').toLowerCase().includes(q)||(c.postcode||'').toLowerCase().includes(q)||(c.address||'').toLowerCase().includes(q));
-  list=list.slice().sort((a,b)=>coSortAsc?(a.name||'').localeCompare(b.name||''):(b.name||'').localeCompare(a.name||''));
+  list=sortList(list,'co-table','name',true);
   document.getElementById('co-tbody').innerHTML=list.length?list.map(c=>`<tr><td><div style="font-weight:700">${esc(c.name)}</div><div style="font-size:11px;color:var(--ink3)">${esc(c.address||'')}</div></td><td>${esc(c.city||'\u2014')}</td><td style="font-family:'DM Mono',monospace;font-size:12px">${esc(c.postcode||'\u2014')}</td><td class="right"><button class="btn btn-ghost btn-sm" onclick="editCompany('${c.id}')">Edit</button> <button class="btn btn-danger btn-sm" onclick="delCo('${c.id}')">Delete</button></td></tr>`).join(''):`<tr><td colspan="4" class="empty">No companies found</td></tr>`;
 }
 function openCompanyModal(){document.getElementById('cf-name').value='';document.getElementById('cf-addr').value='';document.getElementById('cf-city').value='';document.getElementById('cf-post').value='';document.getElementById('cf-id').value='';document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display='none';document.getElementById('co-modal-title').textContent='Add Company';_inlineCoCb=null;openM('m-company');}
