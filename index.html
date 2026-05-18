@@ -355,9 +355,13 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="ord-filters"></div>
       <div id="ord-active-tags" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 0 6px;margin-top:6px"></div>
     </div>
+    <div style="padding:8px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px">Columns:</span>
+      ${['orderRef','type','company','date','pallets','driver','whBy','whNotes','status'].map(c=>`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="col-${c}" checked onchange="renderOrdTable()"/> ${c==='orderRef'?'Order Ref':c==='whBy'?'WH By':c==='whNotes'?'WH Notes':c.charAt(0).toUpperCase()+c.slice(1)}</label>`).join('')}
+    </div>
     <div class="tbl-wrap">
-      <table><thead><tr>
-        <th>REF</th><th>Type</th><th>Company</th><th>Date</th><th>Pallets</th><th>Driver</th><th>WH By</th><th>WH Notes</th><th>Status</th><th class="right">Actions</th>
+      <table><thead id="ord-thead"><tr>
+        <th>AWB</th><th id="th-orderRef">Order Ref</th><th id="th-type">Type</th><th id="th-company">Company</th><th id="th-date">Date</th><th id="th-pallets">Pallets</th><th id="th-driver">Driver</th><th id="th-whBy">WH By</th><th id="th-whNotes">WH Notes</th><th id="th-status">Status</th><th class="right">Actions</th>
       </tr></thead><tbody id="ord-tbody"></tbody></table>
     </div>
   </div>
@@ -1202,11 +1206,27 @@ function renderOrdTable(){
       :'';
   }
   const tb=document.getElementById('ord-tbody');
-  if(!list.length){tb.innerHTML=`<tr><td colspan="10" class="empty">No orders found</td></tr>`;return;}
+  if(!list.length){tb.innerHTML=`<tr><td colspan="11" class="empty">No orders found</td></tr>`;return;}
+  const col=c=>{const el=document.getElementById(`col-${c}`);return!el||el.checked!==false;};
+  ['orderRef','type','company','date','pallets','driver','whBy','whNotes','status'].forEach(c=>{
+    const th=document.getElementById(`th-${c}`);if(th)th.style.display=col(c)?'':'none';
+  });
   tb.innerHTML=list.map(j=>{
     const ps=palletStr(j.pallets);
     const whn=(j.whChanges||[]).length?(j.whChanges||[]).map(c=>`${c.label}: ${c.value}`).join(' \u00b7 '):'\u2014';
-    return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</td><td>${typeChip(j.type)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td><td>${fd(j.deliveryDate)}</td><td style="font-size:12px;font-family:'DM Mono',monospace">${esc(ps)}</td><td style="font-size:12px">${j.driverId?uname(j.driverId):j.driver||'\u2014'}</td><td style="font-size:12px;font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td style="font-size:11px;color:var(--ink3);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(whn)}">${esc(whn)}</td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>${isAdmin()?` <button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`:''}</td></tr>`;
+    return`<tr>
+      <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</td>
+      ${col('orderRef')?`<td style="font-size:12px;color:var(--ink2)">${esc(j.orderRef||'\u2014')}</td>`:''}
+      ${col('type')?`<td>${typeChip(j.type)}</td>`:''}
+      ${col('company')?`<td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td>`:''}
+      ${col('date')?`<td>${fd(j.deliveryDate)}</td>`:''}
+      ${col('pallets')?`<td style="font-size:12px;font-family:'DM Mono',monospace">${esc(ps)}</td>`:''}
+      ${col('driver')?`<td style="font-size:12px">${j.driverId?uname(j.driverId):j.driver||'\u2014'}</td>`:''}
+      ${col('whBy')?`<td style="font-size:12px;font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td>`:''}
+      ${col('whNotes')?`<td style="font-size:11px;color:var(--ink3);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(whn)}">${esc(whn)}</td>`:''}
+      ${col('status')?`<td>${stChip(j.status)}</td>`:''}
+      <td class="right" style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>${isAdmin()?` <button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`:''}</td>
+    </tr>`;
   }).join('');
 }
 
