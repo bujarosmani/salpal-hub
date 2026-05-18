@@ -1132,7 +1132,25 @@ function setupNav(){
   if((r==='Admin'||r==='Manager')&&svt)svt.innerHTML=`<div style="margin-bottom:10px"><div class="flabel" style="margin-bottom:6px">View Mode</div><div class="view-toggle" style="width:100%"><button class="vt-btn on" style="flex:1" id="vt-d2" onclick="setView('desktop')">🖥 Desktop</button><button class="vt-btn" style="flex:1" id="vt-m2" onclick="setView('mobile')">📱 Mobile</button></div></div>`;
 }
 function setView(v){currentView=v;['vt-d','vt-d2'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('on',v==='desktop');});['vt-m','vt-m2'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('on',v==='mobile');});const pg=document.querySelector('.page.on');if(pg)renderPage(pg.id.replace('page-',''));}
-function goTo(page){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('on'));const pg=document.getElementById('page-'+page);if(pg)pg.classList.add('on');document.querySelectorAll(`.sb-btn[data-p="${page}"]`).forEach(b=>b.classList.add('on'));closeMob();renderPage(page);}
+function resetPageFilters(page){
+  if(page==='orders'){ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('ord-search');if(s)s.value='';tableSort['ord-table']=null;}
+  if(page==='dispatch'){disF={statuses:null,dateFrom:'',dateTo:''};const s=document.getElementById('dis-search');if(s)s.value='';tableSort['dis-table']=null;}
+  if(page==='receiving'){recF={statuses:null,dateFrom:'',dateTo:''};const s=document.getElementById('rec-search');if(s)s.value='';tableSort['rec-table']=null;}
+  if(page==='repairs'){const s=document.getElementById('rep-search');if(s)s.value='';}
+  if(page==='sorting'){const s=document.getElementById('srt-search');if(s)s.value='';}
+  if(page==='companies'){coSortAsc=true;const s=document.getElementById('co-search');if(s)s.value='';tableSort['co-table']=null;}
+  if(page==='stock'){ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null};}
+}
+let currentPage=null;
+function goTo(page){
+  if(currentPage&&currentPage!==page)resetPageFilters(currentPage);
+  currentPage=page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('on'));
+  const pg=document.getElementById('page-'+page);if(pg)pg.classList.add('on');
+  document.querySelectorAll(`.sb-btn[data-p="${page}"]`).forEach(b=>b.classList.add('on'));
+  closeMob();renderPage(page);
+}
 function renderPage(p){if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch')renderDispatch();else if(p==='receiving')renderReceiving();else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='driver')renderDriver();}
 document.querySelectorAll('.sb-btn[data-p]').forEach(btn=>{btn.onclick=()=>goTo(btn.dataset.p);});
 document.getElementById('ham-btn').onclick=()=>{document.getElementById('sidebar').classList.add('open');document.getElementById('mob-overlay').classList.add('open');};
