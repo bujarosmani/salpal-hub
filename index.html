@@ -639,8 +639,12 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
         </div>
       </div>
       <div class="div"></div>
-      <div class="sec-row"><div class="sec-title">Pallets</div><button class="btn btn-ghost btn-sm" type="button" onclick="addPltLine('do-lines')">+ Add Line</button></div>
+      <div class="sec-row"><div class="sec-title">Pallets</div><button class="btn btn-ghost btn-sm" type="button" onclick="addPltLine('do-lines');updateDoTotal()">+ Add Line</button></div>
       <div id="do-lines"></div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px;padding:8px 12px;background:var(--panel2);border-radius:9px;border:1.5px solid var(--line2)">
+        <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:700">Total Pallets</span>
+        <span id="do-total" style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--brand)">0</span>
+      </div>
       <div class="fwrap" style="margin-top:12px"><label class="flabel">Notes</label><textarea class="inp" id="do-notes" rows="2"></textarea></div>
             <div class="ferr" id="do-err"></div>
     </div>
@@ -1503,6 +1507,7 @@ function openDropoffModal(){
   ['do-truck','do-trailer','do-ref','do-addr','do-city','do-post','do-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('do-cond').value='';document.getElementById('do-co-search').value='';document.getElementById('do-co-id').value='';document.getElementById('do-co-dd').classList.remove('open');document.getElementById('do-err').textContent='';
   document.getElementById('do-lines').innerHTML='';addPltLine('do-lines');
+  const doTot=document.getElementById('do-total');if(doTot)doTot.textContent='0';
   initCanvas('do-canvas');
   bindCoSearch('do-co-search','do-co-dd',co=>{document.getElementById('do-co-id').value=co.id;document.getElementById('do-addr').value=co.address||'';document.getElementById('do-city').value=co.city||'';document.getElementById('do-post').value=co.postcode||'';});
   openM('m-dropoff');
@@ -1528,9 +1533,55 @@ let RF={sup:'',rep:'',cls:''};
 function repTab(name,btn){const page=document.getElementById('page-repairs');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`rep-${name}`).classList.add('on');renderRepTab(name);}
 function renderRepairs(){const tr=(S.repairs||[]).filter(r=>isToday(r.date));const tot=tr.reduce((s,r)=>s+(r.qty||0),0);document.getElementById('rep-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Today</div></div><div class="stat-box"><div class="stat-num">${tr.length}</div><div class="stat-lbl">Entries</div></div><div class="stat-box"><div class="stat-num">${(S.repairs||[]).reduce((s,r)=>s+(r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div>`;renderRepTab('today');}
 function renderRepTab(name){
-  if(name==='today'){const tr=(S.repairs||[]).filter(r=>isToday(r.date));document.getElementById('rep-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div>${skuBadge(r.pallet_class,true)}</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand);margin-top:6px">${r.qty} repaired</div></div>`).join(''):'<div class="empty">No repairs today</div>';}
-  if(name==='history'){const grp={};(S.repairs||[]).forEach(r=>{const d=r.date.slice(0,10);if(!grp[d])grp[d]=[];grp[d].push(r);});document.getElementById('rep-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort().reverse().map(day=>{const rs=grp[day],dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right">${skuBadge(r.pallet_class)}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>';}
+  const adminEdit=isAdmin()?true:false;
+  if(name==='today'){const tr=(S.repairs||[]).filter(r=>isToday(r.date));document.getElementById('rep-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class,true)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}</div></div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand);margin-top:6px">${r.qty} repaired · from ${esc(r.src||r.pallet_class||'—')}</div></div>`).join(''):'<div class="empty">No repairs today</div>';}
+  if(name==='history'){const grp={};(S.repairs||[]).forEach(r=>{const d=r.date.slice(0,10);if(!grp[d])grp[d]=[];grp[d].push(r);});document.getElementById('rep-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort().reverse().map(day=>{const rs=grp[day],dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right;display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>';}
   if(name==='manager'){const tot=(S.repairs||[]).reduce((s,r)=>s+(r.qty||0),0);const byw=REPAIRERS.map(n=>({n,t:(S.repairs||[]).filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0).sort((a,b)=>b.t-a.t);const byc=getSKUS().map(c=>({c,t:(S.repairs||[]).filter(r=>r.pallet_class===c).reduce((s,r)=>s+(r.qty||0),0)})).filter(x=>x.t>0);document.getElementById('rep-manager').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px"><div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Total Repaired</div></div><div class="stat-box"><div class="stat-num">${(S.repairs||[]).length}</div><div class="stat-lbl">Total Entries</div></div></div>${byw.length?`<div class="sec-title" style="margin-bottom:10px">By Worker</div><div class="card" style="margin-bottom:16px">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)"><span style="font-weight:600">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join('')}</div>`:''}${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${x.t}</span></div>`).join('')}</div>`:''}`;}}
+
+function editRepair(id){
+  const r=(S.repairs||[]).find(x=>x.id===id);if(!r)return;
+  RF={sup:r.supervisor||'',rep:r.repairer||'',cls:r.pallet_class||'',src:r.src||''};
+  renderRepPickers();
+  document.getElementById('rep-qty').value=r.qty||'';
+  document.querySelectorAll('.qty-pre').forEach(b=>b.classList.remove('sel'));
+  const warn=document.getElementById('rep-warn');if(warn){warn.style.display='none';warn.innerHTML='';}
+  const btn=document.querySelector('#m-repair .btn-primary');
+  if(btn){btn.textContent='✓ Update';btn.onclick=()=>saveRepairEdit(id,false);}
+  openM('m-repair');
+}
+
+function saveRepairEdit(id,force){
+  const qty=parseInt(document.getElementById('rep-qty').value);
+  if(!RF.sup||!RF.rep||!RF.cls||!RF.src||!qty){toast('Fill all fields','err');return;}
+  const r=(S.repairs||[]).find(x=>x.id===id);if(!r)return;
+  // Reverse old stock transfer
+  if(!S.stock)S.stock={};
+  if(S.stock[r.pallet_class]!==undefined)S.stock[r.pallet_class]-=r.qty;
+  const oldSrc=r.src||'Defected';
+  if(S.stock[oldSrc]!==undefined)S.stock[oldSrc]+=r.qty;
+  // Apply new stock transfer
+  if(!force){
+    const defectedStock=(S.stock[RF.src])||0;
+    if(qty>defectedStock){
+      const short=qty-defectedStock;
+      const warn=document.getElementById('rep-warn');
+      if(warn){warn.style.display='';warn.innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:12px 14px"><div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px">⚠ ${RF.src} stock: ${defectedStock} available, ${qty} needed (${short} short).<br>Proceed?</div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="saveRepairEdit('${id}',true)">✓ Yes</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('rep-warn').style.display='none'">✕ No</button></div></div>`;}
+      // Restore old stock since we reversed it
+      S.stock[r.pallet_class]+=r.qty;
+      if(S.stock[oldSrc]!==undefined)S.stock[oldSrc]-=r.qty;
+      return;
+    }
+  }
+  if(!S.stock[RF.cls])S.stock[RF.cls]=0;
+  S.stock[RF.cls]+=qty;
+  if(!S.stock[RF.src])S.stock[RF.src]=0;
+  S.stock[RF.src]-=qty;
+  // Update record
+  r.supervisor=RF.sup;r.repairer=RF.rep;r.pallet_class=RF.cls;r.src=RF.src;r.qty=qty;
+  addLedger('Repair',r.id,RF.cls,'in',qty,`Edited repair by ${RF.rep}`);
+  addLedger('Repair',r.id,RF.src,'out',qty,`Edited repair \u2192 ${RF.cls}`);
+  persist();toast('Repair updated');closeM('m-repair');renderRepairs();
+}
 function openRepairModal(){
   RF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',rep:'',cls:'',src:''};
   renderRepPickers();
@@ -1803,12 +1854,13 @@ function renderSorting(){
 function renderSrtTab(name){
   const fmtPallets=r=>(r.pallets||[]).map(p=>skuBadge(p.cls)+` ×${p.qty}`).join('  ');
   const totQty=r=>r.totalQty||(r.pallets||[]).reduce((s,p)=>s+(p.qty||0),0);
+  const adminEdit=isAdmin();
   if(name==='today'){
     const tr=(S.sortings||[]).filter(r=>isToday(r.date));
     document.getElementById('srt-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-        <div><div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} · ${esc(r.supervisor)}</div></div>
-        <span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--blue)">${totQty(r)}</span>
+        <div><div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} · ${esc(r.supervisor)}${r.orderRef?` · ${esc(r.orderRef)}`:''}</div></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--blue)">${totQty(r)}</span>${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editSorting('${r.id}')">Edit</button>`:''}</div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">${(r.pallets||[]).map(p=>`<span>${skuBadge(p.cls,true)} <span style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800">×${p.qty}</span></span>`).join('')}</div>
     </div>`).join(''):'<div class="empty">No sorting today</div>';
@@ -1818,7 +1870,7 @@ function renderSrtTab(name){
     document.getElementById('srt-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort().reverse().map(day=>{
       const rs=grp[day],dt=rs.reduce((s,r)=>s+totQty(r),0);
       return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--blue);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} sorted</span></div>`+
-        rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div><div style="font-weight:700;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} · ${esc(r.supervisor)}</div></div><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--blue)">${totQty(r)}</span></div><div style="display:flex;flex-wrap:wrap;gap:6px">${(r.pallets||[]).map(p=>`<span>${skuBadge(p.cls)} <span style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800">×${p.qty}</span></span>`).join('')}</div></div>`).join('');
+        rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div><div style="font-weight:700;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} · ${esc(r.supervisor)}${r.orderRef?` · ${esc(r.orderRef)}`:''}</div></div><div style="display:flex;align-items:center;gap:8px"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--blue)">${totQty(r)}</span>${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editSorting('${r.id}')">Edit</button>`:''}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px">${(r.pallets||[]).map(p=>`<span>${skuBadge(p.cls)} <span style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800">×${p.qty}</span></span>`).join('')}</div></div>`).join('');
     }).join(''):'<div class="empty">No sorting yet</div>';
   }
   if(name==='manager'){
@@ -1831,6 +1883,64 @@ function renderSrtTab(name){
       ${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--blue)">${x.t}</span></div>`).join('')}</div>`:''}
     `;
   }
+}
+function editSorting(id){
+  const r=(S.sortings||[]).find(x=>x.id===id);if(!r)return;
+  SF={sup:r.supervisor||'',sorters:[...(r.sorters||[])]};
+  renderSrtPickers();
+  // Pre-fill order ref
+  const sel=document.getElementById('srt-order-ref');
+  if(sel){
+    // Rebuild dropdown then set value
+    openSortModal();
+    SF={sup:r.supervisor||'',sorters:[...(r.sorters||[])]};
+    renderSrtPickers();
+    setTimeout(()=>{
+      if(sel)sel.value=r.orderRef||'';
+      if(r.orderRef)onSrtOrderChange();
+    },50);
+  }
+  // Pre-fill pallet lines
+  document.getElementById('srt-lines').innerHTML='';
+  (r.pallets||[]).forEach(p=>addPltLine('srt-lines',p.cls,p.qty));
+  const warn=document.getElementById('srt-warn');if(warn){warn.style.display='none';warn.innerHTML='';}
+  const info=document.getElementById('srt-order-info');if(info)info.style.display='none';
+  const btn=document.querySelector('#m-sort .btn-primary');
+  if(btn){btn.textContent='✓ Update';btn.onclick=()=>saveSortingEdit(id,false);}
+  openM('m-sort');
+}
+
+function saveSortingEdit(id,force){
+  if(!SF.sup||!SF.sorters.length){toast('Select supervisor and at least one sorter','err');return;}
+  const pallets=getLines('srt-lines');
+  if(!pallets.length){toast('Add at least one pallet line','err');return;}
+  const totalQty=pallets.reduce((s,p)=>s+(p.qty||0),0);
+  const r=(S.sortings||[]).find(x=>x.id===id);if(!r)return;
+  if(!force){
+    const unsortedStock=(S.stock&&S.stock['Unsorted'])||0;
+    if(totalQty>unsortedStock){
+      const short=totalQty-unsortedStock;
+      const warn=document.getElementById('srt-warn');
+      if(warn){warn.style.display='';warn.innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:12px 14px"><div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px">⚠ Unsorted stock: ${unsortedStock} available, ${totalQty} needed (${short} short).<br>Proceed?</div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="saveSortingEdit('${id}',true)">✓ Yes</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('srt-warn').style.display='none'">✕ No</button></div></div>`;}
+      return;
+    }
+  }
+  // Reverse old stock transfer
+  if(!S.stock)S.stock={};
+  (r.pallets||[]).forEach(p=>{
+    if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;
+    if(S.stock['Unsorted']!==undefined)S.stock['Unsorted']+=p.qty;
+  });
+  // Apply new
+  const orderRef=document.getElementById('srt-order-ref').value;
+  r.supervisor=SF.sup;r.sorters=[...SF.sorters];r.pallets=pallets;r.totalQty=totalQty;r.orderRef=orderRef||'';
+  pallets.forEach(p=>{
+    if(!S.stock[p.cls])S.stock[p.cls]=0;
+    S.stock[p.cls]+=p.qty;
+    if(!S.stock['Unsorted'])S.stock['Unsorted']=0;
+    S.stock['Unsorted']-=p.qty;
+  });
+  persist();toast('Sorting updated');closeM('m-sort');renderSorting();renderDash();
 }
 function openSortModal(){
   SF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',sorters:[]};
@@ -2112,17 +2222,24 @@ function renderReorder(){
   });
 }
 
+function updateDoTotal(){
+  const total=getLines('do-lines').reduce((s,p)=>s+p.qty,0);
+  const el=document.getElementById('do-total');if(el)el.textContent=total;
+}
 function addPltLine(cid,cls,qty){
   cls=cls||'';qty=qty||'';
   const c=document.getElementById(cid);if(!c)return;
   const d=document.createElement('div');d.className='plt-line';
-  d.innerHTML=`<select class="inp"><option value="">— Class —</option>${getSKUS().map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800"/><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove()">−</button>`;
+  d.innerHTML=`<select class="inp"><option value="">— Class —</option>${getSKUS().map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800"/><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove();${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}">−</button>`;
   c.appendChild(d);
-  // Only trigger srt live counter if in sorting context
   if(cid==='srt-lines'){
     d.querySelector('select').addEventListener('change',onSrtLinesChange);
     d.querySelector('input').addEventListener('input',onSrtLinesChange);
     d.querySelector('.rm-btn').addEventListener('click',onSrtLinesChange);
+  }
+  if(cid==='do-lines'){
+    d.querySelector('select').addEventListener('change',updateDoTotal);
+    d.querySelector('input').addEventListener('input',updateDoTotal);
   }
 }
 function getLines(cid){
