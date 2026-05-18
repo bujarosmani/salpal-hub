@@ -718,6 +718,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
         <input class="qty-big" type="number" id="rep-qty" min="1" max="500" placeholder="0"/>
         <div class="qty-presets"><button class="qty-pre" type="button" onclick="setRepQty(15)">15</button><button class="qty-pre" type="button" onclick="setRepQty(25)">25</button><button class="qty-pre" type="button" onclick="setRepQty(30)">30</button></div>
       </div>
+      <div class="fwrap"><label class="flabel">Date *</label><input class="inp" type="date" id="rep-date"/></div>
       <div id="rep-warn" style="display:none;margin-bottom:10px"></div>
     </div>
     <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-repair')">Cancel</button><button class="btn btn-primary" onclick="saveRepair(false)">✓ Save</button></div>
@@ -1662,6 +1663,7 @@ function editRepair(id){
   RF={sup:r.supervisor||'',rep:r.repairer||'',cls:r.pallet_class||'',src:r.src||''};
   renderRepPickers();
   document.getElementById('rep-qty').value=r.qty||'';
+  document.getElementById('rep-date').value=r.date?r.date.slice(0,10):new Date().toISOString().slice(0,10);
   document.querySelectorAll('.qty-pre').forEach(b=>b.classList.remove('sel'));
   const warn=document.getElementById('rep-warn');if(warn){warn.style.display='none';warn.innerHTML='';}
   const btn=document.querySelector('#m-repair .btn-primary');
@@ -1696,7 +1698,9 @@ function saveRepairEdit(id,force){
   if(!S.stock[RF.src])S.stock[RF.src]=0;
   S.stock[RF.src]-=qty;
   // Update record
+  const editRepDate=document.getElementById('rep-date').value;
   r.supervisor=RF.sup;r.repairer=RF.rep;r.pallet_class=RF.cls;r.src=RF.src;r.qty=qty;
+  if(editRepDate)r.date=new Date(editRepDate).toISOString();
   addLedger('Repair',r.id,RF.cls,'in',qty,`Edited repair by ${RF.rep}`);
   addLedger('Repair',r.id,RF.src,'out',qty,`Edited repair \u2192 ${RF.cls}`);
   persist();toast('Repair updated');closeM('m-repair');renderRepairs();
@@ -1705,6 +1709,7 @@ function openRepairModal(){
   RF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',rep:'',cls:'',src:''};
   renderRepPickers();
   document.getElementById('rep-qty').value='';
+  document.getElementById('rep-date').value=new Date().toISOString().slice(0,10);
   document.querySelectorAll('.qty-pre').forEach(b=>b.classList.remove('sel'));
   const btn=document.querySelector('#m-repair .btn-primary');
   if(btn){btn.textContent='✓ Save';btn.onclick=()=>saveRepair(false);}
@@ -1746,7 +1751,8 @@ function saveRepair(force){
   const btn=document.querySelector('#m-repair .btn-primary');
   if(btn){btn.textContent='✓ Save';btn.onclick=()=>saveRepair(false);}
   const warnEl=document.getElementById('rep-warn');if(warnEl){warnEl.style.display='none';}
-  const rec={id:mkId(),supervisor:RF.sup,repairer:RF.rep,pallet_class:RF.cls,qty,date:new Date().toISOString()};
+  const repDate=document.getElementById('rep-date').value;
+  const rec={id:mkId(),supervisor:RF.sup,repairer:RF.rep,pallet_class:RF.cls,src:RF.src,qty,date:repDate?new Date(repDate).toISOString():new Date().toISOString()};
   if(!S.repairs)S.repairs=[];
   S.repairs.unshift(rec);
   // Stock transfer: RF.src (Defected/Euro Defect/K Defect) → specific class
