@@ -302,6 +302,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <div class="sb-sec-lbl">Admin</div>
     <button class="sb-btn" data-p="users"><span class="ic">👥</span>Users</button>
     <button class="sb-btn" data-p="companies"><span class="ic">🏢</span>Companies</button>
+    <button class="sb-btn" data-p="bin"><span class="ic">🗑</span>Recycle Bin</button>
   </div>
   <div class="sb-sec" id="nav-driver" style="display:none">
     <div class="sb-sec-lbl">My Work</div>
@@ -456,6 +457,18 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 <div class="page" id="page-calendar">
   <div class="phdr"><div><div class="ptitle">Driver Calendar</div></div></div>
   <div id="cal-container"></div>
+</div>
+
+<div class="page" id="page-bin">
+  <div class="phdr"><div><div class="ptitle">Recycle Bin</div><div class="psub">Deleted items — restore or permanently delete</div></div></div>
+  <div class="card">
+    <div class="card-hdr"><span class="card-hdr-title">Deleted Items</span></div>
+    <div class="tbl-wrap">
+      <table><thead><tr>
+        <th>Type</th><th>Name / Reference</th><th>Deleted By</th><th>Deleted At</th><th class="right">Actions</th>
+      </tr></thead><tbody id="bin-tbody"></tbody></table>
+    </div>
+  </div>
 </div>
 
 <div class="page" id="page-users">
@@ -851,10 +864,10 @@ function syncCloud(){
 async function loadCloud(){
   try{
     setSS('syncing');
-    const [orders,repairs,sortings,users,companies,ledger,stock,products]=await Promise.all([
+    const [orders,repairs,sortings,users,companies,ledger,stock,products,deleted]=await Promise.all([
       sbGet('sp_orders'),sbGet('sp_repairs'),sbGet('sp_sortings'),
       sbGet('sp_users'),sbGet('sp_companies'),sbGet('sp_ledger'),
-      sbGet('sp_stock'),sbGet('sp_products')
+      sbGet('sp_stock'),sbGet('sp_products'),sbGet('sp_deleted')
     ]);
     // Only overwrite users if Supabase has user data (prevents lockout on network failure)
     if(users&&users.length>0)S.users=users.map(r=>r.data).filter(Boolean);
@@ -865,6 +878,7 @@ async function loadCloud(){
     if(ledger&&ledger.length)S.ledger=ledger.map(r=>r.data).filter(Boolean);
     if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;}
     if(products&&products.length){const pr=products.find(r=>r.id==='__products');if(pr)S.products=pr.data;}
+    if(deleted&&deleted.length)S.bin=deleted.map(r=>r.data).filter(Boolean);
     localStorage.setItem(SKEY,JSON.stringify(S));
     setSS('ok');
   }catch(e){setSS('error');}
@@ -1083,7 +1097,7 @@ function setupNav(){
 }
 function setView(v){currentView=v;['vt-d','vt-d2'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('on',v==='desktop');});['vt-m','vt-m2'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('on',v==='mobile');});const pg=document.querySelector('.page.on');if(pg)renderPage(pg.id.replace('page-',''));}
 function goTo(page){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('on'));const pg=document.getElementById('page-'+page);if(pg)pg.classList.add('on');document.querySelectorAll(`.sb-btn[data-p="${page}"]`).forEach(b=>b.classList.add('on'));closeMob();renderPage(page);}
-function renderPage(p){if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch')renderDispatch();else if(p==='receiving')renderReceiving();else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='driver')renderDriver();}
+function renderPage(p){if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch')renderDispatch();else if(p==='receiving')renderReceiving();else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='driver')renderDriver();}
 document.querySelectorAll('.sb-btn[data-p]').forEach(btn=>{btn.onclick=()=>goTo(btn.dataset.p);});
 document.getElementById('ham-btn').onclick=()=>{document.getElementById('sidebar').classList.add('open');document.getElementById('mob-overlay').classList.add('open');};
 document.getElementById('mob-overlay').onclick=closeMob;
@@ -1359,11 +1373,11 @@ function deleteOrder(){
   const id=document.getElementById('of-edit-id').value;
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   confirmDelete('of-err',j.awb,()=>{
+    sendToBin('order',id,j.awb,j);
     S.orders=(S.orders||[]).filter(x=>x.id!==id);
     persist();
-    // Also delete from Supabase
     fetch(`${SB_URL}/rest/v1/sp_orders?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
-    toast('Order deleted');closeM('m-order');renderOrders();
+    toast('Order moved to recycle bin');closeM('m-order');renderOrders();
   });
 }
 
@@ -1689,10 +1703,11 @@ function delUser(id){
   const u=(S.users||[]).find(x=>x.id===id);if(!u)return;
   if(u.role==='Admin'&&(S.users||[]).filter(x=>x.role==='Admin').length<=1){toast('Need at least 1 admin','err');return;}
   confirmDelete('uf-err',u.firstName+' '+u.lastName,()=>{
+    sendToBin('user',id,`${u.firstName} ${u.lastName}`,u);
     S.users=(S.users||[]).filter(x=>x.id!==id);
     persist();
     fetch(`${SB_URL}/rest/v1/sp_users?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
-    toast('User deleted');closeM('m-user');renderUsers();
+    toast('User moved to recycle bin');closeM('m-user');renderUsers();
   });
 }
 
@@ -1727,10 +1742,11 @@ function deleteCompany(){delCo(document.getElementById('cf-id').value);}
 function delCo(id){
   const c=(S.companies||[]).find(x=>x.id===id);if(!c)return;
   confirmDelete('cf-err',c.name,()=>{
+    sendToBin('company',id,c.name,c);
     S.companies=(S.companies||[]).filter(x=>x.id!==id);
     persist();
     fetch(`${SB_URL}/rest/v1/sp_companies?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
-    toast('Company deleted');closeM('m-company');renderCompanies();
+    toast('Company moved to recycle bin');closeM('m-company');renderCompanies();
   });
 }
 
@@ -2515,6 +2531,62 @@ function exportOrdersExcel(){
   document.body.appendChild(a);a.click();
   document.body.removeChild(a);URL.revokeObjectURL(url);
   toast('Orders exported ✓');
+}
+
+// ── RECYCLE BIN ──
+function sendToBin(type,id,name,data){
+  const entry={id:mkId(),type,originalId:id,name,data,deletedBy:ME?`${ME.firstName} ${ME.lastName}`.trim():'',deletedAt:new Date().toISOString()};
+  if(!S.bin)S.bin=[];
+  S.bin.unshift(entry);
+  sbUpsert('sp_deleted',entry.id,entry).catch(()=>{});
+}
+
+function renderBin(){
+  const bin=S.bin||[];
+  const tb=document.getElementById('bin-tbody');if(!tb)return;
+  if(!bin.length){tb.innerHTML=`<tr><td colspan="5" class="empty">Recycle bin is empty</td></tr>`;return;}
+  const typeChip=t=>{const m={order:'chip-blue',user:'chip-purple',company:'chip-amber'};return`<span class="chip ${m[t]||'chip-gray'}">${t}</span>`;};
+  tb.innerHTML=bin.map(e=>`<tr>
+    <td>${typeChip(e.type)}</td>
+    <td style="font-weight:700">${esc(e.name||'—')}</td>
+    <td style="font-size:12px;color:var(--ink3)">${esc(e.deletedBy||'—')}</td>
+    <td style="font-size:12px;color:var(--ink3)">${fdt(e.deletedAt)}</td>
+    <td class="right" style="white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="restoreFromBin('${e.id}')">↩ Restore</button>
+      <button class="btn btn-danger btn-sm" onclick="permanentDelete('${e.id}')">✕ Delete</button>
+    </td>
+  </tr>`).join('');
+}
+
+function restoreFromBin(binId){
+  const entry=(S.bin||[]).find(e=>e.id===binId);if(!entry)return;
+  if(entry.type==='order'){if(!S.orders)S.orders=[];S.orders.unshift(entry.data);sbUpsert('sp_orders',entry.data.id,entry.data).catch(()=>{});toast(`Order ${entry.name} restored`);}
+  else if(entry.type==='user'){if(!S.users)S.users=[];S.users.push(entry.data);sbUpsert('sp_users',entry.data.id,entry.data).catch(()=>{});toast(`User ${entry.name} restored`);}
+  else if(entry.type==='company'){if(!S.companies)S.companies=[];S.companies.push(entry.data);sbUpsert('sp_companies',entry.data.id,entry.data).catch(()=>{});toast(`Company ${entry.name} restored`);}
+  S.bin=S.bin.filter(e=>e.id!==binId);
+  fetch(`${SB_URL}/rest/v1/sp_deleted?id=eq.${encodeURIComponent(binId)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+  persist();renderBin();
+}
+
+function permanentDelete(binId){
+  const entry=(S.bin||[]).find(e=>e.id===binId);if(!entry)return;
+  const tb=document.getElementById('bin-tbody');
+  const rows=tb?Array.from(tb.querySelectorAll('tr')):[];
+  const row=rows.find(r=>r.innerHTML.includes(binId));
+  if(row){
+    // Remove any existing confirm row
+    if(row.nextSibling&&row.nextSibling.dataset&&row.nextSibling.dataset.confirm)row.nextSibling.remove();
+    const newRow=document.createElement('tr');newRow.dataset.confirm='1';
+    const td=document.createElement('td');td.colSpan=5;
+    td.innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px;margin:4px"><div style="color:var(--red);font-weight:700;margin-bottom:8px">⚠ Permanently delete "${esc(entry.name)}"? Cannot be undone.</div><div style="display:flex;gap:8px"><button class="btn btn-danger btn-sm" onclick="confirmPermanentDelete('${binId}')">✓ Yes, delete forever</button><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove()">✕ Cancel</button></div></div>`;
+    newRow.appendChild(td);row.after(newRow);
+  }
+}
+
+function confirmPermanentDelete(binId){
+  S.bin=(S.bin||[]).filter(e=>e.id!==binId);
+  fetch(`${SB_URL}/rest/v1/sp_deleted?id=eq.${encodeURIComponent(binId)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+  persist();toast('Permanently deleted');renderBin();
 }
 
 // ── REALTIME SYNC ──
