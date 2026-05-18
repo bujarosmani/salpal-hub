@@ -1358,7 +1358,13 @@ function confirmDelete(errElId,label,onConfirm){
 function deleteOrder(){
   const id=document.getElementById('of-edit-id').value;
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
-  confirmDelete('of-err',j.awb,()=>{S.orders=(S.orders||[]).filter(x=>x.id!==id);persist();toast('Order deleted');closeM('m-order');renderOrders();});
+  confirmDelete('of-err',j.awb,()=>{
+    S.orders=(S.orders||[]).filter(x=>x.id!==id);
+    persist();
+    // Also delete from Supabase
+    fetch(`${SB_URL}/rest/v1/sp_orders?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+    toast('Order deleted');closeM('m-order');renderOrders();
+  });
 }
 
 /* ── VIEW ORDER ── */
@@ -1682,7 +1688,12 @@ function deleteUser(){delUser(document.getElementById('uf-id').value);}
 function delUser(id){
   const u=(S.users||[]).find(x=>x.id===id);if(!u)return;
   if(u.role==='Admin'&&(S.users||[]).filter(x=>x.role==='Admin').length<=1){toast('Need at least 1 admin','err');return;}
-  confirmDelete('uf-err',u.firstName+' '+u.lastName,()=>{S.users=(S.users||[]).filter(x=>x.id!==id);persist();toast('User deleted');closeM('m-user');renderUsers();});
+  confirmDelete('uf-err',u.firstName+' '+u.lastName,()=>{
+    S.users=(S.users||[]).filter(x=>x.id!==id);
+    persist();
+    fetch(`${SB_URL}/rest/v1/sp_users?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+    toast('User deleted');closeM('m-user');renderUsers();
+  });
 }
 
 /* ── COMPANIES ── */
@@ -1715,7 +1726,12 @@ function saveCompany(){
 function deleteCompany(){delCo(document.getElementById('cf-id').value);}
 function delCo(id){
   const c=(S.companies||[]).find(x=>x.id===id);if(!c)return;
-  confirmDelete('cf-err',c.name,()=>{S.companies=(S.companies||[]).filter(x=>x.id!==id);persist();toast('Company deleted');closeM('m-company');renderCompanies();});
+  confirmDelete('cf-err',c.name,()=>{
+    S.companies=(S.companies||[]).filter(x=>x.id!==id);
+    persist();
+    fetch(`${SB_URL}/rest/v1/sp_companies?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+    toast('Company deleted');closeM('m-company');renderCompanies();
+  });
 }
 
 /* ── SORTING ── */
@@ -2279,7 +2295,6 @@ function showLoginForm(){
 const LOGO_B64='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';
 
 async function exportOrdersPDF(){
-  // Load jsPDF
   if(!window.jspdf){
     await new Promise((res,rej)=>{
       const s=document.createElement('script');
@@ -2288,8 +2303,6 @@ async function exportOrdersPDF(){
     });
   }
   const {jsPDF}=window.jspdf;
-
-  // Get filtered orders
   let orders=S.orders||[];
   if(ordF.types)orders=orders.filter(j=>ordF.types.includes(j.type));
   if(ordF.statuses)orders=orders.filter(j=>ordF.statuses.includes(j.status));
@@ -2301,119 +2314,166 @@ async function exportOrdersPDF(){
   }
   if(ordF.dateFrom)orders=orders.filter(j=>j.orderDate>=ordF.dateFrom);
   if(ordF.dateTo)orders=orders.filter(j=>j.orderDate<=ordF.dateTo);
+  if(ordF.search){const q=ordF.search.toLowerCase();orders=orders.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q));}
   orders=orders.slice().sort((a,b)=>b.awb.localeCompare(a.awb));
   if(!orders.length){toast('No orders to export','err');return;}
 
   toast('Generating PDF...');
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const W=210,H=297,M=15;
+  const W=210,H=297,ML=15,MR=15,MT=15;
+
+  // Colors
+  const C={
+    black:[30,30,30],
+    gray:[100,100,100],
+    lightgray:[180,180,180],
+    verylightgray:[245,245,245],
+    white:[255,255,255],
+    green:[22,120,60],
+    lightgreen:[235,248,240],
+    blue:[30,90,180],
+    lightblue:[235,242,255],
+    amber:[180,120,0],
+    lightamber:[255,248,230],
+    red:[180,40,40],
+    border:[220,220,220]
+  };
+
+  const setFill=c=>doc.setFillColor(...c);
+  const setTxt=c=>doc.setTextColor(...c);
+  const setDraw=c=>doc.setDrawColor(...c);
 
   orders.forEach((j,idx)=>{
     if(idx>0)doc.addPage();
     const driver=(S.users||[]).find(u=>u.id===j.driverId);
     const driverName=j.driver||(driver?`${driver.firstName} ${driver.lastName}`:'Unassigned');
+    const isDelivery=j.type==='Delivery';
 
-    // Header bar
-    doc.setFillColor(14,26,16);
-    doc.rect(0,0,W,28,'F');
-    // Logo
-    try{doc.addImage('data:image/jpeg;base64,'+LOGO_B64,'JPEG',M,4,22,20);}catch(e){}
-    // Company name
-    doc.setTextColor(61,214,104);
-    doc.setFontSize(18);doc.setFont('helvetica','bold');
-    doc.text('SalPal Hub',42,14);
-    doc.setFontSize(9);doc.setFont('helvetica','normal');
-    doc.setTextColor(154,184,157);
-    doc.text('Warehouse Operations',42,20);
-    // AWB badge
-    doc.setFillColor(26,99,51);
-    doc.roundedRect(W-M-40,5,40,18,3,3,'F');
-    doc.setTextColor(61,214,104);
-    doc.setFontSize(11);doc.setFont('helvetica','bold');
-    doc.text(j.awb||'',W-M-20,16,{align:'center'});
+    let y=MT;
 
-    // Order type & status
-    let y=36;
-    const typeColor=j.type==='Delivery'?[91,156,246]:[245,200,66];
-    doc.setFillColor(...typeColor);
-    doc.roundedRect(M,y,28,7,2,2,'F');
-    doc.setTextColor(255,255,255);
-    doc.setFontSize(8);doc.setFont('helvetica','bold');
-    doc.text((j.type||'').toUpperCase(),M+14,y+4.8,{align:'center'});
-    // Status
-    doc.setFillColor(40,60,45);
-    doc.roundedRect(M+32,y,30,7,2,2,'F');
-    doc.setTextColor(154,184,157);
-    doc.text((j.status||'').toUpperCase(),M+47,y+4.8,{align:'center'});
-    // Dates
-    doc.setTextColor(100,130,105);doc.setFontSize(8);doc.setFont('helvetica','normal');
-    doc.text(`Order: ${j.orderDate||'—'}   Delivery: ${j.deliveryDate||'—'}${j.timeFrom?'  '+j.timeFrom+''+(j.timeTo?'–'+j.timeTo:''):''}`,M,y+14);
+    // ── HEADER ──
+    // Logo area (left)
+    try{doc.addImage('data:image/jpeg;base64,'+LOGO_B64,'JPEG',ML,y,16,11);}catch(e){}
+    doc.setFontSize(14);doc.setFont('helvetica','bold');setTxt(C.green);
+    doc.text('SalPal Hub',ML+18,y+7);
+    doc.setFontSize(8);doc.setFont('helvetica','normal');setTxt(C.gray);
+    doc.text('Warehouse Management',ML+18,y+12);
 
-    // Divider
-    y+=22;
-    doc.setDrawColor(35,51,40);doc.setLineWidth(0.3);
-    doc.line(M,y,W-M,y);y+=6;
+    // AWB (right) — large
+    doc.setFontSize(20);doc.setFont('helvetica','bold');setTxt(C.black);
+    doc.text(j.awb||'',W-MR,y+8,{align:'right'});
+    doc.setFontSize(8);doc.setFont('helvetica','normal');setTxt(C.gray);
+    doc.text('ORDER REFERENCE',W-MR,y+13,{align:'right'});
 
-    // Two column layout
-    const col1=M,col2=W/2+5,colW=W/2-M-5;
-    const field=(label,value,x,cy)=>{
-      doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(90,122,93);
-      doc.text(label.toUpperCase(),x,cy);
-      doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(228,240,230);
-      const lines=doc.splitTextToSize(value||'—',colW);
-      doc.text(lines,x,cy+5);
-      return cy+5+(lines.length*5);
-    };
+    y+=20;
+    // Divider line
+    setDraw(C.green);doc.setLineWidth(0.8);
+    doc.line(ML,y,W-MR,y);
+    y+=5;
 
-    let y1=y,y2=y;
-    y1=field('Company',j.companyName||'',col1,y1)+4;
-    y1=field('Address',`${j.companyAddress||''}${j.city?', '+j.city:''}${j.postcode?' '+j.postcode:''}`,col1,y1)+4;
-    y1=field('Driver',driverName,col1,y1)+4;
-    if(j.driverNotes)y1=field('Driver Notes',j.driverNotes,col1,y1)+4;
+    // ── TYPE + STATUS BADGES ──
+    const typeCol=isDelivery?C.blue:C.amber;
+    const typeBg=isDelivery?C.lightblue:C.lightamber;
+    setFill(typeBg);doc.roundedRect(ML,y,30,7,2,2,'F');
+    setDraw(typeCol);doc.setLineWidth(0.3);doc.roundedRect(ML,y,30,7,2,2,'S');
+    doc.setFontSize(8);doc.setFont('helvetica','bold');setTxt(typeCol);
+    doc.text((j.type||'').toUpperCase(),ML+15,y+4.8,{align:'center'});
 
-    y2=field('Order Ref',j.orderRef||'—',col2,y2)+4;
-    y2=field('WH By',j.whBy||'—',col2,y2)+4;
-    y2=field('Source',j.source==='dropoff'?'Drop-off':'Driver Order',col2,y2)+4;
+    const stCol=j.status==='Completed'?C.green:j.status==='In Transit'?C.blue:C.gray;
+    const stBg=j.status==='Completed'?C.lightgreen:j.status==='In Transit'?C.lightblue:C.verylightgray;
+    setFill(stBg);doc.roundedRect(ML+34,y,36,7,2,2,'F');
+    setDraw(stCol);doc.roundedRect(ML+34,y,36,7,2,2,'S');
+    doc.setFontSize(8);doc.setFont('helvetica','bold');setTxt(stCol);
+    doc.text((j.status||'').toUpperCase(),ML+52,y+4.8,{align:'center'});
 
-    y=Math.max(y1,y2)+4;
-    doc.setDrawColor(35,51,40);doc.line(M,y,W-M,y);y+=6;
+    // Order ref on right
+    if(j.orderRef){
+      doc.setFontSize(8);doc.setFont('helvetica','normal');setTxt(C.gray);
+      doc.text('Ref:',W-MR-40,y+4.8);
+      doc.setFont('helvetica','bold');setTxt(C.black);
+      doc.text(j.orderRef,W-MR-33,y+4.8);
+    }
 
-    // Pallets table
-    doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(90,122,93);
-    doc.text('PALLETS',M,y);y+=5;
-    doc.setFillColor(23,32,25);
-    doc.rect(M,y,W-2*M,7,'F');
-    doc.setTextColor(154,184,157);doc.setFontSize(8);
-    doc.text('Class',M+3,y+5);
-    doc.text('Qty',W-M-15,y+5,{align:'right'});
+    y+=14;
+
+    // ── INFO GRID ──
+    const labelStyle=(lbl,x,cy)=>{doc.setFontSize(7);doc.setFont('helvetica','normal');setTxt(C.lightgray);doc.text(lbl.toUpperCase(),x,cy);};
+    const valueStyle=(val,x,cy,maxW)=>{doc.setFontSize(9);doc.setFont('helvetica','bold');setTxt(C.black);const lines=doc.splitTextToSize(val||'—',maxW||80);doc.text(lines,x,cy+4);return lines.length;};
+
+    // Box background
+    setFill(C.verylightgray);doc.roundedRect(ML,y,W-ML-MR,32,3,3,'F');
+    setDraw(C.border);doc.setLineWidth(0.2);doc.roundedRect(ML,y,W-ML-MR,32,3,3,'S');
+
+    const bx1=ML+4, bx2=ML+60, bx3=ML+115, bx4=ML+155;
+    const by=y+6;
+
+    labelStyle('Company',bx1,by);valueStyle(j.companyName||'—',bx1,by,50);
+    labelStyle('City / Postcode',bx2,by);valueStyle(`${j.city||'—'} ${j.postcode||''}`.trim(),bx2,by,45);
+    labelStyle('Order Date',bx3,by);valueStyle(j.orderDate||'—',bx3,by,35);
+    labelStyle('Delivery Date',bx4,by);valueStyle(j.deliveryDate||'—',bx4,by,35);
+
+    const by2=y+20;
+    labelStyle('Address',bx1,by2);valueStyle(j.companyAddress||'—',bx1,by2,50);
+    labelStyle('Driver',bx2,by2);valueStyle(driverName,bx2,by2,45);
+    labelStyle(j.timeFrom?'Time Window':'',bx3,by2);if(j.timeFrom)valueStyle(`${j.timeFrom}${j.timeTo?'–'+j.timeTo:''}`,bx3,by2,35);
+    labelStyle('WH By',bx4,by2);valueStyle(j.whBy||'—',bx4,by2,35);
+
+    y+=38;
+
+    // Driver notes
+    if(j.driverNotes){
+      setFill([255,248,230]);doc.roundedRect(ML,y,W-ML-MR,10,2,2,'F');
+      setDraw([240,180,0]);doc.setLineWidth(0.2);doc.roundedRect(ML,y,W-ML-MR,10,2,2,'S');
+      doc.setFontSize(7);doc.setFont('helvetica','bold');setTxt(C.amber);doc.text('DRIVER NOTES',ML+4,y+4);
+      doc.setFont('helvetica','normal');setTxt(C.black);
+      const nl=doc.splitTextToSize(j.driverNotes,W-ML-MR-40);
+      doc.text(nl,ML+35,y+4);
+      y+=14;
+    }
+
+    y+=4;
+
+    // ── PALLETS TABLE ──
+    doc.setFontSize(9);doc.setFont('helvetica','bold');setTxt(C.black);
+    doc.text('PALLETS',ML,y);
+    y+=4;
+
+    // Table header
+    setFill(C.green);doc.rect(ML,y,W-ML-MR,7,'F');
+    doc.setFontSize(8);doc.setFont('helvetica','bold');setTxt(C.white);
+    doc.text('PALLET CLASS',ML+4,y+4.8);
+    doc.text('QTY',W-MR-4,y+4.8,{align:'right'});
     y+=7;
-    (j.pallets||[]).forEach((p,pi)=>{
-      if(pi%2===0)doc.setFillColor(28,42,31);else doc.setFillColor(23,32,25);
-      doc.rect(M,y,W-2*M,6,'F');
-      doc.setTextColor(228,240,230);doc.setFontSize(9);doc.setFont('helvetica','normal');
-      doc.text(p.cls||'',M+3,y+4.3);
-      doc.setFont('helvetica','bold');doc.setTextColor(61,214,104);
-      doc.text(String(p.qty||0),W-M-3,y+4.3,{align:'right'});
-      y+=6;
-    });
-    // Total row
-    doc.setFillColor(14,26,16);
-    doc.rect(M,y,W-2*M,7,'F');
-    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(154,184,157);
-    doc.text('TOTAL',M+3,y+5);
-    doc.setTextColor(61,214,104);
-    doc.text(String(j.totalQty||0),W-M-3,y+5,{align:'right'});
-    y+=12;
 
-    // Footer
-    doc.setFillColor(14,26,16);
-    doc.rect(0,H-12,W,12,'F');
-    doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(90,122,93);
-    doc.text(`Generated ${new Date().toLocaleString()}`,M,H-5);
-    doc.text(`Page ${idx+1} of ${orders.length}`,W-M,H-5,{align:'right'});
+    (j.pallets||[]).forEach((p,pi)=>{
+      setFill(pi%2===0?C.white:C.verylightgray);
+      doc.rect(ML,y,W-ML-MR,7,'F');
+      setDraw(C.border);doc.setLineWidth(0.1);
+      doc.rect(ML,y,W-ML-MR,7,'S');
+      doc.setFontSize(9);doc.setFont('helvetica','normal');setTxt(C.black);
+      doc.text(p.cls||'',ML+4,y+4.8);
+      doc.setFont('helvetica','bold');setTxt(C.green);
+      doc.text(String(p.qty||0),W-MR-4,y+4.8,{align:'right'});
+      y+=7;
+    });
+
+    // Total row
+    setFill(C.lightgreen);doc.rect(ML,y,W-ML-MR,8,'F');
+    setDraw(C.green);doc.setLineWidth(0.3);doc.rect(ML,y,W-ML-MR,8,'S');
+    doc.setFontSize(10);doc.setFont('helvetica','bold');setTxt(C.green);
+    doc.text('TOTAL',ML+4,y+5.5);
+    doc.text(String(j.totalQty||0),W-MR-4,y+5.5,{align:'right'});
+    y+=14;
+
+    // ── FOOTER ──
+    setDraw(C.border);doc.setLineWidth(0.3);
+    doc.line(ML,H-14,W-MR,H-14);
+    doc.setFontSize(7);doc.setFont('helvetica','normal');setTxt(C.lightgray);
+    doc.text('SalPal Hub — Warehouse Operations',ML,H-9);
+    doc.text(`Generated: ${new Date().toLocaleString()}     Page ${idx+1} of ${orders.length}`,W-MR,H-9,{align:'right'});
   });
 
-  doc.save(`orders-${new Date().toISOString().slice(0,10)}.pdf`);
+  doc.save(`salpal-orders-${new Date().toISOString().slice(0,10)}.pdf`);
   toast('PDF exported ✓');
 }
 
