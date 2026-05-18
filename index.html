@@ -845,7 +845,8 @@ function syncCloud(){
         sp_sortings:S.sortings||[],
         sp_users:S.users||[],
         sp_companies:S.companies||[],
-        sp_ledger:S.ledger||[]
+        sp_ledger:S.ledger||[],
+        sp_deleted:S.bin||[]
       };
       // Stock and products as single rows
       const stockRow=sbUpsert('sp_stock','__stock',S.stock||{});
