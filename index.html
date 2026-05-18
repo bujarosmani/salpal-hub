@@ -350,12 +350,18 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
   </div>
   <div class="stats" id="ord-stats"></div>
   <div class="card">
-    <div class="card-hdr">
+    <div class="card-hdr" style="flex-wrap:wrap;gap:6px">
       <span class="card-hdr-title">All Orders</span>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="ord-filters"></div>
-      <div id="ord-active-tags" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 0 6px;margin-top:6px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1" id="ord-filters"></div>
+      <button class="btn btn-ghost btn-sm" id="ord-sort-btn" onclick="toggleOrdSort()">Z → A</button>
+      <div style="position:relative" id="ord-col-dd-wrap">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ord-col-dd').style.display=document.getElementById('ord-col-dd').style.display==='none'?'block':'none'">⚙ Columns</button>
+        <div id="ord-col-dd" style="display:none;position:absolute;right:0;top:110%;background:var(--panel2);border:1.5px solid var(--line2);border-radius:10px;padding:10px 14px;z-index:200;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,.5)">
+          <div id="ord-col-toggles"></div>
+        </div>
+      </div>
     </div>
-    <div id="ord-col-toggles" style="padding:8px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap"></div>
+    <div id="ord-active-tags" style="display:flex;gap:6px;flex-wrap:wrap;padding:6px 16px 4px"></div>
     <div class="tbl-wrap">
       <table><thead id="ord-thead"><tr>
         <th>AWB</th><th id="th-orderRef">Order Ref</th><th id="th-type">Type</th><th id="th-company">Company</th><th id="th-date">Date</th><th id="th-pallets">Pallets</th><th id="th-driver">Driver</th><th id="th-whBy">WH By</th><th id="th-whNotes">WH Notes</th><th id="th-status">Status</th><th class="right">Actions</th>
@@ -367,6 +373,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 <div class="page" id="page-dispatch">
   <div class="phdr"><div><div class="ptitle">Dispatch</div><div class="psub">Outgoing — delivery orders</div></div></div>
   <div class="stats" id="dis-stats"></div>
+  <div style="padding:0 0 12px"><input class="inp" id="dis-search" placeholder="🔍 Search AWB, company, driver..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderDispatch()"/></div>
   <div id="dis-body"></div>
 </div>
 
@@ -380,7 +387,8 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 </div>
 
 <div class="page" id="page-repairs">
-  <div class="phdr"><div><div class="ptitle">Pallet Repairs</div></div><button class="btn btn-primary" onclick="openRepairModal()">+ Log Repair</button></div>
+  <div class="phdr"><div><div class="ptitle">Pallet Repairs</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="rep-sort-btn" onclick="toggleRepSort()">Newest First</button><button class="btn btn-primary" onclick="openRepairModal()">+ Log Repair</button></div></div>
+  <div style="padding:0 0 12px"><input class="inp" id="rep-search" placeholder="🔍 Search repairer, class, supervisor..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderRepairs()"/></div>
   <div class="stats" id="rep-stats"></div>
   <div id="rep-tasks"></div>
   <div class="tabs">
@@ -394,7 +402,8 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 </div>
 
 <div class="page" id="page-sorting">
-  <div class="phdr"><div><div class="ptitle">Sorting</div></div><button class="btn btn-primary" onclick="openSortModal()">+ Log Sorting</button></div>
+  <div class="phdr"><div><div class="ptitle">Sorting</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="srt-sort-btn" onclick="toggleSrtSort()">Newest First</button><button class="btn btn-primary" onclick="openSortModal()">+ Log Sorting</button></div></div>
+  <div style="padding:0 0 12px"><input class="inp" id="srt-search" placeholder="🔍 Search sorter, class, supervisor, order ref..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderSorting()"/></div>
   <div class="stats" id="srt-stats"></div>
   <div id="srt-tasks"></div>
   <div class="tabs">
@@ -479,6 +488,10 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 
 <div class="page" id="page-companies">
   <div class="phdr"><div><div class="ptitle">Companies</div></div><button class="btn btn-primary" onclick="openCompanyModal()">+ Add Company</button></div>
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+    <input class="inp" id="co-search" placeholder="🔍 Search name, city, postcode, address..." style="flex:1" oninput="renderCompanies()"/>
+    <button class="btn btn-ghost btn-sm" id="co-sort-btn" onclick="toggleCoSort()">A → Z</button>
+  </div>
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Company</th><th>City</th><th>Postcode</th><th class="right">Actions</th></tr></thead><tbody id="co-tbody"></tbody></table></div></div>
 </div>
 
@@ -1132,6 +1145,15 @@ function renderDash(){
 /* ── ORDERS PAGE ── */
 let ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:'',search:''};
 function renderOrders(){
+  // Close col dropdown on outside click
+  if(!document._colDdListener){
+    document._colDdListener=true;
+    document.addEventListener('click',e=>{
+      const wrap=document.getElementById('ord-col-dd-wrap');
+      const dd=document.getElementById('ord-col-dd');
+      if(wrap&&dd&&!wrap.contains(e.target))dd.style.display='none';
+    });
+  }
   // Build column toggles once
   const toggles=document.getElementById('ord-col-toggles');
   if(toggles&&!toggles.hasChildNodes()){
@@ -1170,6 +1192,8 @@ function clearOrdFilter(key){
   renderOrders();
 }
 
+let ordSortAsc=false; // default newest first
+function toggleOrdSort(){ordSortAsc=!ordSortAsc;const btn=document.getElementById('ord-sort-btn');if(btn)btn.textContent=ordSortAsc?'A → Z':'Z → A';renderOrdTable();}
 function renderOrdTable(){
   let list=S.orders||[];
   if(ordF.types)list=list.filter(j=>ordF.types.includes(j.type));
@@ -1193,7 +1217,7 @@ function renderOrdTable(){
     if(ordF.source.includes('dropoff')&&!ordF.source.includes('driver'))list=list.filter(j=>j.driver==='Customer Drop Off'||j.source==='dropoff');
     else if(ordF.source.includes('driver')&&!ordF.source.includes('dropoff'))list=list.filter(j=>j.driver!=='Customer Drop Off'&&j.source!=='dropoff');
   }
-  list=list.slice().sort((a,b)=>b.awb.localeCompare(a.awb));
+  list=list.slice().sort((a,b)=>ordSortAsc?a.awb.localeCompare(b.awb):b.awb.localeCompare(a.awb));
 
   // Active filter tags
   const tags=[];
@@ -1438,8 +1462,10 @@ function renderDispatch(){
   if(disF.statuses)list=list.filter(j=>disF.statuses.includes(j.status));
   if(disF.dateFrom)list=list.filter(j=>j.deliveryDate>=disF.dateFrom);
   if(disF.dateTo)list=list.filter(j=>j.deliveryDate<=disF.dateTo);
+  const disQ=(document.getElementById('dis-search')?.value||'').toLowerCase();
+  if(disQ)list=list.filter(j=>(j.awb||'').toLowerCase().includes(disQ)||(j.companyName||'').toLowerCase().includes(disQ)||(j.driverId?(''+j.driverId).toLowerCase():'').includes(disQ)||(j.orderRef||'').toLowerCase().includes(disQ)||(j.driverNotes||'').toLowerCase().includes(disQ));
   list=list.slice().sort((a,b)=>b.awb.localeCompare(a.awb));
-  const fb=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px" id="dis-fb">${buildCbDropdown('disStat',statOpts,disF.statuses,'All Statuses')} <button class="dp-btn${disF.dateFrom?' active':''}" id="dis-dp-btn">📅 ${esc(dl)}</button>${disF.dateFrom?`<button class="dp-clear" onclick="disF.dateFrom='';disF.dateTo='';renderDispatch()">\u2715</button>`:''}</div>`;
+  const fb=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px" id="dis-fb">${buildCbDropdown('disStat',statOpts,disF.statuses,'All Statuses')} <button class="dp-btn${disF.dateFrom?' active':''}" id="dis-dp-btn">📅 ${esc(dl)}</button>${disF.dateFrom?`<button class="dp-clear" onclick="disF.dateFrom='';disF.dateTo='';renderDispatch()">\u2715</button>`:''} <button class="btn btn-ghost btn-sm" id="dis-sort-btn" onclick="toggleDisSort()">Z → A</button></div>`;
   const body=document.getElementById('dis-body');
   if(isMob){body.innerHTML=fb+(list.length?list.map(j=>{const canLoad=j.status==='Open'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<div class="mob-card" onclick="viewOrder('${j.id}')"><div class="mob-card-hdr"><span class="mob-card-ref">${esc(j.awb)}</span>${stChip(j.status)}</div><div class="mob-card-body">${esc(j.companyName||'\u2014')}</div><div class="mob-card-sub">${fd(j.deliveryDate)} \u00b7 ${esc(palletStr(j.pallets))}</div><div class="mob-card-foot"><span style="font-size:12px;color:${j.whBy?'var(--brand)':'var(--ink3)'}">WH: ${esc(j.whBy||'\u2014')}</span>${canLoad?`<button class="btn btn-amber btn-sm" onclick="event.stopPropagation();openLoadModal('${j.id}')">📦 Mark Loaded</button>`:''}</div></div>`;}).join(''):'<div class="empty">No dispatch orders</div>');}
   else{body.innerHTML=fb+`<div class="card"><div class="tbl-wrap"><table><thead><tr><th>REF</th><th>Date</th><th>Customer</th><th>Pallets</th><th>Driver</th><th>Loaded By</th><th>Truck</th><th>Status</th><th class="right">Actions</th></tr></thead><tbody id="dis-tb"></tbody></table></div></div>`;document.getElementById('dis-tb').innerHTML=list.length?list.map(j=>{const canLoad=j.status==='Open'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</td><td>${fd(j.deliveryDate)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div></td><td style="font-size:12px;font-family:'DM Mono',monospace">${esc(palletStr(j.pallets))}</td><td style="font-size:12px">${j.driverId?uname(j.driverId):'<span style="color:var(--ink3)">TBD</span>'}</td><td style="font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td style="font-size:12px;color:var(--ink3)">${esc(j.truckPlate||'\u2014')}</td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap">${canLoad?`<button class="btn btn-amber btn-sm" onclick="openLoadModal('${j.id}')">📦 Load</button> `:''}<button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No dispatch orders</td></tr>';}
@@ -1477,8 +1503,10 @@ function confirmLoaded(){
 }
 
 /* ── RECEIVING ── */
-let recF={statuses:null,dateFrom:'',dateTo:''};
-let disF={statuses:null,dateFrom:'',dateTo:''};
+let recF={statuses:null,dateFrom:'',dateTo:''};let recSortAsc=false;
+function toggleRecSort(){recSortAsc=!recSortAsc;const btn=document.getElementById('rec-sort-btn');if(btn)btn.textContent=recSortAsc?'A → Z':'Z → A';renderReceiving();}
+let disF={statuses:null,dateFrom:'',dateTo:''};let disSortAsc=false;
+function toggleDisSort(){disSortAsc=!disSortAsc;const btn=document.getElementById('dis-sort-btn');if(btn)btn.textContent=disSortAsc?'A → Z':'Z → A';renderDispatch();}
 function renderReceiving(){
   const cols=(S.orders||[]).filter(j=>j.type==='Collection');
   document.getElementById('rec-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${cols.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${cols.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${cols.filter(j=>j.status==='Collected'||j.status==='Delivered').length}</div><div class="stat-lbl">At Warehouse</div></div><div class="stat-box"><div class="stat-num">${cols.filter(j=>j.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
@@ -1489,8 +1517,10 @@ function renderReceiving(){
   if(recF.statuses)list=list.filter(j=>recF.statuses.includes(j.status));
   if(recF.dateFrom)list=list.filter(j=>j.deliveryDate>=recF.dateFrom);
   if(recF.dateTo)list=list.filter(j=>j.deliveryDate<=recF.dateTo);
+  const recQ=(document.getElementById('rec-search')?.value||'').toLowerCase();
+  if(recQ)list=list.filter(j=>(j.awb||'').toLowerCase().includes(recQ)||(j.companyName||'').toLowerCase().includes(recQ)||(j.driverId?(''+j.driverId).toLowerCase():'').includes(recQ)||(j.orderRef||'').toLowerCase().includes(recQ));
   list=list.slice().sort((a,b)=>b.awb.localeCompare(a.awb));
-  const fb=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px" id="rec-fb">${buildCbDropdown('recStat',statOpts,recF.statuses,'All Statuses')} <button class="dp-btn${recF.dateFrom?' active':''}" id="rec-dp-btn">📅 ${esc(dl)}</button>${recF.dateFrom?`<button class="dp-clear" onclick="recF.dateFrom='';recF.dateTo='';renderReceiving()">\u2715</button>`:''}</div>`;
+  const fb=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px" id="rec-fb">${buildCbDropdown('recStat',statOpts,recF.statuses,'All Statuses')} <button class="dp-btn${recF.dateFrom?' active':''}" id="rec-dp-btn">📅 ${esc(dl)}</button>${recF.dateFrom?`<button class="dp-clear" onclick="recF.dateFrom='';recF.dateTo='';renderReceiving()">\u2715</button>`:''} <button class="btn btn-ghost btn-sm" id="rec-sort-btn" onclick="toggleRecSort()">Z → A</button></div>`;
   const body=document.getElementById('rec-body');
   if(isMob){body.innerHTML=fb+(list.length?list.map(j=>{const canAW=j.status==='Collected'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const canC=j.status==='Delivered'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<div class="mob-card" onclick="viewOrder('${j.id}')"><div class="mob-card-hdr"><span class="mob-card-ref">${esc(j.awb)}</span>${stChip(j.status)}</div><div class="mob-card-body">${esc(j.companyName||'\u2014')}</div><div class="mob-card-sub">${fd(j.deliveryDate)} \u00b7 ${esc(palletStr(j.pallets))} \u00b7 ${j.driver==='Customer Drop Off'?'Drop-off':j.driverId?uname(j.driverId):'\u2014'}</div><div class="mob-card-foot"><span style="font-size:12px;color:${j.whBy?'var(--brand)':'var(--ink3)'}">WH: ${esc(j.whBy||'\u2014')}</span><div style="display:flex;gap:6px">${canAW?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();setOrdStatus('${j.id}','Delivered')">At WH</button>`:''}${canC?`<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openCompleteRecModal('${j.id}')">✓ Complete</button>`:''}</div></div></div>`;}).join(''):'<div class="empty">No collection orders</div>');}
   else{body.innerHTML=fb+`<div class="card"><div class="tbl-wrap"><table><thead><tr><th>REF</th><th>Date</th><th>Supplier</th><th>Pallets</th><th>Driver/Source</th><th>WH By</th><th>Condition</th><th>Status</th><th class="right">Actions</th></tr></thead><tbody id="rec-tb"></tbody></table></div></div>`;document.getElementById('rec-tb').innerHTML=list.length?list.map(j=>{const canAW=j.status==='Collected'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const canC=j.status==='Delivered'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const src=j.driver==='Customer Drop Off'?`<span class="chip chip-blue" style="font-size:10px">Drop-off</span>`:(j.driverId?uname(j.driverId):'\u2014');return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</td><td>${fd(j.deliveryDate)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div></td><td style="font-size:12px;font-family:'DM Mono',monospace">${esc(palletStr(j.pallets))}</td><td style="font-size:12px">${src}</td><td style="font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td><span class="chip ${j.condition==='Good'?'chip-green':j.condition==='Damaged'?'chip-red':'chip-gray'}" style="font-size:10px">${esc(j.condition||'\u2014')}</span></td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap">${canAW?`<button class="btn btn-ghost btn-sm" onclick="setOrdStatus('${j.id}','Delivered')">At WH</button> `:''}${canC?`<button class="btn btn-primary btn-sm" onclick="openCompleteRecModal('${j.id}')">✓ Complete</button> `:''}<button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No collection orders</td></tr>';}
@@ -1555,11 +1585,15 @@ function saveDropoff(){
 /* ── REPAIRS ── */
 let RF={sup:'',rep:'',cls:''};
 function repTab(name,btn){const page=document.getElementById('page-repairs');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`rep-${name}`).classList.add('on');renderRepTab(name);}
+let repSortAsc=false;
+function toggleRepSort(){repSortAsc=!repSortAsc;const btn=document.getElementById('rep-sort-btn');if(btn)btn.textContent=repSortAsc?'Oldest First':'Newest First';renderRepairs();}
 function renderRepairs(){const tr=(S.repairs||[]).filter(r=>isToday(r.date));const tot=tr.reduce((s,r)=>s+(r.qty||0),0);document.getElementById('rep-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Today</div></div><div class="stat-box"><div class="stat-num">${tr.length}</div><div class="stat-lbl">Entries</div></div><div class="stat-box"><div class="stat-num">${(S.repairs||[]).reduce((s,r)=>s+(r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div>`;renderRepTab('today');}
 function renderRepTab(name){
   const adminEdit=isAdmin()?true:false;
-  if(name==='today'){const tr=(S.repairs||[]).filter(r=>isToday(r.date));document.getElementById('rep-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class,true)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}</div></div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand);margin-top:6px">${r.qty} repaired · from ${esc(r.src||r.pallet_class||'—')}</div></div>`).join(''):'<div class="empty">No repairs today</div>';}
-  if(name==='history'){const grp={};(S.repairs||[]).forEach(r=>{const d=r.date.slice(0,10);if(!grp[d])grp[d]=[];grp[d].push(r);});document.getElementById('rep-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort().reverse().map(day=>{const rs=grp[day],dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right;display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>';}
+  const repQ=(document.getElementById('rep-search')?.value||'').toLowerCase();
+  const filterRep=r=>!repQ||(r.repairer||'').toLowerCase().includes(repQ)||(r.pallet_class||'').toLowerCase().includes(repQ)||(r.supervisor||'').toLowerCase().includes(repQ)||(r.src||'').toLowerCase().includes(repQ);
+  if(name==='today'){const tr=(S.repairs||[]).filter(r=>isToday(r.date)&&filterRep(r));document.getElementById('rep-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class,true)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}</div></div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand);margin-top:6px">${r.qty} repaired · from ${esc(r.src||r.pallet_class||'—')}</div></div>`).join(''):'<div class="empty">No repairs today</div>';}
+  if(name==='history'){const grp={};(S.repairs||[]).filter(filterRep).forEach(r=>{const d=r.date.slice(0,10);if(!grp[d])grp[d]=[];grp[d].push(r);});document.getElementById('rep-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort(repSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{const rs=grp[day],dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right;display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>';}
   if(name==='manager'){const tot=(S.repairs||[]).reduce((s,r)=>s+(r.qty||0),0);const byw=REPAIRERS.map(n=>({n,t:(S.repairs||[]).filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0).sort((a,b)=>b.t-a.t);const byc=getSKUS().map(c=>({c,t:(S.repairs||[]).filter(r=>r.pallet_class===c).reduce((s,r)=>s+(r.qty||0),0)})).filter(x=>x.t>0);document.getElementById('rep-manager').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px"><div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Total Repaired</div></div><div class="stat-box"><div class="stat-num">${(S.repairs||[]).length}</div><div class="stat-lbl">Total Entries</div></div></div>${byw.length?`<div class="sec-title" style="margin-bottom:10px">By Worker</div><div class="card" style="margin-bottom:16px">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)"><span style="font-weight:600">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join('')}</div>`:''}${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${x.t}</span></div>`).join('')}</div>`:''}`;}}
 
 function editRepair(id){
@@ -1788,7 +1822,15 @@ function delUser(id){
 }
 
 /* ── COMPANIES ── */
-function renderCompanies(){document.getElementById('co-tbody').innerHTML=(S.companies||[]).length?(S.companies||[]).map(c=>`<tr><td><div style="font-weight:700">${esc(c.name)}</div><div style="font-size:11px;color:var(--ink3)">${esc(c.address||'')}</div></td><td>${esc(c.city||'\u2014')}</td><td style="font-family:'DM Mono',monospace;font-size:12px">${esc(c.postcode||'\u2014')}</td><td class="right"><button class="btn btn-ghost btn-sm" onclick="editCompany('${c.id}')">Edit</button> <button class="btn btn-danger btn-sm" onclick="delCo('${c.id}')">Delete</button></td></tr>`).join(''):`<tr><td colspan="4" class="empty">No companies yet</td></tr>`;}
+let coSortAsc=true;
+function toggleCoSort(){coSortAsc=!coSortAsc;const btn=document.getElementById('co-sort-btn');if(btn)btn.textContent=coSortAsc?'A → Z':'Z → A';renderCompanies();}
+function renderCompanies(){
+  const q=(document.getElementById('co-search')?.value||'').toLowerCase();
+  let list=S.companies||[];
+  if(q)list=list.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.city||'').toLowerCase().includes(q)||(c.postcode||'').toLowerCase().includes(q)||(c.address||'').toLowerCase().includes(q));
+  list=list.slice().sort((a,b)=>coSortAsc?(a.name||'').localeCompare(b.name||''):(b.name||'').localeCompare(a.name||''));
+  document.getElementById('co-tbody').innerHTML=list.length?list.map(c=>`<tr><td><div style="font-weight:700">${esc(c.name)}</div><div style="font-size:11px;color:var(--ink3)">${esc(c.address||'')}</div></td><td>${esc(c.city||'\u2014')}</td><td style="font-family:'DM Mono',monospace;font-size:12px">${esc(c.postcode||'\u2014')}</td><td class="right"><button class="btn btn-ghost btn-sm" onclick="editCompany('${c.id}')">Edit</button> <button class="btn btn-danger btn-sm" onclick="delCo('${c.id}')">Delete</button></td></tr>`).join(''):`<tr><td colspan="4" class="empty">No companies found</td></tr>`;
+}
 function openCompanyModal(){document.getElementById('cf-name').value='';document.getElementById('cf-addr').value='';document.getElementById('cf-city').value='';document.getElementById('cf-post').value='';document.getElementById('cf-id').value='';document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display='none';document.getElementById('co-modal-title').textContent='Add Company';_inlineCoCb=null;openM('m-company');}
 function editCompany(id){const c=(S.companies||[]).find(x=>x.id===id);if(!c)return;document.getElementById('cf-name').value=c.name;document.getElementById('cf-addr').value=c.address||'';document.getElementById('cf-city').value=c.city||'';document.getElementById('cf-post').value=c.postcode||'';document.getElementById('cf-id').value=c.id;document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display=canDelete()?'':'none';document.getElementById('co-modal-title').textContent='Edit Company';_inlineCoCb=null;openM('m-company');}
 function saveCompany(){
@@ -1829,6 +1871,8 @@ function delCo(id){
 /* ── SORTING ── */
 let SF={sup:'',sorters:[],cls:''};
 function srtTab(name,btn){const page=document.getElementById('page-sorting');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`srt-${name}`).classList.add('on');renderSrtTab(name);}
+let srtSortAsc=false;
+function toggleSrtSort(){srtSortAsc=!srtSortAsc;const btn=document.getElementById('srt-sort-btn');if(btn)btn.textContent=srtSortAsc?'Oldest First':'Newest First';renderSorting();}
 function renderSorting(){
   const tr=(S.sortings||[]).filter(r=>isToday(r.date));
   const tot=tr.reduce((s,r)=>s+(r.totalQty||r.qty||0),0);
@@ -1879,8 +1923,10 @@ function renderSrtTab(name){
   const fmtPallets=r=>(r.pallets||[]).map(p=>skuBadge(p.cls)+` ×${p.qty}`).join('  ');
   const totQty=r=>r.totalQty||(r.pallets||[]).reduce((s,p)=>s+(p.qty||0),0);
   const adminEdit=isAdmin();
+  const srtQ=(document.getElementById('srt-search')?.value||'').toLowerCase();
+  const filterSrt=r=>!srtQ||(r.sorters||[]).join(' ').toLowerCase().includes(srtQ)||(r.supervisor||'').toLowerCase().includes(srtQ)||(r.orderRef||'').toLowerCase().includes(srtQ)||((r.pallets||[]).some(p=>(p.cls||'').toLowerCase().includes(srtQ)));
   if(name==='today'){
-    const tr=(S.sortings||[]).filter(r=>isToday(r.date));
+    const tr=(S.sortings||[]).filter(r=>isToday(r.date)&&filterSrt(r));
     document.getElementById('srt-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div><div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} · ${esc(r.supervisor)}${r.orderRef?` · ${esc(r.orderRef)}`:''}</div></div>
@@ -1890,8 +1936,8 @@ function renderSrtTab(name){
     </div>`).join(''):'<div class="empty">No sorting today</div>';
   }
   if(name==='history'){
-    const grp={};(S.sortings||[]).forEach(r=>{const d=r.date.slice(0,10);if(!grp[d])grp[d]=[];grp[d].push(r);});
-    document.getElementById('srt-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort().reverse().map(day=>{
+    const grp={};(S.sortings||[]).filter(filterSrt).forEach(r=>{const d=r.date.slice(0,10);if(!grp[d])grp[d]=[];grp[d].push(r);});
+    document.getElementById('srt-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort(srtSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{
       const rs=grp[day],dt=rs.reduce((s,r)=>s+totQty(r),0);
       return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--blue);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} sorted</span></div>`+
         rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div><div style="font-weight:700;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} · ${esc(r.supervisor)}${r.orderRef?` · ${esc(r.orderRef)}`:''}</div></div><div style="display:flex;align-items:center;gap:8px"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--blue)">${totQty(r)}</span>${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editSorting('${r.id}')">Edit</button>`:''}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px">${(r.pallets||[]).map(p=>`<span>${skuBadge(p.cls)} <span style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800">×${p.qty}</span></span>`).join('')}</div></div>`).join('');
@@ -2473,7 +2519,7 @@ async function exportOrdersPDF(){
   if(ordF.dateFrom)orders=orders.filter(j=>j.orderDate>=ordF.dateFrom);
   if(ordF.dateTo)orders=orders.filter(j=>j.orderDate<=ordF.dateTo);
   if(ordF.search){const q=ordF.search.toLowerCase();orders=orders.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q));}
-  orders=orders.slice().sort((a,b)=>b.awb.localeCompare(a.awb));
+  orders=orders.slice().sort((a,b)=>ordSortAsc?a.awb.localeCompare(b.awb):b.awb.localeCompare(a.awb));
   if(!orders.length){toast('No orders to export','err');return;}
 
   toast('Generating PDF...');
