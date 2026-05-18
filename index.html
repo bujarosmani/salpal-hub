@@ -166,7 +166,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 .co-dd{display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:var(--panel2);border:1.5px solid var(--line2);border-radius:9px;z-index:60;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)}
 .co-dd.open{display:block}
 .co-opt{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line);transition:background .1s}
-.co-opt:hover{background:var(--panel)}.co-opt:last-child{border-bottom:0}
+.co-opt-active{background:var(--brand-dark)!important;}.co-opt-active .co-opt-name{color:#fff!important;}.co-opt:last-child{border-bottom:0}
 .co-opt-name{font-weight:700;font-size:13px}.co-opt-sub{font-size:11px;color:var(--ink3);margin-top:2px}
 .co-add-btn{display:block;width:100%;padding:9px 12px;text-align:left;color:var(--brand);font-size:13px;font-weight:700;cursor:pointer;border:none;background:none;border-top:1px solid var(--line)}
 .co-add-btn:hover{background:rgba(61,214,104,.07)}
@@ -338,7 +338,11 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 <div class="page" id="page-orders">
   <div class="phdr">
     <div><div class="ptitle">Orders</div><div class="psub">All buying &amp; selling orders</div></div>
-    <button class="btn btn-primary" id="btn-new-order" onclick="openOrderModal()">+ New Order</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" onclick="exportOrdersPDF()">⬇ PDF</button>
+      <button class="btn btn-ghost" onclick="exportOrdersExcel()">⬇ Excel</button>
+      <button class="btn btn-primary" id="btn-new-order" onclick="openOrderModal()">+ New Order</button>
+    </div>
   </div>
   <div class="stats" id="ord-stats"></div>
   <div class="card">
@@ -959,7 +963,16 @@ function applyDP(){if(dpFrom&&!dpTo)dpTo=dpFrom;closeM('m-datepicker');if(dpCb)d
 /* ── COMPANY AUTOCOMPLETE ── */
 function bindCoSearch(inputId,ddId,onSelect){
   const inp=document.getElementById(inputId),dd=document.getElementById(ddId);if(!inp||!dd)return;
+  let activeIdx=-1;
+  function getOpts(){return Array.from(dd.querySelectorAll('.co-opt'));}
+  function setActive(idx){
+    const opts=getOpts();
+    opts.forEach(o=>o.classList.remove('co-opt-active'));
+    if(idx>=0&&idx<opts.length){opts[idx].classList.add('co-opt-active');opts[idx].scrollIntoView({block:'nearest'});activeIdx=idx;}
+    else activeIdx=-1;
+  }
   inp.oninput=()=>{
+    activeIdx=-1;
     const v=inp.value.trim();if(!v){dd.classList.remove('open');return;}
     const ms=(S.companies||[]).filter(c=>c.name.toLowerCase().includes(v.toLowerCase()));
     let html=ms.map(c=>`<div class="co-opt" data-id="${c.id}"><div class="co-opt-name">${esc(c.name)}</div><div class="co-opt-sub">${esc([c.city,c.postcode].filter(Boolean).join(', '))}</div></div>`).join('');
@@ -967,7 +980,21 @@ function bindCoSearch(inputId,ddId,onSelect){
     dd.innerHTML=html;dd.classList.add('open');
     dd.querySelectorAll('.co-opt').forEach(opt=>{opt.onclick=()=>{const co=(S.companies||[]).find(c=>c.id===opt.dataset.id);if(!co)return;inp.value=co.name;dd.classList.remove('open');onSelect(co);};});
     const ab=document.getElementById(`coadd_${ddId}`);
-    if(ab)ab.onclick=()=>{dd.classList.remove('open');openCompanyModalInline(v,co=>{inp.value=co.name;onSelect(co);});};
+    if(ab)ab.onclick=()=>{dd.classList.remove('open');openCompanyModalInline(inp.value.trim(),co=>{inp.value=co.name;onSelect(co);});};
+  };
+  inp.onkeydown=e=>{
+    const opts=getOpts();
+    if(!dd.classList.contains('open'))return;
+    if(e.key==='ArrowDown'){e.preventDefault();setActive(Math.min(activeIdx+1,opts.length-1));}
+    else if(e.key==='ArrowUp'){e.preventDefault();setActive(Math.max(activeIdx-1,0));}
+    else if(e.key==='Enter'){
+      e.preventDefault();
+      if(activeIdx>=0&&activeIdx<opts.length){
+        const co=(S.companies||[]).find(c=>c.id===opts[activeIdx].dataset.id);
+        if(co){inp.value=co.name;dd.classList.remove('open');onSelect(co);}
+      }
+    }
+    else if(e.key==='Escape'){dd.classList.remove('open');activeIdx=-1;}
   };
   document.addEventListener('click',e=>{if(!inp.contains(e.target)&&!dd.contains(e.target))dd.classList.remove('open');});
 }
@@ -1073,28 +1100,34 @@ function renderDash(){
 }
 
 /* ── ORDERS PAGE ── */
-let ordF={types:null,statuses:null,drivers:null,company:'',source:null};
+let ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:''};
 function renderOrders(){
   const ords=S.orders||[];
   document.getElementById('ord-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${ords.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${ords.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
   const typeOpts=[{value:'Delivery',label:'Delivery'},{value:'Collection',label:'Collection'}];
   const statOpts=['Open','Loaded','In Transit','Collected','Delivered','Completed'].map(s=>({value:s,label:s}));
   const drvOpts=drvs().map(d=>({value:d.id,label:`${d.firstName} ${d.lastName}`}));
+  const dlabel=ordF.dateFrom&&ordF.dateTo?`${fd(ordF.dateFrom)}–${fd(ordF.dateTo)}`:ordF.dateFrom?fd(ordF.dateFrom):'All Dates';
   const sourceOpts=[{value:'driver',label:'Driver orders'},{value:'dropoff',label:'Drop-offs'}];
   document.getElementById('ord-filters').innerHTML=
     `<input class="inp" id="ord-co-search" placeholder="🔍 Company..." value="${esc(ordF.company)}" style="width:160px;padding:7px 10px;font-size:12px" oninput="ordF.company=this.value;renderOrdTable()"/> `+
     buildCbDropdown('ordType',typeOpts,ordF.types,'All Types')+' '+
     buildCbDropdown('ordStat',statOpts,ordF.statuses,'All Statuses')+' '+
-    buildCbDropdown('ordSrc',sourceOpts,ordF.source,'All Sources')+
+    buildCbDropdown('ordSrc',sourceOpts,ordF.source,'All Sources')+' '+
+    `<button class="dp-btn${ordF.dateFrom?' active':''}" id="ord-dp-btn">📅 ${esc(dlabel)}</button>`+
+    (ordF.dateFrom?`<button class="dp-clear" onclick="ordF.dateFrom='';ordF.dateTo='';renderOrders()">✕</button>`:'')+
     (drvOpts.length?' '+buildCbDropdown('ordDrv',drvOpts,ordF.drivers,'All Drivers'):'');
   bindCbDropdown('ordType',typeOpts,v=>{ordF.types=v;renderOrdTable();});
   bindCbDropdown('ordStat',statOpts,v=>{ordF.statuses=v;renderOrdTable();});
   bindCbDropdown('ordSrc',sourceOpts,v=>{ordF.source=v;renderOrdTable();});
   if(drvOpts.length)bindCbDropdown('ordDrv',drvOpts,v=>{ordF.drivers=v;renderOrdTable();});
+  const odp=document.getElementById('ord-dp-btn');
+  if(odp)odp.onclick=()=>openDatePicker(ordF.dateFrom,ordF.dateTo,(f,t)=>{ordF.dateFrom=f;ordF.dateTo=t;renderOrders();});
   renderOrdTable();
 }
 function clearOrdFilter(key){
   if(key==='company')ordF.company='';
+  else if(key==='dateFrom'){ordF.dateFrom='';ordF.dateTo='';}
   else ordF[key]=null;
   renderOrders();
 }
@@ -1105,6 +1138,8 @@ function renderOrdTable(){
   if(ordF.statuses)list=list.filter(j=>ordF.statuses.includes(j.status));
   if(ordF.drivers)list=list.filter(j=>ordF.drivers.includes(j.driverId));
   if(ordF.company)list=list.filter(j=>(j.companyName||'').toLowerCase().includes(ordF.company.toLowerCase()));
+  if(ordF.dateFrom)list=list.filter(j=>j.orderDate>=ordF.dateFrom);
+  if(ordF.dateTo)list=list.filter(j=>j.orderDate<=ordF.dateTo);
   if(ordF.source){
     if(ordF.source.includes('dropoff')&&!ordF.source.includes('driver'))list=list.filter(j=>j.driver==='Customer Drop Off'||j.source==='dropoff');
     else if(ordF.source.includes('driver')&&!ordF.source.includes('dropoff'))list=list.filter(j=>j.driver!=='Customer Drop Off'&&j.source!=='dropoff');
@@ -1114,6 +1149,7 @@ function renderOrdTable(){
   // Active filter tags
   const tags=[];
   if(ordF.company)tags.push({label:`Company: "${ordF.company}"`,key:'company'});
+  if(ordF.dateFrom)tags.push({label:`Date: ${fd(ordF.dateFrom)}${ordF.dateTo?'–'+fd(ordF.dateTo):''}`,key:'dateFrom'});
   if(ordF.types)tags.push({label:`Type: ${ordF.types.join(', ')}`,key:'types'});
   if(ordF.statuses)tags.push({label:`Status: ${ordF.statuses.join(', ')}`,key:'statuses'});
   if(ordF.source)tags.push({label:`Source: ${ordF.source.join(', ')}`,key:'source'});
@@ -1995,74 +2031,15 @@ function renderReorder(){
   });
 }
 
-/* ── SCROLLABLE GRID PICKER ── */
-// Replace old addPltLine with new sgrid version
 function addPltLine(cid,cls,qty){
   cls=cls||'';qty=qty||'';
   const c=document.getElementById(cid);if(!c)return;
-  const uid=mkId();
-  const d=document.createElement('div');d.className='plt-line';d.dataset.uid=uid;
-  const skus=getSKUS();
-  const gridBtns=skus.map(s=>`<button type="button" class="sgrid-btn${s===cls?' sel':''}" data-cls="${s}" onclick="sgridPick('${uid}','${s}')" title="${s}">${s}</button>`).join('');
-  d.innerHTML=`
-    <div style="grid-column:1/-1;margin-bottom:4px">
-      <div class="sgrid-wrap" id="sgrid-${uid}">${gridBtns}</div>
-      <div class="sgrid-confirm" id="sgrid-conf-${uid}">
-        <span style="font-size:13px;color:var(--ink2)">Selected: <strong id="sgrid-sel-${uid}" style="color:var(--brand)">${cls||'—'}</strong></span>
-        <button type="button" class="btn btn-primary btn-sm" onclick="sgridConfirm('${uid}')">✓ Confirm</button>
-        <button type="button" class="rm-btn" style="width:28px;height:28px" onclick="this.closest('.plt-line').remove()">−</button>
-      </div>
-      ${cls?`<div style="display:flex;align-items:center;gap:8px;margin-top:6px" id="sgrid-confirmed-${uid}">
-        ${skuBadge(cls,true)}
-        <input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="width:90px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800"/>
-        <button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove()">−</button>
-      </div>`:`<div style="display:none" id="sgrid-confirmed-${uid}"></div>`}
-    </div>`;
-  d.style.display='block';d.style.marginBottom='10px';
-  // Override grid styling for this use
-  d.style.gridTemplateColumns='1fr';
+  const d=document.createElement('div');d.className='plt-line';
+  d.innerHTML=`<select class="inp" onchange="onSrtLinesChange()"><option value="">— Class —</option>${getSKUS().map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="onSrtLinesChange()"/><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove();onSrtLinesChange()">−</button>`;
   c.appendChild(d);
-  // If pre-filled, show confirm section
-  if(cls){const conf=document.getElementById(`sgrid-conf-${uid}`);if(conf)conf.classList.add('show');}
 }
-
-function sgridPick(uid,cls){
-  // Mark pending
-  const grid=document.getElementById(`sgrid-${uid}`);
-  if(grid)grid.querySelectorAll('.sgrid-btn').forEach(b=>{b.classList.remove('sel','pending');if(b.dataset.cls===cls)b.classList.add('pending');});
-  const selEl=document.getElementById(`sgrid-sel-${uid}`);if(selEl)selEl.textContent=cls;
-  const conf=document.getElementById(`sgrid-conf-${uid}`);if(conf)conf.classList.add('show');
-  // Store pending selection
-  const grid2=document.getElementById(`sgrid-${uid}`);if(grid2)grid2.dataset.pending=cls;
-}
-
-function sgridConfirm(uid){
-  const grid=document.getElementById(`sgrid-${uid}`);
-  const cls=grid?grid.dataset.pending:'';
-  if(!cls)return;
-  // Mark confirmed
-  grid.querySelectorAll('.sgrid-btn').forEach(b=>{b.classList.remove('pending');if(b.dataset.cls===cls)b.classList.add('sel');});
-  // Show qty input
-  const confDiv=document.getElementById(`sgrid-confirmed-${uid}`);
-  if(confDiv){
-    confDiv.style.display='flex';confDiv.style.alignItems='center';confDiv.style.gap='8px';confDiv.style.marginTop='6px';
-    confDiv.innerHTML=`${skuBadge(cls,true)}<input class="inp" type="number" min="1" placeholder="Qty" style="width:90px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800"/><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove()">−</button>`;
-    confDiv.querySelector('input').focus();
-  }
-  // Store confirmed cls on the line
-  const line=grid.closest('.plt-line');if(line)line.dataset.confirmedCls=cls;
-}
-
 function getLines(cid){
-  return Array.from(document.querySelectorAll(`#${cid} .plt-line`)).map(row=>{
-    // New sgrid style
-    const confirmedCls=row.dataset.confirmedCls;
-    const grid=row.querySelector('.sgrid-wrap');
-    const cls=confirmedCls||(grid?grid.dataset.pending:'');
-    const inp=row.querySelector('input[type=number]');
-    const qty=inp?parseInt(inp.value)||0:0;
-    return{cls,qty};
-  }).filter(p=>p.qty>0&&p.cls);
+  return Array.from(document.querySelectorAll(`#${cid} .plt-line`)).map(row=>({cls:row.querySelector('select').value,qty:parseInt(row.querySelector('input').value)||0})).filter(p=>p.qty>0&&p.cls);
 }
 
 let ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null};
@@ -2241,6 +2218,187 @@ function showLoginForm(){
   document.getElementById('li-btn').onclick=doLogin;
   document.getElementById('li-pass').onkeydown=e=>{if(e.key==='Enter')doLogin();};
   document.getElementById('li-user').onkeydown=e=>{if(e.key==='Enter')document.getElementById('li-pass').focus();};
+}
+
+const LOGO_B64='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';
+
+async function exportOrdersPDF(){
+  // Load jsPDF
+  if(!window.jspdf){
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload=res;s.onerror=rej;document.head.appendChild(s);
+    });
+  }
+  const {jsPDF}=window.jspdf;
+
+  // Get filtered orders
+  let orders=S.orders||[];
+  if(ordF.types)orders=orders.filter(j=>ordF.types.includes(j.type));
+  if(ordF.statuses)orders=orders.filter(j=>ordF.statuses.includes(j.status));
+  if(ordF.drivers)orders=orders.filter(j=>ordF.drivers.includes(j.driverId));
+  if(ordF.company)orders=orders.filter(j=>(j.companyName||'').toLowerCase().includes(ordF.company.toLowerCase()));
+  if(ordF.source){
+    if(ordF.source.includes('dropoff')&&!ordF.source.includes('driver'))orders=orders.filter(j=>j.source==='dropoff');
+    else if(ordF.source.includes('driver')&&!ordF.source.includes('dropoff'))orders=orders.filter(j=>j.source!=='dropoff');
+  }
+  if(ordF.dateFrom)orders=orders.filter(j=>j.orderDate>=ordF.dateFrom);
+  if(ordF.dateTo)orders=orders.filter(j=>j.orderDate<=ordF.dateTo);
+  orders=orders.slice().sort((a,b)=>b.awb.localeCompare(a.awb));
+  if(!orders.length){toast('No orders to export','err');return;}
+
+  toast('Generating PDF...');
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210,H=297,M=15;
+
+  orders.forEach((j,idx)=>{
+    if(idx>0)doc.addPage();
+    const driver=(S.users||[]).find(u=>u.id===j.driverId);
+    const driverName=j.driver||(driver?`${driver.firstName} ${driver.lastName}`:'Unassigned');
+
+    // Header bar
+    doc.setFillColor(14,26,16);
+    doc.rect(0,0,W,28,'F');
+    // Logo
+    try{doc.addImage('data:image/jpeg;base64,'+LOGO_B64,'JPEG',M,4,22,20);}catch(e){}
+    // Company name
+    doc.setTextColor(61,214,104);
+    doc.setFontSize(18);doc.setFont('helvetica','bold');
+    doc.text('SalPal Hub',42,14);
+    doc.setFontSize(9);doc.setFont('helvetica','normal');
+    doc.setTextColor(154,184,157);
+    doc.text('Warehouse Operations',42,20);
+    // AWB badge
+    doc.setFillColor(26,99,51);
+    doc.roundedRect(W-M-40,5,40,18,3,3,'F');
+    doc.setTextColor(61,214,104);
+    doc.setFontSize(11);doc.setFont('helvetica','bold');
+    doc.text(j.awb||'',W-M-20,16,{align:'center'});
+
+    // Order type & status
+    let y=36;
+    const typeColor=j.type==='Delivery'?[91,156,246]:[245,200,66];
+    doc.setFillColor(...typeColor);
+    doc.roundedRect(M,y,28,7,2,2,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(8);doc.setFont('helvetica','bold');
+    doc.text((j.type||'').toUpperCase(),M+14,y+4.8,{align:'center'});
+    // Status
+    doc.setFillColor(40,60,45);
+    doc.roundedRect(M+32,y,30,7,2,2,'F');
+    doc.setTextColor(154,184,157);
+    doc.text((j.status||'').toUpperCase(),M+47,y+4.8,{align:'center'});
+    // Dates
+    doc.setTextColor(100,130,105);doc.setFontSize(8);doc.setFont('helvetica','normal');
+    doc.text(`Order: ${j.orderDate||'—'}   Delivery: ${j.deliveryDate||'—'}${j.timeFrom?'  '+j.timeFrom+''+(j.timeTo?'–'+j.timeTo:''):''}`,M,y+14);
+
+    // Divider
+    y+=22;
+    doc.setDrawColor(35,51,40);doc.setLineWidth(0.3);
+    doc.line(M,y,W-M,y);y+=6;
+
+    // Two column layout
+    const col1=M,col2=W/2+5,colW=W/2-M-5;
+    const field=(label,value,x,cy)=>{
+      doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(90,122,93);
+      doc.text(label.toUpperCase(),x,cy);
+      doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(228,240,230);
+      const lines=doc.splitTextToSize(value||'—',colW);
+      doc.text(lines,x,cy+5);
+      return cy+5+(lines.length*5);
+    };
+
+    let y1=y,y2=y;
+    y1=field('Company',j.companyName||'',col1,y1)+4;
+    y1=field('Address',`${j.companyAddress||''}${j.city?', '+j.city:''}${j.postcode?' '+j.postcode:''}`,col1,y1)+4;
+    y1=field('Driver',driverName,col1,y1)+4;
+    if(j.driverNotes)y1=field('Driver Notes',j.driverNotes,col1,y1)+4;
+
+    y2=field('Order Ref',j.orderRef||'—',col2,y2)+4;
+    y2=field('WH By',j.whBy||'—',col2,y2)+4;
+    y2=field('Source',j.source==='dropoff'?'Drop-off':'Driver Order',col2,y2)+4;
+
+    y=Math.max(y1,y2)+4;
+    doc.setDrawColor(35,51,40);doc.line(M,y,W-M,y);y+=6;
+
+    // Pallets table
+    doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(90,122,93);
+    doc.text('PALLETS',M,y);y+=5;
+    doc.setFillColor(23,32,25);
+    doc.rect(M,y,W-2*M,7,'F');
+    doc.setTextColor(154,184,157);doc.setFontSize(8);
+    doc.text('Class',M+3,y+5);
+    doc.text('Qty',W-M-15,y+5,{align:'right'});
+    y+=7;
+    (j.pallets||[]).forEach((p,pi)=>{
+      if(pi%2===0)doc.setFillColor(28,42,31);else doc.setFillColor(23,32,25);
+      doc.rect(M,y,W-2*M,6,'F');
+      doc.setTextColor(228,240,230);doc.setFontSize(9);doc.setFont('helvetica','normal');
+      doc.text(p.cls||'',M+3,y+4.3);
+      doc.setFont('helvetica','bold');doc.setTextColor(61,214,104);
+      doc.text(String(p.qty||0),W-M-3,y+4.3,{align:'right'});
+      y+=6;
+    });
+    // Total row
+    doc.setFillColor(14,26,16);
+    doc.rect(M,y,W-2*M,7,'F');
+    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(154,184,157);
+    doc.text('TOTAL',M+3,y+5);
+    doc.setTextColor(61,214,104);
+    doc.text(String(j.totalQty||0),W-M-3,y+5,{align:'right'});
+    y+=12;
+
+    // Footer
+    doc.setFillColor(14,26,16);
+    doc.rect(0,H-12,W,12,'F');
+    doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(90,122,93);
+    doc.text(`Generated ${new Date().toLocaleString()}`,M,H-5);
+    doc.text(`Page ${idx+1} of ${orders.length}`,W-M,H-5,{align:'right'});
+  });
+
+  doc.save(`orders-${new Date().toISOString().slice(0,10)}.pdf`);
+  toast('PDF exported ✓');
+}
+
+function exportOrdersExcel(){
+  // Use currently filtered orders (same logic as renderOrdTable)
+  let orders=S.orders||[];
+  if(ordF.types)orders=orders.filter(j=>ordF.types.includes(j.type));
+  if(ordF.statuses)orders=orders.filter(j=>ordF.statuses.includes(j.status));
+  if(ordF.drivers)orders=orders.filter(j=>ordF.drivers.includes(j.driverId));
+  if(ordF.company)orders=orders.filter(j=>(j.companyName||'').toLowerCase().includes(ordF.company.toLowerCase()));
+  if(ordF.source){
+    if(ordF.source.includes('dropoff')&&!ordF.source.includes('driver'))orders=orders.filter(j=>j.driver==='Customer Drop Off'||j.source==='dropoff');
+    else if(ordF.source.includes('driver')&&!ordF.source.includes('dropoff'))orders=orders.filter(j=>j.driver!=='Customer Drop Off'&&j.source!=='dropoff');
+  }
+  if(ordF.dateFrom)orders=orders.filter(j=>j.orderDate>=ordF.dateFrom);
+  if(ordF.dateTo)orders=orders.filter(j=>j.orderDate<=ordF.dateTo);
+  if(!orders.length){toast('No orders to export','err');return;}
+  // Build CSV content
+  const headers=['AWB','Order Ref','Type','Status','Order Date','Delivery Date','Time From','Time To','Company','Address','City','Postcode','Driver','Pallets','Total Qty','Driver Notes','WH By','Created At','Updated At'];
+  const rows=orders.map(j=>{
+    const driver=(S.users||[]).find(u=>u.id===j.driverId);
+    const driverName=j.driver||( driver?`${driver.firstName} ${driver.lastName}`:'');
+    const pallets=(j.pallets||[]).map(p=>`${p.qty}x${p.cls}`).join(', ');
+    return[
+      j.awb||'',j.orderRef||'',j.type||'',j.status||'',
+      j.orderDate||'',j.deliveryDate||'',j.timeFrom||'',j.timeTo||'',
+      j.companyName||'',j.companyAddress||'',j.city||'',j.postcode||'',
+      driverName,pallets,j.totalQty||0,
+      j.driverNotes||'',j.whBy||'',
+      j.createdAt?new Date(j.createdAt).toLocaleString():'',
+      j.updatedAt?new Date(j.updatedAt).toLocaleString():''
+    ].map(v=>typeof v==='string'&&(v.includes(',')|| v.includes('"')|| v.includes('\n'))?`"${v.replace(/"/g,'""')}"`:v);
+  });
+  const csv=[headers.join(','),...rows.map(r=>r.join(','))].join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`orders-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+  toast('Orders exported ✓');
 }
 
 /* ── INIT ── */
