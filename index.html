@@ -355,10 +355,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="ord-filters"></div>
       <div id="ord-active-tags" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 0 6px;margin-top:6px"></div>
     </div>
-    <div style="padding:8px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px">Columns:</span>
-      ${['orderRef','type','company','date','pallets','driver','whBy','whNotes','status'].map(c=>`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="col-${c}" checked onchange="renderOrdTable()"/> ${c==='orderRef'?'Order Ref':c==='whBy'?'WH By':c==='whNotes'?'WH Notes':c.charAt(0).toUpperCase()+c.slice(1)}</label>`).join('')}
-    </div>
+    <div id="ord-col-toggles" style="padding:8px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap"></div>
     <div class="tbl-wrap">
       <table><thead id="ord-thead"><tr>
         <th>AWB</th><th id="th-orderRef">Order Ref</th><th id="th-type">Type</th><th id="th-company">Company</th><th id="th-date">Date</th><th id="th-pallets">Pallets</th><th id="th-driver">Driver</th><th id="th-whBy">WH By</th><th id="th-whNotes">WH Notes</th><th id="th-status">Status</th><th class="right">Actions</th>
@@ -1135,6 +1132,13 @@ function renderDash(){
 /* ── ORDERS PAGE ── */
 let ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:'',search:''};
 function renderOrders(){
+  // Build column toggles once
+  const toggles=document.getElementById('ord-col-toggles');
+  if(toggles&&!toggles.hasChildNodes()){
+    const cols=[{k:'orderRef',l:'Order Ref'},{k:'type',l:'Type'},{k:'company',l:'Company'},{k:'date',l:'Date'},{k:'pallets',l:'Pallets'},{k:'driver',l:'Driver'},{k:'whBy',l:'WH By'},{k:'whNotes',l:'WH Notes'},{k:'status',l:'Status'}];
+    toggles.innerHTML=`<span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px">Columns:</span>`+
+      cols.map(c=>`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ink2)"><input type="checkbox" id="col-${c.k}" ${c.k==='whNotes'?'':'checked'} onchange="renderOrdTable()"/> ${c.l}</label>`).join('');
+  }
   const ords=S.orders||[];
   document.getElementById('ord-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${ords.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${ords.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
   const typeOpts=[{value:'Delivery',label:'Delivery'},{value:'Collection',label:'Collection'}];
