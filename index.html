@@ -344,6 +344,9 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       <button class="btn btn-primary" id="btn-new-order" onclick="openOrderModal()">+ New Order</button>
     </div>
   </div>
+  <div style="padding:0 0 12px">
+    <input class="inp" id="ord-search" placeholder="🔍 Search AWB, company, driver, ref..." autocomplete="off" style="width:100%;font-size:14px" oninput="ordF.search=this.value;renderOrdTable()"/>
+  </div>
   <div class="stats" id="ord-stats"></div>
   <div class="card">
     <div class="card-hdr">
@@ -1024,6 +1027,9 @@ function doLogin(){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='block';
     setupNav();
+    startRealtime();
+    // Poll every 30s as fallback
+    setInterval(()=>loadCloud().catch(()=>{}),30000);
     if(ME.role==='Driver')goTo('driver');
     else if(ME.role==='Supervisor')goTo('dispatch');
     else goTo('dashboard');
@@ -1048,6 +1054,8 @@ function tryRestoreSession(){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='block';
     setupNav();
+    startRealtime();
+    setInterval(()=>loadCloud().catch(()=>{}),30000);
     if(ME.role==='Driver')goTo('driver');
     else if(ME.role==='Supervisor')goTo('dispatch');
     else goTo('dashboard');
@@ -1102,7 +1110,7 @@ function renderDash(){
 }
 
 /* ── ORDERS PAGE ── */
-let ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:''};
+let ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:'',search:''};
 function renderOrders(){
   const ords=S.orders||[];
   document.getElementById('ord-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${ords.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${ords.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
@@ -1126,6 +1134,7 @@ function renderOrders(){
   const odp=document.getElementById('ord-dp-btn');
   if(odp)odp.onclick=()=>openDatePicker(ordF.dateFrom,ordF.dateTo,(f,t)=>{ordF.dateFrom=f;ordF.dateTo=t;renderOrders();});
   renderOrdTable();
+  const srch=document.getElementById('ord-search');if(srch)srch.value=ordF.search||'';
 }
 function clearOrdFilter(key){
   if(key==='company')ordF.company='';
@@ -1142,6 +1151,17 @@ function renderOrdTable(){
   if(ordF.company)list=list.filter(j=>(j.companyName||'').toLowerCase().includes(ordF.company.toLowerCase()));
   if(ordF.dateFrom)list=list.filter(j=>j.orderDate>=ordF.dateFrom);
   if(ordF.dateTo)list=list.filter(j=>j.orderDate<=ordF.dateTo);
+  if(ordF.search){
+    const q=ordF.search.toLowerCase();
+    list=list.filter(j=>
+      (j.awb||'').toLowerCase().includes(q)||
+      (j.companyName||'').toLowerCase().includes(q)||
+      (j.orderRef||'').toLowerCase().includes(q)||
+      (j.driverId?uname(j.driverId):'').toLowerCase().includes(q)||
+      (j.driverNotes||'').toLowerCase().includes(q)||
+      (j.whBy||'').toLowerCase().includes(q)
+    );
+  }
   if(ordF.source){
     if(ordF.source.includes('dropoff')&&!ordF.source.includes('driver'))list=list.filter(j=>j.driver==='Customer Drop Off'||j.source==='dropoff');
     else if(ordF.source.includes('driver')&&!ordF.source.includes('dropoff'))list=list.filter(j=>j.driver!=='Customer Drop Off'&&j.source!=='dropoff');
@@ -2437,7 +2457,41 @@ function exportOrdersExcel(){
   toast('Orders exported ✓');
 }
 
-/* ── INIT ── */
+// ── REALTIME SYNC ──
+let realtimeChannel=null;
+function startRealtime(){
+  if(realtimeChannel)return;
+  try{
+    const tables=['sp_orders','sp_repairs','sp_sortings','sp_users','sp_companies','sp_stock','sp_products','sp_ledger'];
+    const evtSrc=new EventSource(`${SB_URL}/realtime/v1/sse?apikey=${SB_KEY}&topics=${tables.map(t=>`realtime:public:${t}`).join(',')}`);
+    evtSrc.onmessage=e=>{
+      try{
+        const msg=JSON.parse(e.data);
+        if(msg.payload&&msg.payload.data){
+          const {table,record,type}=msg.payload.data;
+          if(!record||!record.id)return;
+          const parsed=record.data;
+          if(!parsed)return;
+          const keyMap={sp_orders:'orders',sp_repairs:'repairs',sp_sortings:'sortings',sp_users:'users',sp_companies:'companies',sp_ledger:'ledger'};
+          const key=keyMap[table];
+          if(key){
+            if(!S[key])S[key]=[];
+            if(type==='DELETE'){S[key]=S[key].filter(x=>x.id!==record.id);}
+            else{const idx=S[key].findIndex(x=>x.id===record.id);if(idx>=0)S[key][idx]=parsed;else S[key].unshift(parsed);}
+          } else if(table==='sp_stock'){S.stock=parsed;}
+          else if(table==='sp_products'){S.products=parsed;}
+          localStorage.setItem(SKEY,JSON.stringify(S));
+          // Refresh current page
+          const p=document.querySelector('.sb-btn.active')?.dataset?.p;
+          if(p)renderPage(p);
+          setSS('ok');
+        }
+      }catch(err){}
+    };
+    evtSrc.onerror=()=>setSS('error');
+    realtimeChannel=evtSrc;
+  }catch(e){}
+}
 // Force clear any old cached data from previous versions
 try{
   const oldKeys=['salpal-hub-v3','salpal-hub-v4'];
