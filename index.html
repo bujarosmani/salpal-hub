@@ -1137,7 +1137,7 @@ function resetPageFilters(page){
   if(page==='orders'){ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('ord-search');if(s)s.value='';tableSort['ord-table']=null;}
   if(page==='dispatch'){disF={statuses:null,dateFrom:'',dateTo:''};const s=document.getElementById('dis-search');if(s)s.value='';tableSort['dis-table']=null;}
   if(page==='receiving'){recF={statuses:null,dateFrom:'',dateTo:''};const s=document.getElementById('rec-search');if(s)s.value='';tableSort['rec-table']=null;}
-  if(page==='repairs'){const s=document.getElementById('rep-search');if(s)s.value='';window.rmfDateFrom='';window.rmfDateTo='';}
+  if(page==='repairs'){const s=document.getElementById('rep-search');if(s)s.value='';window.rmfDateFrom='';window.rmfDateTo='';window.rhfDateFrom='';window.rhfDateTo='';}
   if(page==='sorting'){const s=document.getElementById('srt-search');if(s)s.value='';}
   if(page==='companies'){coSortAsc=true;const s=document.getElementById('co-search');if(s)s.value='';tableSort['co-table']=null;}
   if(page==='stock'){ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null};}
@@ -1655,7 +1655,38 @@ function renderRepTab(name){
   const repQ=(document.getElementById('rep-search')?.value||'').toLowerCase();
   const filterRep=r=>!repQ||(r.repairer||'').toLowerCase().includes(repQ)||(r.pallet_class||'').toLowerCase().includes(repQ)||(r.supervisor||'').toLowerCase().includes(repQ)||(r.src||'').toLowerCase().includes(repQ);
   if(name==='today'){const tr=(S.repairs||[]).filter(r=>isToday(r.date)&&filterRep(r));document.getElementById('rep-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class,true)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}</div></div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand);margin-top:6px">${r.qty} repaired · from ${esc(r.src||r.pallet_class||'—')}</div></div>`).join(''):'<div class="empty">No repairs today</div>';}
-  if(name==='history'){const grp={};(S.repairs||[]).filter(filterRep).forEach(r=>{const d=r.date.slice(0,10);if(!grp[d])grp[d]=[];grp[d].push(r);});document.getElementById('rep-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort(repSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{const rs=grp[day],dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right;display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>';}
+  if(name==='history'){
+    const rhF={
+      worker:document.getElementById('rhf-worker')?.value||'',
+      cls:document.getElementById('rhf-cls')?.value||'',
+      dateFrom:window.rhfDateFrom||'',
+      dateTo:window.rhfDateTo||''
+    };
+    const dlabel=rhF.dateFrom&&rhF.dateTo?`${fd(rhF.dateFrom)}\u2013${fd(rhF.dateTo)}`:rhF.dateFrom?fd(rhF.dateFrom):'All Dates';
+    const filterH=r=>{
+      if(rhF.worker&&r.repairer!==rhF.worker)return false;
+      if(rhF.cls&&r.pallet_class!==rhF.cls)return false;
+      if(rhF.dateFrom&&r.date.slice(0,10)<rhF.dateFrom)return false;
+      if(rhF.dateTo&&r.date.slice(0,10)>rhF.dateTo)return false;
+      return filterRep(r);
+    };
+    const grp={};(S.repairs||[]).filter(filterH).forEach(r=>{const d=r.date.slice(0,10);if(!grp[d])grp[d]=[];grp[d].push(r);});
+    const filtersHtml=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+      <select class="inp" id="rhf-worker" style="flex:1;min-width:120px" onchange="renderRepTab('history')">
+        <option value="">All Workers</option>
+        ${REPAIRERS.map(n=>`<option value="${n}"${rhF.worker===n?' selected':''}>${n}</option>`).join('')}
+      </select>
+      <select class="inp" id="rhf-cls" style="flex:1;min-width:120px" onchange="renderRepTab('history')">
+        <option value="">All Classes</option>
+        ${getSKUS().filter(c=>!c.toLowerCase().includes('defect')&&c!=='Unsorted').map(c=>`<option value="${c}"${rhF.cls===c?' selected':''}>${c}</option>`).join('')}
+      </select>
+      <button class="dp-btn${rhF.dateFrom?' active':''}" id="rhf-dp-btn">📅 ${esc(dlabel)}</button>
+      ${rhF.dateFrom?`<button class="dp-clear" onclick="window.rhfDateFrom='';window.rhfDateTo='';renderRepTab('history')">✕</button>`:''}
+      ${rhF.worker||rhF.cls||rhF.dateFrom?`<button class="btn btn-ghost btn-sm" onclick="window.rhfDateFrom='';window.rhfDateTo='';document.getElementById('rhf-worker').value='';document.getElementById('rhf-cls').value='';renderRepTab('history')">Clear all</button>`:''}
+    </div>`;
+    document.getElementById('rep-history').innerHTML=filtersHtml+(Object.keys(grp).length?Object.keys(grp).sort(repSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{const rs=grp[day],dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right;display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>');
+    setTimeout(()=>{const dpb=document.getElementById('rhf-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(window.rhfDateFrom||'',window.rhfDateTo||'',(f,t)=>{window.rhfDateFrom=f;window.rhfDateTo=t;renderRepTab('history');});},0);
+  }
   if(name==='manager'){
     const repMF={
       worker:document.getElementById('rmf-worker')?.value||'',
