@@ -47,9 +47,9 @@ a{color:inherit;text-decoration:none}img{display:block}h1,h2,h3,p{margin:0}
 .card-hdr-title{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink2)}
 .card-body{padding:14px 15px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px}
-.stat-box{background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:14px 15px}
-.stat-num{font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;line-height:1;color:var(--brand)}
-.stat-lbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);margin-top:4px;font-weight:700}
+.stat-box{background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:18px 16px}
+.stat-num{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:900;line-height:1;color:var(--brand)}
+.stat-lbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);margin-top:6px;font-weight:700}
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
 th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
@@ -297,8 +297,8 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <button class="sb-btn" data-p="orders" id="snav-orders"><span class="ic">📋</span>Orders</button>
     <button class="sb-btn" data-p="dispatch" id="snav-dispatch"><span class="ic">📤</span>Dispatch</button>
     <button class="sb-btn" data-p="receiving" id="snav-receiving"><span class="ic">📥</span>Receiving</button>
-    <button class="sb-btn" data-p="repairs" id="snav-repairs"><span class="ic">🔧</span>Pallet Repairs<span id="nav-badge-repairs" style="display:none;margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0"></span></button>
-    <button class="sb-btn" data-p="sorting" id="snav-sorting"><span class="ic">📦</span>Sorting<span id="nav-badge-sorting" style="display:none;margin-left:auto;background:var(--amber);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0"></span></button>
+    <button class="sb-btn" data-p="repairs" id="snav-repairs"><span class="ic">🔧</span>Pallet Repairs<span id="nav-badge-repairs" style="display:none;margin-left:auto;background:rgba(245,107,107,.25);color:var(--red);font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0;min-width:20px;text-align:center"></span></button>
+    <button class="sb-btn" data-p="sorting" id="snav-sorting"><span class="ic">📦</span>Sorting<span id="nav-badge-sorting" style="display:none;margin-left:auto;background:rgba(180,120,0,.25);color:var(--amber);font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0;min-width:20px;text-align:center"></span></button>
     <button class="sb-btn" data-p="stock" id="snav-stock"><span class="ic">📊</span>Stock</button>
     <button class="sb-btn" data-p="calendar" id="snav-calendar"><span class="ic">📅</span>Calendar</button>
   </div>
@@ -412,10 +412,12 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <button class="tab-btn on" onclick="repTab('today',this)">Today</button>
     <button class="tab-btn" onclick="repTab('history',this)">History</button>
     <button class="tab-btn" onclick="repTab('manager',this)">Manager View</button>
+    <button class="tab-btn" onclick="repTab('workers',this)">⇅ Workers</button>
   </div>
   <div class="tpane on" id="rep-today"></div>
   <div class="tpane" id="rep-history"></div>
   <div class="tpane" id="rep-manager"></div>
+  <div class="tpane" id="rep-workers"><div id="rep-workers-list" style="max-width:400px"></div></div>
 </div>
 
 <div class="page" id="page-sorting">
@@ -427,10 +429,12 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <button class="tab-btn on" onclick="srtTab('today',this)">Today</button>
     <button class="tab-btn" onclick="srtTab('history',this)">History</button>
     <button class="tab-btn" onclick="srtTab('manager',this)">Manager View</button>
+    <button class="tab-btn" onclick="srtTab('workers',this)">⇅ Workers</button>
   </div>
   <div class="tpane on" id="srt-today"></div>
   <div class="tpane" id="srt-history"></div>
   <div class="tpane" id="srt-manager"></div>
+  <div class="tpane" id="srt-workers"><div id="srt-workers-list" style="max-width:400px"></div></div>
 </div>
 
 <div class="page" id="page-stock">
@@ -865,7 +869,9 @@ const DEFAULT_SKUS=['A','B','C','EW 120x80','EW 120x100','Color 120x80','Unsorte
 function getSKUS(){return S&&S.products&&S.products.length?S.products:DEFAULT_SKUS;}
 const SKU_C={'A':{bg:'rgba(61,214,104,.12)',c:'#3dd668'},'B':{bg:'rgba(91,156,246,.12)',c:'#5b9cf6'},'C':{bg:'rgba(245,200,66,.12)',c:'#f5c842'},'EW 120x80':{bg:'rgba(167,139,250,.12)',c:'#a78bfa'},'EW 120x100':{bg:'rgba(56,189,248,.12)',c:'#38bdf8'},'Color 120x80':{bg:'rgba(251,146,60,.12)',c:'#fb923c'}};
 const SUPERVISORS=['Idi','Cristian'];
-const REPAIRERS=['Mohamed','Agim','Fidan','Nazz','Manu','Bairam'];
+const DEFAULT_WORKERS=['Mohamed','Agim','Fidan','Nazz','Manu','Bairam'];
+const REPAIRERS=null; // replaced by getWorkers()
+function getWorkers(){return(S.workers&&S.workers.length)?S.workers:[...DEFAULT_WORKERS];}
 const SHEETS_URL='https://script.google.com/macros/s/AKfycbwwEJC1ewE-VlgK1aMZwJmLmNhR-Fu7TxFWam2uJ84ohS--Y4S96ogJPDEcnp6e998CnA/exec';
 const SHEETS_ENABLED=false; // temporarily disabled
 const SB_URL='https://mierymdbtsuwgwihtyiu.supabase.co';
@@ -929,7 +935,8 @@ function syncCloud(){
         sp_users:S.users||[],
         sp_companies:S.companies||[],
         sp_ledger:S.ledger||[],
-        sp_deleted:S.bin||[]
+        sp_deleted:S.bin||[],
+        sp_workers:[{id:'__workers',data:S.workers||[]}]
       };
       // Stock and products as single rows
       const stockRow=sbUpsert('sp_stock','__stock',S.stock||{});
@@ -963,6 +970,7 @@ async function loadCloud(){
     if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;}
     if(products&&products.length){const pr=products.find(r=>r.id==='__products');if(pr)S.products=pr.data;}
     if(deleted&&deleted.length)S.bin=deleted.map(r=>r.data).filter(Boolean);
+    const workers=await sbGet('sp_workers').catch(()=>[]);if(workers&&workers.length){const wr=workers.find(r=>r.id==='__workers');if(wr&&wr.data)S.workers=wr.data;}
     localStorage.setItem(SKEY,JSON.stringify(S));
     setSS('ok');
   }catch(e){setSS('error');}
@@ -1284,7 +1292,35 @@ function renderDash(){
   const defEuro=(S.stock&&S.stock['Defected Euro'])||0;
   const defK=(S.stock&&S.stock['Defected K'])||0;
   const totalDefected=defEuro+defK;
+  const completedToday=ords.filter(j=>j.status==='Completed'&&isToday(j.updatedAt||j.createdAt)).length;
+  const openCount=ords.filter(j=>j.status==='Open').length;
+  const loadedCount=ords.filter(j=>j.status==='Loaded').length;
+  const transitCount=ords.filter(j=>j.status==='In Transit').length;
   document.getElementById('dash-stats').innerHTML=`
+    <div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700">📋 Orders</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <div style="flex:1;min-width:40px;text-align:center">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;color:var(--brand);line-height:1">${completedToday}</div>
+          <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-top:2px">Done Today</div>
+        </div>
+        <div style="width:1px;background:var(--line)"></div>
+        <div style="flex:1;min-width:40px;text-align:center">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;color:var(--amber);line-height:1">${openCount}</div>
+          <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-top:2px">Open</div>
+        </div>
+        <div style="width:1px;background:var(--line)"></div>
+        <div style="flex:1;min-width:40px;text-align:center">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;color:var(--blue);line-height:1">${loadedCount}</div>
+          <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-top:2px">Loaded</div>
+        </div>
+        <div style="width:1px;background:var(--line)"></div>
+        <div style="flex:1;min-width:40px;text-align:center">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;color:var(--purple);line-height:1">${transitCount}</div>
+          <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-top:2px">In Transit</div>
+        </div>
+      </div>
+    </div>
     <div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:8px">
       <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--red);font-weight:700">🔧 Repairs</div>
       <div style="display:flex;gap:10px">
@@ -1314,13 +1350,10 @@ function renderDash(){
         </div>
       </div>
     </div>
-    <div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open Orders</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.status==='Loaded').length}</div><div class="stat-lbl">Loaded</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:var(--purple)">${ords.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div>
   `;
-  const byw=REPAIRERS.map(n=>({n,t:tr.filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0);
+  const byw=getWorkers().map(n=>({n,t:tr.filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0);
   document.getElementById('dash-repairs').innerHTML=byw.length?byw.map(r=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join(''):'<div class="empty" style="padding:16px">No repairs today</div>';
-  const sbyw=REPAIRERS.map(n=>({n,t:ts.filter(r=>(r.sorters||[]).includes(n)).reduce((s,r)=>s+(r.totalQty||0),0)})).filter(r=>r.t>0);
+  const sbyw=getWorkers().map(n=>({n,t:ts.filter(r=>(r.sorters||[]).includes(n)).reduce((s,r)=>s+(r.totalQty||0),0)})).filter(r=>r.t>0);
   document.getElementById('dash-sorting').innerHTML=sbyw.length?sbyw.map(r=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--blue)">${r.t}</span></div>`).join(''):'<div class="empty" style="padding:16px">No sorting today</div>';
   const active=ords.filter(j=>j.status!=='Completed').slice(0,5);
   document.getElementById('dash-orders').innerHTML=active.length?active.map(j=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><div><div style="font-weight:700;font-size:13px;font-family:'DM Mono',monospace">${esc(j.awb)}</div><div style="font-size:11px;color:var(--ink3)">${esc(j.companyName||'')} \u00b7 ${fd(j.deliveryDate)}</div></div>${stChip(j.status)}</div>`).join(''):'<div class="empty" style="padding:16px">No active orders</div>';
@@ -1456,7 +1489,7 @@ function renderOrdTable(){
     const ps=palletStr(j.pallets);
     const whn=(j.whChanges||[]).length?(j.whChanges||[]).map(c=>`${c.label}: ${c.value}`).join(' \u00b7 '):'\u2014';
     return`<tr>
-      <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</td>
+      <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap">${esc(j.awb)}</td>
       ${col('orderRef')?`<td style="font-size:12px;color:var(--ink2)">${esc(j.orderRef||'\u2014')}</td>`:''}
       ${col('type')?`<td>${typeChip(j.type)}</td>`:''}
       ${col('company')?`<td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td>`:''}
@@ -1688,7 +1721,7 @@ function renderDispatch(){
   const fb=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px" id="dis-fb">${buildCbDropdown('disStat',statOpts,disF.statuses,'All Statuses')} <button class="dp-btn${disF.dateFrom?' active':''}" id="dis-dp-btn">📅 ${esc(dl)}</button>${disF.dateFrom?`<button class="dp-clear" onclick="disF.dateFrom='';disF.dateTo='';renderDispatch()">\u2715</button>`:''} <button class="btn btn-ghost btn-sm" id="dis-sort-btn" onclick="toggleDisSort()">Z → A</button></div>`;
   const body=document.getElementById('dis-body');
   if(isMob){body.innerHTML=fb+(list.length?list.map(j=>{const canLoad=j.status==='Open'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<div class="mob-card" onclick="viewOrder('${j.id}')"><div class="mob-card-hdr"><span class="mob-card-ref">${esc(j.awb)}</span>${stChip(j.status)}</div><div class="mob-card-body">${esc(j.companyName||'\u2014')}</div><div class="mob-card-sub">${fd(j.deliveryDate)} \u00b7 ${esc(palletStr(j.pallets))}</div><div class="mob-card-foot"><span style="font-size:12px;color:${j.whBy?'var(--brand)':'var(--ink3)'}">WH: ${esc(j.whBy||'\u2014')}</span>${canLoad?`<button class="btn btn-amber btn-sm" onclick="event.stopPropagation();openLoadModal('${j.id}')">📦 Mark Loaded</button>`:''}</div></div>`;}).join(''):'<div class="empty">No dispatch orders</div>');}
-  else{body.innerHTML=fb+`<div class="card"><div class="tbl-wrap"><table id="dis-table"><thead><tr><th data-col="awb" onclick="thClick('dis-table','awb',renderDispatch)" style="cursor:pointer">REF</th><th data-col="deliveryDate" onclick="thClick('dis-table','deliveryDate',renderDispatch)" style="cursor:pointer">Date</th><th data-col="companyName" onclick="thClick('dis-table','companyName',renderDispatch)" style="cursor:pointer">Customer</th><th data-col="totalQty" onclick="thClick('dis-table','totalQty',renderDispatch)" style="cursor:pointer">Pallets</th><th data-col="driverId" onclick="thClick('dis-table','driverId',renderDispatch)" style="cursor:pointer">Driver</th><th data-col="whBy" onclick="thClick('dis-table','whBy',renderDispatch)" style="cursor:pointer">Loaded By</th><th>Truck</th><th data-col="status" onclick="thClick('dis-table','status',renderDispatch)" style="cursor:pointer">Status</th><th class="right">Actions</th></tr></thead><tbody id="dis-tb"></tbody></table></div></div>`;document.getElementById('dis-tb').innerHTML=list.length?list.map(j=>{const canLoad=j.status==='Open'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}<br><span style="font-size:10px;color:var(--ink3);font-weight:400">${esc(j.orderRef||"")}</span></td><td>${fd(j.deliveryDate)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div></td><td style="font-size:12px;font-family:'DM Mono',monospace">${esc(palletStr(j.pallets))}</td><td style="font-size:12px">${j.driverId?uname(j.driverId):'<span style="color:var(--ink3)">TBD</span>'}</td><td style="font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td style="font-size:12px;color:var(--ink3)">${esc(j.truckPlate||'\u2014')}</td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap">${canLoad?`<button class="btn btn-amber btn-sm" onclick="openLoadModal('${j.id}')">📦 Load</button> `:''}<button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No dispatch orders</td></tr>';}
+  else{body.innerHTML=fb+`<div class="card"><div class="tbl-wrap"><table id="dis-table"><thead><tr><th data-col="awb" onclick="thClick('dis-table','awb',renderDispatch)" style="cursor:pointer">REF</th><th data-col="deliveryDate" onclick="thClick('dis-table','deliveryDate',renderDispatch)" style="cursor:pointer">Date</th><th data-col="companyName" onclick="thClick('dis-table','companyName',renderDispatch)" style="cursor:pointer">Customer</th><th data-col="totalQty" onclick="thClick('dis-table','totalQty',renderDispatch)" style="cursor:pointer">Pallets</th><th data-col="driverId" onclick="thClick('dis-table','driverId',renderDispatch)" style="cursor:pointer">Driver</th><th data-col="whBy" onclick="thClick('dis-table','whBy',renderDispatch)" style="cursor:pointer">Loaded By</th><th>Truck</th><th data-col="status" onclick="thClick('dis-table','status',renderDispatch)" style="cursor:pointer">Status</th><th class="right">Actions</th></tr></thead><tbody id="dis-tb"></tbody></table></div></div>`;document.getElementById('dis-tb').innerHTML=list.length?list.map(j=>{const canLoad=j.status==='Open'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap">${esc(j.awb)}<br><span style="font-size:10px;color:var(--ink3);font-weight:400">${esc(j.orderRef||"")}</span></td><td style="white-space:nowrap">${fd(j.deliveryDate)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div></td><td style="font-size:12px;font-family:'DM Mono',monospace;white-space:nowrap">${esc(palletStr(j.pallets))}</td><td style="font-size:12px">${j.driverId?uname(j.driverId):'<span style="color:var(--ink3)">TBD</span>'}</td><td style="font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td style="font-size:12px;color:var(--ink3)">${esc(j.truckPlate||'\u2014')}</td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap">${canLoad?`<button class="btn btn-amber btn-sm" onclick="openLoadModal('${j.id}')">📦 Load</button> `:''}<button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No dispatch orders</td></tr>';}
   bindCbDropdown('disStat',statOpts,v=>{disF.statuses=v;renderDispatch();});
   const dpb=document.getElementById('dis-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(disF.dateFrom,disF.dateTo,(f,t)=>{disF.dateFrom=f;disF.dateTo=t;renderDispatch();});
 }
@@ -1743,7 +1776,7 @@ function renderReceiving(){
   const fb=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px" id="rec-fb">${buildCbDropdown('recStat',statOpts,recF.statuses,'All Statuses')} <button class="dp-btn${recF.dateFrom?' active':''}" id="rec-dp-btn">📅 ${esc(dl)}</button>${recF.dateFrom?`<button class="dp-clear" onclick="recF.dateFrom='';recF.dateTo='';renderReceiving()">\u2715</button>`:''} <button class="btn btn-ghost btn-sm" id="rec-sort-btn" onclick="toggleRecSort()">Z → A</button></div>`;
   const body=document.getElementById('rec-body');
   if(isMob){body.innerHTML=fb+(list.length?list.map(j=>{const canAW=j.status==='Collected'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const canC=j.status==='Delivered'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<div class="mob-card" onclick="viewOrder('${j.id}')"><div class="mob-card-hdr"><span class="mob-card-ref">${esc(j.awb)}</span>${stChip(j.status)}</div><div class="mob-card-body">${esc(j.companyName||'\u2014')}</div><div class="mob-card-sub">${fd(j.deliveryDate)} \u00b7 ${esc(palletStr(j.pallets))} \u00b7 ${j.driver==='Customer Drop Off'?'Drop-off':j.driverId?uname(j.driverId):'\u2014'}</div><div class="mob-card-foot"><span style="font-size:12px;color:${j.whBy?'var(--brand)':'var(--ink3)'}">WH: ${esc(j.whBy||'\u2014')}</span><div style="display:flex;gap:6px">${canAW?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();setOrdStatus('${j.id}','Delivered')">At WH</button>`:''}${canC?`<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openCompleteRecModal('${j.id}')">✓ Complete</button>`:''}</div></div></div>`;}).join(''):'<div class="empty">No collection orders</div>');}
-  else{body.innerHTML=fb+`<div class="card"><div class="tbl-wrap"><table id="rec-table"><thead><tr><th data-col="awb" onclick="thClick('rec-table','awb',renderReceiving)" style="cursor:pointer">REF</th><th data-col="deliveryDate" onclick="thClick('rec-table','deliveryDate',renderReceiving)" style="cursor:pointer">Date</th><th data-col="companyName" onclick="thClick('rec-table','companyName',renderReceiving)" style="cursor:pointer">Supplier</th><th data-col="totalQty" onclick="thClick('rec-table','totalQty',renderReceiving)" style="cursor:pointer">Pallets</th><th>Driver/Source</th><th data-col="whBy" onclick="thClick('rec-table','whBy',renderReceiving)" style="cursor:pointer">WH By</th><th data-col="condition" onclick="thClick('rec-table','condition',renderReceiving)" style="cursor:pointer">Condition</th><th data-col="status" onclick="thClick('rec-table','status',renderReceiving)" style="cursor:pointer">Status</th><th class="right">Actions</th></tr></thead><tbody id="rec-tb"></tbody></table></div></div>`;document.getElementById('rec-tb').innerHTML=list.length?list.map(j=>{const canAW=j.status==='Collected'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const canC=j.status==='Delivered'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const src=j.driver==='Customer Drop Off'?`<span class="chip chip-blue" style="font-size:10px">Drop-off</span>`:(j.driverId?uname(j.driverId):'\u2014');return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}<br><span style="font-size:10px;color:var(--ink3);font-weight:400">${esc(j.orderRef||"")}</span></td><td>${fd(j.deliveryDate)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div></td><td style="font-size:12px;font-family:'DM Mono',monospace">${esc(palletStr(j.pallets))}</td><td style="font-size:12px">${src}</td><td style="font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td><span class="chip ${j.condition==='Good'?'chip-green':j.condition==='Damaged'?'chip-red':'chip-gray'}" style="font-size:10px">${esc(j.condition||'\u2014')}</span></td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap">${canAW?`<button class="btn btn-ghost btn-sm" onclick="setOrdStatus('${j.id}','Delivered')">At WH</button> `:''}${canC?`<button class="btn btn-primary btn-sm" onclick="openCompleteRecModal('${j.id}')">✓ Complete</button> `:''}<button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No collection orders</td></tr>';}
+  else{body.innerHTML=fb+`<div class="card"><div class="tbl-wrap"><table id="rec-table"><thead><tr><th data-col="awb" onclick="thClick('rec-table','awb',renderReceiving)" style="cursor:pointer">REF</th><th data-col="deliveryDate" onclick="thClick('rec-table','deliveryDate',renderReceiving)" style="cursor:pointer">Date</th><th data-col="companyName" onclick="thClick('rec-table','companyName',renderReceiving)" style="cursor:pointer">Supplier</th><th data-col="totalQty" onclick="thClick('rec-table','totalQty',renderReceiving)" style="cursor:pointer">Pallets</th><th>Driver/Source</th><th data-col="whBy" onclick="thClick('rec-table','whBy',renderReceiving)" style="cursor:pointer">WH By</th><th data-col="condition" onclick="thClick('rec-table','condition',renderReceiving)" style="cursor:pointer">Condition</th><th data-col="status" onclick="thClick('rec-table','status',renderReceiving)" style="cursor:pointer">Status</th><th class="right">Actions</th></tr></thead><tbody id="rec-tb"></tbody></table></div></div>`;document.getElementById('rec-tb').innerHTML=list.length?list.map(j=>{const canAW=j.status==='Collected'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const canC=j.status==='Delivered'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const src=j.driver==='Customer Drop Off'?`<span class="chip chip-blue" style="font-size:10px">Drop-off</span>`:(j.driverId?uname(j.driverId):'\u2014');return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap">${esc(j.awb)}<br><span style="font-size:10px;color:var(--ink3);font-weight:400">${esc(j.orderRef||"")}</span></td><td style="white-space:nowrap">${fd(j.deliveryDate)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div></td><td style="font-size:12px;font-family:'DM Mono',monospace;white-space:nowrap">${esc(palletStr(j.pallets))}</td><td style="font-size:12px">${src}</td><td style="font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td><span class="chip ${j.condition==='Good'?'chip-green':j.condition==='Damaged'?'chip-red':'chip-gray'}" style="font-size:10px">${esc(j.condition||'\u2014')}</span></td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap">${canAW?`<button class="btn btn-ghost btn-sm" onclick="setOrdStatus('${j.id}','Delivered')">At WH</button> `:''}${canC?`<button class="btn btn-primary btn-sm" onclick="openCompleteRecModal('${j.id}')">✓ Complete</button> `:''}<button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No collection orders</td></tr>';}
   bindCbDropdown('recStat',statOpts,v=>{recF.statuses=v;renderReceiving();});
   const dpb=document.getElementById('rec-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(recF.dateFrom,recF.dateTo,(f,t)=>{recF.dateFrom=f;recF.dateTo=t;renderReceiving();});
 }
@@ -1804,7 +1837,7 @@ function saveDropoff(){
 
 /* ── REPAIRS ── */
 let RF={sup:'',rep:'',cls:''};
-function repTab(name,btn){const page=document.getElementById('page-repairs');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`rep-${name}`).classList.add('on');renderRepTab(name);}
+function repTab(name,btn){const page=document.getElementById('page-repairs');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`rep-${name}`).classList.add('on');if(name==='workers')renderWorkersReorder('rep-workers-list');else renderRepTab(name);}
 let repSortAsc=false;
 function toggleRepSort(){repSortAsc=!repSortAsc;const btn=document.getElementById('rep-sort-btn');if(btn)btn.textContent=repSortAsc?'Newest First':'Oldest First';renderRepairs();}
 function renderRepairs(){const tr=(S.repairs||[]).filter(r=>isToday(r.date));const tot=tr.reduce((s,r)=>s+(r.qty||0),0);document.getElementById('rep-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Today</div></div><div class="stat-box"><div class="stat-num">${tr.length}</div><div class="stat-lbl">Entries</div></div><div class="stat-box"><div class="stat-num">${(S.repairs||[]).reduce((s,r)=>s+(r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div>`;renderRepTab('today');}
@@ -1832,7 +1865,7 @@ function renderRepTab(name){
     const filtersHtml=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
       <select class="inp" id="rhf-worker" style="flex:1;min-width:120px" onchange="renderRepTab('history')">
         <option value="">All Workers</option>
-        ${REPAIRERS.map(n=>`<option value="${n}"${rhF.worker===n?' selected':''}>${n}</option>`).join('')}
+        ${getWorkers().map(n=>`<option value="${n}"${rhF.worker===n?' selected':''}>${n}</option>`).join('')}
       </select>
       <select class="inp" id="rhf-cls" style="flex:1;min-width:120px" onchange="renderRepTab('history')">
         <option value="">All Classes</option>
@@ -1858,14 +1891,14 @@ function renderRepTab(name){
     if(repMF.dateFrom)rlist=rlist.filter(r=>r.date&&r.date.slice(0,10)>=repMF.dateFrom);
     if(repMF.dateTo)rlist=rlist.filter(r=>r.date&&r.date.slice(0,10)<=repMF.dateTo);
     const tot=rlist.reduce((s,r)=>s+(r.qty||0),0);
-    const byw=REPAIRERS.map(n=>({n,t:rlist.filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0).sort((a,b)=>b.t-a.t);
+    const byw=getWorkers().map(n=>({n,t:rlist.filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0).sort((a,b)=>b.t-a.t);
     const byc=getSKUS().map(c=>({c,t:rlist.filter(r=>r.pallet_class===c).reduce((s,r)=>s+(r.qty||0),0)})).filter(x=>x.t>0);
     const dlabel=repMF.dateFrom&&repMF.dateTo?`${fd(repMF.dateFrom)}\u2013${fd(repMF.dateTo)}`:repMF.dateFrom?fd(repMF.dateFrom):'All Dates';
     document.getElementById('rep-manager').innerHTML=`
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
         <select class="inp" id="rmf-worker" style="flex:1;min-width:120px" onchange="renderRepTab('manager')">
           <option value="">All Workers</option>
-          ${REPAIRERS.map(n=>`<option value="${n}"${repMF.worker===n?' selected':''}>${n}</option>`).join('')}
+          ${getWorkers().map(n=>`<option value="${n}"${repMF.worker===n?' selected':''}>${n}</option>`).join('')}
         </select>
         <select class="inp" id="rmf-cls" style="flex:1;min-width:120px" onchange="renderRepTab('manager')">
           <option value="">All Classes</option>
@@ -2006,7 +2039,7 @@ function openRepairModal(){
 }
 function renderRepPickers(){
   document.getElementById('rep-sup').innerHTML=mySups().map(s=>`<button type="button" class="pick-btn${RF.sup===s.firstName?' sel':''}" ${ME&&ME.role==='Supervisor'?'disabled style="opacity:1;cursor:default"':''} onclick="RF.sup='${s.firstName}';renderRepPickers()">${esc(s.firstName)}</button>`).join('');
-  document.getElementById('rep-rep').innerHTML=REPAIRERS.map(r=>`<button type="button" class="pick-btn${RF.rep===r?' sel':''}" onclick="RF.rep='${r}';renderRepPickers()">${esc(r)}</button>`).join('');
+  document.getElementById('rep-rep').innerHTML=getWorkers().map(r=>`<button type="button" class="pick-btn${RF.rep===r?' sel':''}" onclick="RF.rep='${r}';renderRepPickers()">${esc(r)}</button>`).join('');
   const defectSrcs=getSKUS().filter(c=>c.toLowerCase().includes('defect'));
   document.getElementById('rep-src').innerHTML=defectSrcs.map(c=>`<button type="button" class="pick-btn${RF.src===c?' sel':''}" onclick="RF.src='${c}';renderRepPickers()" style="color:${RF.src===c?'#fff':'var(--red)'}">${esc(c)}</button>`).join('');
 }
@@ -2277,13 +2310,13 @@ function delCo(id){
 
 /* ── SORTING ── */
 let SF={sup:'',sorters:[],cls:''};
-function srtTab(name,btn){const page=document.getElementById('page-sorting');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`srt-${name}`).classList.add('on');renderSrtTab(name);}
+function srtTab(name,btn){const page=document.getElementById('page-sorting');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`srt-${name}`).classList.add('on');if(name==='workers')renderWorkersReorder('srt-workers-list');else renderSrtTab(name);}
 let srtSortAsc=false;
 function toggleSrtSort(){srtSortAsc=!srtSortAsc;const btn=document.getElementById('srt-sort-btn');if(btn)btn.textContent=srtSortAsc?'Newest First':'Oldest First';renderSorting();}
 function renderSorting(){
   const tr=(S.sortings||[]).filter(r=>isToday(r.date));
   const tot=tr.reduce((s,r)=>s+(r.totalQty||r.qty||0),0);
-  document.getElementById('srt-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Sorted Today</div></div><div class="stat-box"><div class="stat-num">${tr.length}</div><div class="stat-lbl">Entries</div></div><div class="stat-box"><div class="stat-num">${(S.sortings||[]).reduce((s,r)=>s+(r.totalQty||r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div>`;
+  document.getElementById('srt-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="font-size:48px">${tot}</div><div class="stat-lbl">Sorted Today</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px">${tr.length}</div><div class="stat-lbl">Entries</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px">${(S.sortings||[]).reduce((s,r)=>s+(r.totalQty||r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div>`;
   // Outstanding tasks — completed Collection orders with Unsorted pallets
   const unsortedOrders=(S.orders||[]).filter(j=>
     j.type==='Collection'&&j.status==='Completed'&&
@@ -2311,13 +2344,19 @@ function renderSorting(){
       taskSection.innerHTML=`<div style="margin-bottom:16px">
         <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--amber);font-weight:700;margin-bottom:8px">⏳ Outstanding Sorting Tasks (${outstanding.length})</div>
         ${outstanding.map(({j,ordered,sorted,remaining})=>`
-          <div style="background:var(--amber-bg);border:1.5px solid rgba(245,200,66,.25);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-            <div>
-              <div style="font-family:'DM Mono',monospace;font-weight:700;color:var(--amber)">${esc(j.awb)}</div>
-              <div style="font-size:12px;color:var(--ink2);margin-top:2px">${esc(j.companyName||'')} · ${age(j)}</div>
-              <div style="font-size:11px;color:var(--ink3);margin-top:2px">Ordered: ${ordered}× Unsorted · Sorted: ${sorted} · <strong style="color:var(--amber)">Remaining: ${remaining}</strong></div>
+          <div style="background:var(--panel);border:1.5px solid rgba(245,200,66,.4);border-left:4px solid var(--amber);border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+              <div style="flex:1">
+                <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px;color:var(--amber)">${esc(j.awb)}</div>
+                <div style="font-size:12px;color:var(--ink2);margin-top:2px">${esc(j.companyName||'')} · ${age(j)}</div>
+                <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">
+                  <div style="text-align:center"><div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--ink2)">${ordered}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3)">Ordered</div></div>
+                  <div style="text-align:center"><div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand)">${sorted}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3)">Sorted</div></div>
+                  <div style="text-align:center"><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--amber)">${remaining}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3)">Remaining</div></div>
+                </div>
+              </div>
+              <button class="btn btn-amber btn-sm" onclick="openSortModalForOrder('${j.awb}',${remaining})">Sort Now →</button>
             </div>
-            <button class="btn btn-amber btn-sm" onclick="openSortModalForOrder('${j.awb}',${remaining})">Sort Now</button>
           </div>`).join('')}
       </div>`;
     } else {
@@ -2352,7 +2391,7 @@ function renderSrtTab(name){
   }
   if(name==='manager'){
     const tot=(S.sortings||[]).reduce((s,r)=>s+totQty(r),0);
-    const byw=REPAIRERS.map(n=>({n,t:(S.sortings||[]).filter(r=>(r.sorters||[]).includes(n)).reduce((s,r)=>s+totQty(r),0)})).filter(r=>r.t>0).sort((a,b)=>b.t-a.t);
+    const byw=getWorkers().map(n=>({n,t:(S.sortings||[]).filter(r=>(r.sorters||[]).includes(n)).reduce((s,r)=>s+totQty(r),0)})).filter(r=>r.t>0).sort((a,b)=>b.t-a.t);
     const byc=getSKUS().map(c=>({c,t:(S.sortings||[]).reduce((s,r)=>s+(r.pallets||[]).filter(p=>p.cls===c).reduce((a,p)=>a+(p.qty||0),0),0)})).filter(x=>x.t>0);
     document.getElementById('srt-manager').innerHTML=`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px"><div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Total Sorted</div></div><div class="stat-box"><div class="stat-num">${(S.sortings||[]).length}</div><div class="stat-lbl">Total Entries</div></div></div>
@@ -2480,7 +2519,7 @@ function openSortModal(){
 }
 function renderSrtPickers(){
   document.getElementById('srt-sup').innerHTML=mySups().map(s=>`<button type="button" class="pick-btn${SF.sup===s.firstName?' sel':''}" ${ME&&ME.role==='Supervisor'?'disabled style="opacity:1;cursor:default"':''} onclick="SF.sup='${s.firstName}';renderSrtPickers()">${esc(s.firstName)}</button>`).join('');
-  document.getElementById('srt-rep').innerHTML=REPAIRERS.map(r=>`<button type="button" class="pick-btn${SF.sorters.includes(r)?' sel':''}" onclick="toggleSorter('${r}')" style="color:${SF.sorters.includes(r)?'#fff':'var(--ink2)'}">${esc(r)}</button>`).join('');
+  document.getElementById('srt-rep').innerHTML=getWorkers().map(r=>`<button type="button" class="pick-btn${SF.sorters.includes(r)?' sel':''}" onclick="toggleSorter('${r}')" style="color:${SF.sorters.includes(r)?'#fff':'var(--ink2)'}">${esc(r)}</button>`).join('');
 }
 function openSortModalForOrder(awb,remaining){
   openSortModal();
@@ -2705,7 +2744,6 @@ function renderReorder(){
       S.products=newOrder;
       persist();toast('Order saved');renderReorder();
     });
-    // Touch support
     item.addEventListener('touchstart',e=>{dragSrc=item;item.classList.add('dragging');},{passive:true});
     item.addEventListener('touchend',e=>{
       item.classList.remove('dragging');
@@ -2725,6 +2763,54 @@ function renderReorder(){
     });
   });
 }
+
+function renderWorkersReorder(listId){
+  const list=document.getElementById(listId);if(!list)return;
+  const workers=getWorkers();
+  list.innerHTML=`
+    <div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Drag to reorder workers. Changes apply to all pickers.</div>
+    ${workers.map((w,i)=>`
+      <div class="reorder-item" draggable="true" data-worker="${esc(w)}" data-idx="${i}">
+        <span class="reorder-handle">⠿</span>
+        <span class="reorder-num">${i+1}</span>
+        <span style="font-size:14px;font-weight:700">${esc(w)}</span>
+      </div>`).join('')}
+  `;
+  let dragSrc=null;
+  list.querySelectorAll('.reorder-item').forEach(item=>{
+    item.addEventListener('dragstart',e=>{dragSrc=item;item.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    item.addEventListener('dragend',()=>{item.classList.remove('dragging');list.querySelectorAll('.reorder-item').forEach(i=>i.classList.remove('drag-over'));});
+    item.addEventListener('dragover',e=>{e.preventDefault();if(item!==dragSrc){list.querySelectorAll('.reorder-item').forEach(i=>i.classList.remove('drag-over'));item.classList.add('drag-over');}});
+    item.addEventListener('drop',e=>{
+      e.preventDefault();if(dragSrc===item)return;
+      const allItems=Array.from(list.querySelectorAll('.reorder-item'));
+      const fromIdx=allItems.indexOf(dragSrc);
+      const toIdx=allItems.indexOf(item);
+      const newOrder=getWorkers().slice();
+      const [moved]=newOrder.splice(fromIdx,1);
+      newOrder.splice(toIdx,0,moved);
+      S.workers=newOrder;
+      persist();toast('Worker order saved');renderWorkersReorder(listId);
+    });
+    item.addEventListener('touchstart',e=>{dragSrc=item;item.classList.add('dragging');},{passive:true});
+    item.addEventListener('touchend',e=>{
+      item.classList.remove('dragging');
+      const touch=e.changedTouches[0];
+      const target=document.elementFromPoint(touch.clientX,touch.clientY)?.closest('.reorder-item');
+      if(target&&target!==dragSrc){
+        const allItems=Array.from(list.querySelectorAll('.reorder-item'));
+        const fromIdx=allItems.indexOf(dragSrc);
+        const toIdx=allItems.indexOf(target);
+        const newOrder=getWorkers().slice();
+        const [moved]=newOrder.splice(fromIdx,1);
+        newOrder.splice(toIdx,0,moved);
+        S.workers=newOrder;
+        persist();toast('Worker order saved');renderWorkersReorder(listId);
+      }
+    });
+  });
+}
+
 
 function updateDoTotal(){
   const total=getLines('do-lines').reduce((s,p)=>s+p.qty,0);
