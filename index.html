@@ -966,34 +966,36 @@ function toast(msg,type='ok'){const t=document.getElementById('toast');t.textCon
 const FORM_MODALS=['m-order','m-repair','m-sort','m-dropoff','m-user','m-company','m-product','m-stock-adj'];
 function openM(id){
   document.getElementById(id).classList.add('open');
-  // Track initial form state for unsaved changes detection
   if(FORM_MODALS.includes(id)){
+    const modal=document.getElementById(id);
+    modal._dirty=false;
+    modal._saved=false;
     setTimeout(()=>{
-      const modal=document.getElementById(id);
-      if(!modal)return;
       const inputs=modal.querySelectorAll('input:not([type=hidden]):not([type=checkbox]),select,textarea');
-      modal._initState=Array.from(inputs).map(i=>i.value).join('|');
-      modal._dirty=false;
-      inputs.forEach(inp=>{inp.addEventListener('input',()=>{modal._dirty=true;},{ once:false });inp.addEventListener('change',()=>{modal._dirty=true;},{once:false});});
-    },100);
+      inputs.forEach(inp=>{inp.addEventListener('change',()=>{if(!modal._saved)modal._dirty=true;},{passive:true});});
+    },200);
   }
 }
 function closeM(id){
   const modal=document.getElementById(id);
   if(!modal)return;
-  if(FORM_MODALS.includes(id)&&modal._dirty){
-    // Show inline warning
-    let warn=modal.querySelector('.unsaved-warn');
-    if(!warn){
-      warn=document.createElement('div');warn.className='unsaved-warn';
-      warn.style.cssText='position:sticky;bottom:0;background:var(--red-bg);border-top:1.5px solid rgba(245,107,107,.4);padding:10px 18px;display:flex;align-items:center;gap:10px;z-index:10';
-      warn.innerHTML=`<span style="color:var(--red);font-weight:700;font-size:13px;flex:1">⚠ You have unsaved changes. Close anyway?</span><button class="btn btn-danger btn-sm" onclick="forceCloseM('${id}')">Yes, close</button><button class="btn btn-ghost btn-sm" onclick="this.closest('.unsaved-warn').remove()">Keep editing</button>`;
-      modal.appendChild(warn);
+  // Only warn if dirty AND not yet saved AND has actual content
+  if(FORM_MODALS.includes(id)&&modal._dirty&&!modal._saved){
+    const inputs=Array.from(modal.querySelectorAll('input:not([type=hidden]):not([type=checkbox]),select,textarea'));
+    const hasContent=inputs.some(i=>i.value&&i.value.trim()!=='');
+    if(hasContent){
+      let warn=modal.querySelector('.unsaved-warn');
+      if(!warn){
+        warn=document.createElement('div');warn.className='unsaved-warn';
+        warn.style.cssText='position:sticky;bottom:0;background:var(--red-bg);border-top:1.5px solid rgba(245,107,107,.4);padding:10px 18px;display:flex;align-items:center;gap:10px;z-index:10';
+        warn.innerHTML=`<span style="color:var(--red);font-weight:700;font-size:13px;flex:1">⚠ You have unsaved changes. Close anyway?</span><button class="btn btn-danger btn-sm" onclick="forceCloseM('${id}')">Yes, close</button><button class="btn btn-ghost btn-sm" onclick="this.closest('.unsaved-warn').remove()">Keep editing</button>`;
+        modal.appendChild(warn);
+      }
+      return;
     }
-    return;
   }
   modal.classList.remove('open');
-  if(modal._dirty!==undefined){modal._dirty=false;modal._initState='';}
+  modal._dirty=false;modal._saved=false;
   const warn=modal?.querySelector('.unsaved-warn');if(warn)warn.remove();
 }
 function forceCloseM(id){
@@ -1020,7 +1022,7 @@ function renderChangesBox(order){
 }
 
 /* ── PALLET LINES ── */
-function clearDirty(id){const m=document.getElementById(id);if(m)m._dirty=false;}
+function clearDirty(id){const m=document.getElementById(id);if(m){m._dirty=false;m._saved=true;}}
 function highlightRequired(fields){
   // fields: array of element IDs to check
   let missing=[];
