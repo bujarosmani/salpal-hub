@@ -846,6 +846,7 @@ const SKU_C={'A':{bg:'rgba(61,214,104,.12)',c:'#3dd668'},'B':{bg:'rgba(91,156,24
 const SUPERVISORS=['Idi','Cristian'];
 const REPAIRERS=['Mohamed','Agim','Fidan','Nazz','Manu','Bairam'];
 const SHEETS_URL='https://script.google.com/macros/s/AKfycbwwEJC1ewE-VlgK1aMZwJmLmNhR-Fu7TxFWam2uJ84ohS--Y4S96ogJPDEcnp6e998CnA/exec';
+const SHEETS_ENABLED=false; // temporarily disabled
 const SB_URL='https://mierymdbtsuwgwihtyiu.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pZXJ5bWRidHN1d2d3aWh0eWl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMjg1NTYsImV4cCI6MjA5NDYwNDU1Nn0.SZ1ivbb5gOF1-A6FnhJcJHWfXOptOa_O_k9RLbFJk5A';
 const SKEY='salpal-hub-v6';
@@ -1666,7 +1667,7 @@ function renderRepTab(name){
   const adminEdit=isAdmin()?true:false;
   const repQ=(document.getElementById('rep-search')?.value||'').toLowerCase();
   const filterRep=r=>!repQ||(r.repairer||'').toLowerCase().includes(repQ)||(r.pallet_class||'').toLowerCase().includes(repQ)||(r.supervisor||'').toLowerCase().includes(repQ)||(r.src||'').toLowerCase().includes(repQ);
-  if(name==='today'){const tr=(S.repairs||[]).filter(r=>isToday(r.date)&&filterRep(r));document.getElementById('rep-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class,true)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}</div></div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand);margin-top:6px">${r.qty} repaired · from ${esc(r.src||r.pallet_class||'—')}</div></div>`).join(''):'<div class="empty">No repairs today</div>';}
+  if(name==='today'){const tr=(S.repairs||[]).filter(r=>isToday(r.date)&&filterRep(r));document.getElementById('rep-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class,true)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteRepairEntry('${r.id}')">Delete</button>`:''}</div></div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand);margin-top:6px">${r.qty} repaired · from ${esc(r.src||r.pallet_class||'—')}</div></div>`).join(''):'<div class="empty">No repairs today</div>';}
   if(name==='history'){
     const rhF={
       worker:document.getElementById('rhf-worker')?.value||'',
@@ -1696,7 +1697,7 @@ function renderRepTab(name){
       ${rhF.dateFrom?`<button class="dp-clear" onclick="window.rhfDateFrom='';window.rhfDateTo='';renderRepTab('history')">✕</button>`:''}
       ${rhF.worker||rhF.cls||rhF.dateFrom?`<button class="btn btn-ghost btn-sm" onclick="window.rhfDateFrom='';window.rhfDateTo='';document.getElementById('rhf-worker').value='';document.getElementById('rhf-cls').value='';renderRepTab('history')">Clear all</button>`:''}
     </div>`;
-    document.getElementById('rep-history').innerHTML=filtersHtml+(Object.keys(grp).length?Object.keys(grp).sort(repSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{const rs=grp[day],dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right;display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button>`:''}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>');
+    document.getElementById('rep-history').innerHTML=filtersHtml+(Object.keys(grp).length?Object.keys(grp).sort(repSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{const rs=grp[day],dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right;display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteRepairEntry('${r.id}')">Delete</button>`:''}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>');
     setTimeout(()=>{const dpb=document.getElementById('rhf-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(window.rhfDateFrom||'',window.rhfDateTo||'',(f,t)=>{window.rhfDateFrom=f;window.rhfDateTo=t;renderRepTab('history');});},0);
   }
   if(name==='manager'){
@@ -1753,6 +1754,36 @@ function editRepair(id){
   const btn=document.querySelector('#m-repair .btn-primary');
   if(btn){btn.textContent='✓ Update';btn.onclick=()=>saveRepairEdit(id,false);}
   openM('m-repair');
+}
+
+function deleteRepairEntry(id){
+  const r=(S.repairs||[]).find(x=>x.id===id);if(!r)return;
+  // Show inline confirm — find the card element
+  const cards=document.querySelectorAll('#rep-today .rep-del-confirm, #rep-history .rep-del-confirm');
+  cards.forEach(c=>c.remove());
+  // Find button and insert after its parent card
+  const btn=document.querySelector(`[onclick="deleteRepairEntry('${id}')"]`);
+  if(!btn)return;
+  const card=btn.closest('div[style*="background:var(--panel)"]');
+  if(!card)return;
+  const conf=document.createElement('div');
+  conf.className='rep-del-confirm';
+  conf.style.cssText='background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px;margin-top:6px';
+  conf.innerHTML=`<div style="color:var(--red);font-weight:700;margin-bottom:8px">⚠ Delete this repair entry? Cannot be undone.</div><div style="display:flex;gap:8px"><button class="btn btn-danger btn-sm" onclick="confirmDeleteRepair('${id}')">✓ Yes, delete</button><button class="btn btn-ghost btn-sm" onclick="this.closest('.rep-del-confirm').remove()">✕ Cancel</button></div>`;
+  card.after(conf);
+}
+function confirmDeleteRepair(id){
+  const r=(S.repairs||[]).find(x=>x.id===id);if(!r)return;
+  // Reverse stock
+  if(S.stock){
+    if(S.stock[r.pallet_class]!==undefined)S.stock[r.pallet_class]-=r.qty;
+    const src=r.src||'Defected';
+    if(S.stock[src]!==undefined)S.stock[src]+=r.qty;
+  }
+  S.repairs=(S.repairs||[]).filter(x=>x.id!==id);
+  // Remove from Supabase
+  fetch(`${SB_URL}/rest/v1/sp_repairs?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+  persist();toast('Repair entry deleted');renderRepairs();
 }
 
 function saveRepairEdit(id,force){
@@ -1848,7 +1879,7 @@ function saveRepair(force){
   S.stock[RF.src]-=qty;
   addLedger('Repair',rec.id,RF.src,'out',qty,`Repaired \u2192 ${RF.cls}`);
   persist();
-  try{const d=new Date(rec.date);const ds=`${('0'+d.getDate()).slice(-2)}/${('0'+(d.getMonth()+1)).slice(-2)}/${d.getFullYear()}`;const sc=document.createElement('script');sc.src=SHEETS_URL+'?id='+encodeURIComponent(rec.id)+'&date='+encodeURIComponent(ds)+'&supervisor='+encodeURIComponent(rec.supervisor)+'&repairers='+encodeURIComponent(rec.repairer)+'&pallet_class='+encodeURIComponent(rec.pallet_class)+'&qty='+encodeURIComponent(rec.qty);sc.onload=sc.onerror=()=>{try{document.body.removeChild(sc)}catch(e){}};document.body.appendChild(sc);}catch(e){}
+  if(SHEETS_ENABLED){try{const d=new Date(rec.date);const ds=`${('0'+d.getDate()).slice(-2)}/${('0'+(d.getMonth()+1)).slice(-2)}/${d.getFullYear()}`;const sc=document.createElement('script');sc.src=SHEETS_URL+'?id='+encodeURIComponent(rec.id)+'&date='+encodeURIComponent(ds)+'&supervisor='+encodeURIComponent(rec.supervisor)+'&repairers='+encodeURIComponent(rec.repairer)+'&pallet_class='+encodeURIComponent(rec.pallet_class)+'&qty='+encodeURIComponent(rec.qty);sc.onload=sc.onerror=()=>{try{document.body.removeChild(sc)}catch(e){}};document.body.appendChild(sc);}catch(e){}}
   toast(`${qty} \u00d7 ${RF.cls} repaired \u2014 stock updated`);
   closeM('m-repair');renderRepairs();renderDash();
 }
