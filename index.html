@@ -1761,7 +1761,6 @@ let disF={statuses:null,dateFrom:'',dateTo:''};let disSortAsc=false;
 function toggleDisSort(){disSortAsc=!disSortAsc;const btn=document.getElementById('dis-sort-btn');if(btn)btn.textContent=disSortAsc?'A → Z':'Z → A';renderDispatch();}
 function renderReceiving(){
   const cols=(S.orders||[]).filter(j=>j.type==='Collection');
-  document.getElementById('rec-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${list.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${list.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${list.filter(j=>j.status==='Collected'||j.status==='Delivered').length}</div><div class="stat-lbl">At Warehouse</div></div><div class="stat-box"><div class="stat-num">${list.filter(j=>j.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
   const isMob=(ME&&ME.role==='Supervisor'&&currentView!=='desktop')||window.innerWidth<768;
   const statOpts=['Open','In Transit','Collected','Delivered','Completed'].map(s=>({value:s,label:s}));
   const dl=recF.dateFrom&&recF.dateTo?`${fd(recF.dateFrom)}\u2013${fd(recF.dateTo)}`:recF.dateFrom?fd(recF.dateFrom):'All Dates';
