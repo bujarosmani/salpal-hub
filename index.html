@@ -46,7 +46,7 @@ a{color:inherit;text-decoration:none}img{display:block}h1,h2,h3,p{margin:0}
 .card-hdr{padding:11px 15px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .card-hdr-title{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink2)}
 .card-body{padding:14px 15px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px}
 .stat-box{background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:14px 15px}
 .stat-num{font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;line-height:1;color:var(--brand)}
 .stat-lbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);margin-top:4px;font-weight:700}
@@ -1285,13 +1285,38 @@ function renderDash(){
   const defK=(S.stock&&S.stock['Defected K'])||0;
   const totalDefected=defEuro+defK;
   document.getElementById('dash-stats').innerHTML=`
-    <div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Repaired Today</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:var(--blue)">${stot}</div><div class="stat-lbl">Sorted Today</div></div>
+    <div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--red);font-weight:700">🔧 Repairs</div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1;text-align:center">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;color:var(--brand);line-height:1">${tot}</div>
+          <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-top:2px">Done Today</div>
+        </div>
+        <div style="width:1px;background:var(--line)"></div>
+        <div style="flex:1;text-align:center">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;color:var(--red);line-height:1">${totalDefected}</div>
+          <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-top:2px">Remaining</div>
+          ${defEuro||defK?`<div style="font-size:9px;color:var(--ink3);margin-top:2px">Euro: ${defEuro} · K: ${defK}</div>`:''}
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--blue);font-weight:700">📦 Sorting</div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1;text-align:center">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;color:var(--blue);line-height:1">${stot}</div>
+          <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-top:2px">Done Today</div>
+        </div>
+        <div style="width:1px;background:var(--line)"></div>
+        <div style="flex:1;text-align:center">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;color:var(--amber);line-height:1">${unsorted}</div>
+          <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-top:2px">Unsorted Left</div>
+        </div>
+      </div>
+    </div>
     <div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open Orders</div></div>
     <div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.status==='Loaded').length}</div><div class="stat-lbl">Loaded</div></div>
     <div class="stat-box"><div class="stat-num" style="color:var(--purple)">${ords.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div>
-    <div class="stat-box" style="border-color:var(--amber);background:rgba(180,120,0,.06)"><div class="stat-num" style="color:var(--amber)">${unsorted}</div><div class="stat-lbl">Unsorted Remaining</div></div>
-    <div class="stat-box" style="border-color:var(--red);background:rgba(245,107,107,.06)"><div class="stat-num" style="color:var(--red)">${totalDefected}</div><div class="stat-lbl">Defected Remaining${defEuro||defK?`<br><span style="font-size:9px;color:var(--ink3)">Euro: ${defEuro} · K: ${defK}</span>`:''}</div></div>
   `;
   const byw=REPAIRERS.map(n=>({n,t:tr.filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0);
   document.getElementById('dash-repairs').innerHTML=byw.length?byw.map(r=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join(''):'<div class="empty" style="padding:16px">No repairs today</div>';
