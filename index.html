@@ -394,7 +394,10 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 <div class="page" id="page-receiving">
   <div class="phdr">
     <div><div class="ptitle">Receiving</div><div class="psub">Incoming — collections &amp; drop-offs</div></div>
-    <button class="btn btn-primary" id="btn-dropoff" onclick="openDropoffModal()">📥 Direct Drop-off</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="exportReceivingExcel()">⬇ Excel</button>
+      <button class="btn btn-primary" id="btn-dropoff" onclick="openDropoffModal()">📥 Direct Drop-off</button>
+    </div>
   </div>
   <div class="stats" id="rec-stats"></div>
   <div id="rec-body"></div>
@@ -1476,6 +1479,16 @@ function applyNormalStatus(newVal){
   document.querySelectorAll('#of-status-fwd .btn').forEach(b=>b.classList.remove('btn-primary'));
   event.target.closest('.btn').classList.add('btn-primary');
 }
+function setOrdStatus(id,status){
+  const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
+  const old=j.status;j.status=status;j.updatedAt=new Date().toISOString();
+  addTL(j,`Status: ${old} \u2192 ${status}`,'status');
+  if(old!=='Completed'&&status==='Completed')adjustStockOnComplete(j);
+  persist();toast(`${j.awb} \u2192 ${status}`);
+  closeM('m-detail');renderOrders();renderDash();
+  if(j.type==='Delivery')renderDispatch();else renderReceiving();
+}
+
 function openForceStatus(){
   document.getElementById('of-force-status-box').style.display='';
   document.getElementById('of-status').focus();
