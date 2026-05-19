@@ -1292,7 +1292,7 @@ function renderDash(){
   const defEuro=(S.stock&&S.stock['Defected Euro'])||0;
   const defK=(S.stock&&S.stock['Defected K'])||0;
   const totalDefected=defEuro+defK;
-  const completedToday=ords.filter(j=>j.status==='Completed'&&isToday(j.updatedAt||j.createdAt)).length;
+  const completedToday=ords.filter(j=>j.status==='Completed'&&isToday(j.completedAt||j.updatedAt||j.createdAt)).length;
   const openCount=ords.filter(j=>j.status==='Open').length;
   const loadedCount=ords.filter(j=>j.status==='Loaded').length;
   const transitCount=ords.filter(j=>j.status==='In Transit').length;
@@ -1381,7 +1381,7 @@ function renderOrders(){
       cols.map(c=>`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ink2)"><input type="checkbox" id="col-${c.k}" ${c.k==='whNotes'?'':'checked'} onchange="renderOrdTable()"/> ${c.l}</label>`).join('');
   }
   const ords=S.orders||[];
-  document.getElementById('ord-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${ords.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${ords.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
+  document.getElementById('ord-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${list.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${list.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${list.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${list.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
   const typeOpts=[{value:'Delivery',label:'Delivery'},{value:'Collection',label:'Collection'}];
   const statOpts=['Open','Loaded','In Transit','Collected','Delivered','Completed'].map(s=>({value:s,label:s}));
   const drvOpts=drvs().map(d=>({value:d.id,label:`${d.firstName} ${d.lastName}`}));
@@ -1583,7 +1583,7 @@ function applyNormalStatus(newVal){
 }
 function setOrdStatus(id,status){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
-  const old=j.status;j.status=status;j.updatedAt=new Date().toISOString();
+  const old=j.status;j.status=status;j.updatedAt=new Date().toISOString();if(status==='Completed')j.completedAt=new Date().toISOString();
   addTL(j,`Status: ${old} \u2192 ${status}`,'status');
   if(old!=='Completed'&&status==='Completed')adjustStockOnComplete(j);
   persist();toast(`${j.awb} \u2192 ${status}`);
@@ -1707,7 +1707,7 @@ function viewOrder(id){
 }
 function renderDispatch(){
   const dis=(S.orders||[]).filter(j=>j.type==='Delivery');
-  document.getElementById('dis-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${dis.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${dis.filter(j=>j.status==='Loaded').length}</div><div class="stat-lbl">Loaded</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${dis.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num">${dis.filter(j=>j.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
+  document.getElementById('dis-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${list.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${list.filter(j=>j.status==='Loaded').length}</div><div class="stat-lbl">Loaded</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${list.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num">${list.filter(j=>j.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
   const isMob=(ME&&ME.role==='Supervisor'&&currentView!=='desktop')||window.innerWidth<768;
   const statOpts=['Open','Loaded','In Transit','Completed'].map(s=>({value:s,label:s}));
   const dl=disF.dateFrom&&disF.dateTo?`${fd(disF.dateFrom)}\u2013${fd(disF.dateTo)}`:disF.dateFrom?fd(disF.dateFrom):'All Dates';
@@ -1762,7 +1762,7 @@ let disF={statuses:null,dateFrom:'',dateTo:''};let disSortAsc=false;
 function toggleDisSort(){disSortAsc=!disSortAsc;const btn=document.getElementById('dis-sort-btn');if(btn)btn.textContent=disSortAsc?'A → Z':'Z → A';renderDispatch();}
 function renderReceiving(){
   const cols=(S.orders||[]).filter(j=>j.type==='Collection');
-  document.getElementById('rec-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${cols.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${cols.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${cols.filter(j=>j.status==='Collected'||j.status==='Delivered').length}</div><div class="stat-lbl">At Warehouse</div></div><div class="stat-box"><div class="stat-num">${cols.filter(j=>j.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
+  document.getElementById('rec-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${list.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${list.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${list.filter(j=>j.status==='Collected'||j.status==='Delivered').length}</div><div class="stat-lbl">At Warehouse</div></div><div class="stat-box"><div class="stat-num">${list.filter(j=>j.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
   const isMob=(ME&&ME.role==='Supervisor'&&currentView!=='desktop')||window.innerWidth<768;
   const statOpts=['Open','In Transit','Collected','Delivered','Completed'].map(s=>({value:s,label:s}));
   const dl=recF.dateFrom&&recF.dateTo?`${fd(recF.dateFrom)}\u2013${fd(recF.dateTo)}`:recF.dateFrom?fd(recF.dateFrom):'All Dates';
@@ -1800,7 +1800,7 @@ function confirmReceived(){
   const oldPs=palletStr(j.pallets),newPs=palletStr(newPallets),newTotal=newPallets.reduce((s,p)=>s+(p.qty||0),0);
   const cond=document.getElementById('crec-cond').value,notes=document.getElementById('crec-notes').value.trim();
   const changes=[];if(oldPs!==newPs)changes.push(`Pallets: ${oldPs} \u2192 ${newPs}`);if(cond)changes.push(`Condition: ${cond}`);
-  j.status='Completed';j.whBy=sup;j.condition=cond;j.updatedAt=new Date().toISOString();
+  const _now=new Date().toISOString();j.status='Completed';j.whBy=sup;j.condition=cond;j.updatedAt=_now;j.completedAt=_now;
   adjustStockOnComplete(j);
   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Receive check',value:`Ordered: ${oldPs} \u00b7 Actual: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
   addTL(j,`Completed by ${sup}`,'status',[...changes,...(notes?[`Notes: ${notes}`]:[])]);
@@ -1840,7 +1840,15 @@ let RF={sup:'',rep:'',cls:''};
 function repTab(name,btn){const page=document.getElementById('page-repairs');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`rep-${name}`).classList.add('on');if(name==='workers')renderWorkersReorder('rep-workers-list');else renderRepTab(name);}
 let repSortAsc=false;
 function toggleRepSort(){repSortAsc=!repSortAsc;const btn=document.getElementById('rep-sort-btn');if(btn)btn.textContent=repSortAsc?'Newest First':'Oldest First';renderRepairs();}
-function renderRepairs(){const tr=(S.repairs||[]).filter(r=>isToday(r.date));const tot=tr.reduce((s,r)=>s+(r.qty||0),0);document.getElementById('rep-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Today</div></div><div class="stat-box"><div class="stat-num">${tr.length}</div><div class="stat-lbl">Entries</div></div><div class="stat-box"><div class="stat-num">${(S.repairs||[]).reduce((s,r)=>s+(r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div>`;renderRepTab('today');}
+function renderRepairs(){
+  const repQ=(document.getElementById('rep-search')?.value||'').toLowerCase();
+  const filterR=r=>!repQ||(r.repairer||'').toLowerCase().includes(repQ)||(r.pallet_class||'').toLowerCase().includes(repQ)||(r.supervisor||'').toLowerCase().includes(repQ)||(r.src||'').toLowerCase().includes(repQ);
+  const tr=(S.repairs||[]).filter(r=>isToday(r.date)&&filterR(r));
+  const tot=tr.reduce((s,r)=>s+(r.qty||0),0);
+  const allFiltered=(S.repairs||[]).filter(filterR);
+  document.getElementById('rep-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Today</div></div><div class="stat-box"><div class="stat-num">${tr.length}</div><div class="stat-lbl">Entries Today</div></div><div class="stat-box"><div class="stat-num">${allFiltered.reduce((s,r)=>s+(r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div>`;
+  renderRepTab('today');
+}
 function renderRepTab(name){
   const adminEdit=isAdmin()?true:false;
   const repQ=(document.getElementById('rep-search')?.value||'').toLowerCase();
@@ -2161,7 +2169,7 @@ function submitProof(){
   const co=document.getElementById('prf-co').value.trim();
   if(!name||!co){document.getElementById('prf-err').textContent='Name and company required.';return;}
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
-  const at=new Date().toISOString();j.status='Completed';j.updatedAt=at;j.proof={recipientName:name,companyName:co,completedAt:at};
+  const at=new Date().toISOString();j.status='Completed';j.updatedAt=at;j.completedAt=at;j.proof={recipientName:name,companyName:co,completedAt:at};
   addTL(j,`Delivered \u2014 signed by ${name} (${co})`,'status');
   adjustStockOnComplete(j);persist();toast('Delivered \u2713');closeM('m-proof');renderDriver();renderDash();
 }
@@ -2316,7 +2324,12 @@ function toggleSrtSort(){srtSortAsc=!srtSortAsc;const btn=document.getElementByI
 function renderSorting(){
   const tr=(S.sortings||[]).filter(r=>isToday(r.date));
   const tot=tr.reduce((s,r)=>s+(r.totalQty||r.qty||0),0);
-  document.getElementById('srt-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="font-size:48px">${tot}</div><div class="stat-lbl">Sorted Today</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px">${tr.length}</div><div class="stat-lbl">Entries</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px">${(S.sortings||[]).reduce((s,r)=>s+(r.totalQty||r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div>`;
+  const srtQ=(document.getElementById('srt-search')?.value||'').toLowerCase();
+  const filterST=r=>!srtQ||(r.sorters||[]).join(' ').toLowerCase().includes(srtQ)||(r.supervisor||'').toLowerCase().includes(srtQ)||(r.orderRef||'').toLowerCase().includes(srtQ)||((r.pallets||[]).some(p=>(p.cls||'').toLowerCase().includes(srtQ)));
+  const trToday=(S.sortings||[]).filter(r=>isToday(r.date)&&filterST(r));
+  const totToday=trToday.reduce((s,r)=>s+(r.totalQty||r.qty||0),0);
+  const allFiltered=(S.sortings||[]).filter(filterST);
+  document.getElementById('srt-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="font-size:48px">${totToday}</div><div class="stat-lbl">Sorted Today</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px">${trToday.length}</div><div class="stat-lbl">Entries Today</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px">${allFiltered.reduce((s,r)=>s+(r.totalQty||r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div>`;
   // Outstanding tasks — completed Collection orders with Unsorted pallets
   const unsortedOrders=(S.orders||[]).filter(j=>
     j.type==='Collection'&&j.status==='Completed'&&
