@@ -961,7 +961,21 @@ async function loadCloud(){
       safe(sbGet('sp_stock')),safe(sbGet('sp_products')),safe(sbGet('sp_deleted'))
     ]);
     if(users&&users.length>0)S.users=users.map(r=>r.data).filter(Boolean);
-    if(orders&&orders.length)S.orders=orders.map(r=>r.data).filter(Boolean);
+    if(orders&&orders.length){
+      const remote=orders.map(r=>r.data).filter(Boolean);
+      // Merge: keep whichever version of each order is newer
+      const local=S.orders||[];
+      const merged=remote.map(ro=>{
+        const lo=local.find(x=>x.id===ro.id);
+        if(!lo)return ro;
+        const remoteTime=new Date(ro.updatedAt||ro.createdAt||0).getTime();
+        const localTime=new Date(lo.updatedAt||lo.createdAt||0).getTime();
+        return localTime>remoteTime?lo:ro;
+      });
+      // Add any local-only orders not yet synced
+      local.forEach(lo=>{if(!merged.find(x=>x.id===lo.id))merged.unshift(lo);});
+      S.orders=merged;
+    }
     if(repairs&&repairs.length)S.repairs=repairs.map(r=>r.data).filter(Boolean);
     if(sortings&&sortings.length)S.sortings=sortings.map(r=>r.data).filter(Boolean);
     if(companies&&companies.length)S.companies=companies.map(r=>r.data).filter(Boolean);
