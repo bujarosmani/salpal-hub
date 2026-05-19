@@ -935,13 +935,13 @@ function syncCloud(){
         sp_users:S.users||[],
         sp_companies:S.companies||[],
         sp_ledger:S.ledger||[],
-        sp_deleted:S.bin||[],
-        sp_workers:[{id:'__workers',data:S.workers||[]}]
+        sp_deleted:S.bin||[]
       };
       // Stock and products as single rows
       const stockRow=sbUpsert('sp_stock','__stock',S.stock||{});
       const prodRow=sbUpsert('sp_products','__products',S.products||[]);
-      const promises=[stockRow,prodRow];
+      const workersRow=sbUpsert('sp_stock','__workers',S.workers||DEFAULT_WORKERS);
+      const promises=[stockRow,prodRow,workersRow];
       for(const[table,rows] of Object.entries(tables)){
         for(const row of rows){
           if(row&&row.id)promises.push(sbUpsert(table,row.id,row));
@@ -967,10 +967,9 @@ async function loadCloud(){
     if(sortings&&sortings.length)S.sortings=sortings.map(r=>r.data).filter(Boolean);
     if(companies&&companies.length)S.companies=companies.map(r=>r.data).filter(Boolean);
     if(ledger&&ledger.length)S.ledger=ledger.map(r=>r.data).filter(Boolean);
-    if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;}
+    if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;const wr=stock.find(r=>r.id==='__workers');if(wr&&wr.data)S.workers=wr.data;}
     if(products&&products.length){const pr=products.find(r=>r.id==='__products');if(pr)S.products=pr.data;}
     if(deleted&&deleted.length)S.bin=deleted.map(r=>r.data).filter(Boolean);
-    const workers=await sbGet('sp_workers').catch(()=>[]);if(workers&&workers.length){const wr=workers.find(r=>r.id==='__workers');if(wr&&wr.data)S.workers=wr.data;}
     localStorage.setItem(SKEY,JSON.stringify(S));
     setSS('ok');
   }catch(e){setSS('error');}
