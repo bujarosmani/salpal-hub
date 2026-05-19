@@ -1707,7 +1707,6 @@ function viewOrder(id){
 }
 function renderDispatch(){
   const dis=(S.orders||[]).filter(j=>j.type==='Delivery');
-  document.getElementById('dis-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${list.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${list.filter(j=>j.status==='Loaded').length}</div><div class="stat-lbl">Loaded</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${list.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num">${list.filter(j=>j.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
   const isMob=(ME&&ME.role==='Supervisor'&&currentView!=='desktop')||window.innerWidth<768;
   const statOpts=['Open','Loaded','In Transit','Completed'].map(s=>({value:s,label:s}));
   const dl=disF.dateFrom&&disF.dateTo?`${fd(disF.dateFrom)}\u2013${fd(disF.dateTo)}`:disF.dateFrom?fd(disF.dateFrom):'All Dates';
@@ -3318,6 +3317,7 @@ function exportDispatchExcel(){
   const disQ=(document.getElementById('dis-search')?.value||'').toLowerCase();
   if(disQ)list=list.filter(j=>(j.awb||'').toLowerCase().includes(disQ)||(j.companyName||'').toLowerCase().includes(disQ)||(j.orderRef||'').toLowerCase().includes(disQ));
   list=sortList(list,'dis-table','awb',false);
+  document.getElementById('dis-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${list.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${list.filter(j=>j.status==='Loaded').length}</div><div class="stat-lbl">Loaded</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${list.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num">${list.filter(j=>j.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
   exportCSV('dispatch',['AWB','Order Ref','Company','City','Delivery Date','Pallets','Total Qty','Driver','Status','Loaded By','Truck'],
     list.map(j=>[j.awb,j.orderRef||'',j.companyName||'',j.city||'',j.deliveryDate||'',(j.pallets||[]).map(p=>`${p.cls}×${p.qty}`).join(', '),j.totalQty||0,j.driverId?uname(j.driverId):j.driver||'',j.status,j.whBy||'',j.truckPlate||'']));
 }
@@ -3330,6 +3330,7 @@ function exportReceivingExcel(){
   const recQ=(document.getElementById('rec-search')?.value||'').toLowerCase();
   if(recQ)list=list.filter(j=>(j.awb||'').toLowerCase().includes(recQ)||(j.companyName||'').toLowerCase().includes(recQ)||(j.orderRef||'').toLowerCase().includes(recQ));
   list=sortList(list,'rec-table','awb',false);
+  document.getElementById('rec-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${list.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${list.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${list.filter(j=>j.status==='Collected'||j.status==='Delivered').length}</div><div class="stat-lbl">At Warehouse</div></div><div class="stat-box"><div class="stat-num">${list.filter(j=>j.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
   exportCSV('receiving',['AWB','Order Ref','Company','City','Date','Pallets','Total Qty','Driver/Source','Status','WH By','Condition'],
     list.map(j=>[j.awb,j.orderRef||'',j.companyName||'',j.city||'',j.deliveryDate||'',(j.pallets||[]).map(p=>`${p.cls}×${p.qty}`).join(', '),j.totalQty||0,j.driverId?uname(j.driverId):j.driver||'',j.status,j.whBy||'',j.condition||'']));
 }
@@ -3447,37 +3448,8 @@ function confirmPermanentDelete(binId){
 // ── REALTIME SYNC ──
 let realtimeChannel=null;
 function startRealtime(){
-  if(realtimeChannel)return;
-  try{
-    const tables=['sp_orders','sp_repairs','sp_sortings','sp_users','sp_companies','sp_stock','sp_products','sp_ledger'];
-    const evtSrc=new EventSource(`${SB_URL}/realtime/v1/sse?apikey=${SB_KEY}&topics=${tables.map(t=>`realtime:public:${t}`).join(',')}`);
-    evtSrc.onmessage=e=>{
-      try{
-        const msg=JSON.parse(e.data);
-        if(msg.payload&&msg.payload.data){
-          const {table,record,type}=msg.payload.data;
-          if(!record||!record.id)return;
-          const parsed=record.data;
-          if(!parsed)return;
-          const keyMap={sp_orders:'orders',sp_repairs:'repairs',sp_sortings:'sortings',sp_users:'users',sp_companies:'companies',sp_ledger:'ledger'};
-          const key=keyMap[table];
-          if(key){
-            if(!S[key])S[key]=[];
-            if(type==='DELETE'){S[key]=S[key].filter(x=>x.id!==record.id);}
-            else{const idx=S[key].findIndex(x=>x.id===record.id);if(idx>=0)S[key][idx]=parsed;else S[key].unshift(parsed);}
-          } else if(table==='sp_stock'){S.stock=parsed;}
-          else if(table==='sp_products'){S.products=parsed;}
-          localStorage.setItem(SKEY,JSON.stringify(S));
-          // Refresh current page
-          const p=document.querySelector('.sb-btn.active')?.dataset?.p;
-          if(p)renderPage(p);
-          setSS('ok');
-        }
-      }catch(err){}
-    };
-    evtSrc.onerror=()=>setSS('error');
-    realtimeChannel=evtSrc;
-  }catch(e){}
+  // SSE realtime disabled - CORS not supported from GitHub Pages
+  // Using 30s polling fallback instead
 }
 // Force clear any old cached data from previous versions
 try{
