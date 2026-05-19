@@ -2266,7 +2266,7 @@ function renderSrtTab(name){
     document.getElementById('srt-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div><div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} · ${esc(r.supervisor)}${r.orderRef?` · ${esc(r.orderRef)}`:''}</div></div>
-        <div style="display:flex;align-items:center;gap:8px"><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--blue)">${totQty(r)}</span>${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editSorting('${r.id}')">Edit</button>`:''}</div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--blue)">${totQty(r)}</span>${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editSorting('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteSortingEntry('${r.id}')">Delete</button>`:''}</div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">${(r.pallets||[]).map(p=>`<span>${skuBadge(p.cls,true)} <span style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800">×${p.qty}</span></span>`).join('')}</div>
     </div>`).join(''):'<div class="empty">No sorting today</div>';
@@ -2276,7 +2276,7 @@ function renderSrtTab(name){
     document.getElementById('srt-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort(srtSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{
       const rs=grp[day],dt=rs.reduce((s,r)=>s+totQty(r),0);
       return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--blue);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} sorted</span></div>`+
-        rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div><div style="font-weight:700;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} · ${esc(r.supervisor)}${r.orderRef?` · ${esc(r.orderRef)}`:''}</div></div><div style="display:flex;align-items:center;gap:8px"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--blue)">${totQty(r)}</span>${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editSorting('${r.id}')">Edit</button>`:''}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px">${(r.pallets||[]).map(p=>`<span>${skuBadge(p.cls)} <span style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800">×${p.qty}</span></span>`).join('')}</div></div>`).join('');
+        rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div><div style="font-weight:700;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} · ${esc(r.supervisor)}${r.orderRef?` · ${esc(r.orderRef)}`:''}</div></div><div style="display:flex;align-items:center;gap:8px"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--blue)">${totQty(r)}</span>${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editSorting('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteSortingEntry('${r.id}')">Delete</button>`:''}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px">${(r.pallets||[]).map(p=>`<span>${skuBadge(p.cls)} <span style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800">×${p.qty}</span></span>`).join('')}</div></div>`).join('');
     }).join(''):'<div class="empty">No sorting yet</div>';
   }
   if(name==='manager'){
@@ -2290,6 +2290,33 @@ function renderSrtTab(name){
     `;
   }
 }
+function deleteSortingEntry(id){
+  const r=(S.sortings||[]).find(x=>x.id===id);if(!r)return;
+  const btn=document.querySelector(`[onclick="deleteSortingEntry('${id}')"]`);
+  if(!btn)return;
+  const card=btn.closest('div[style*="background:var(--panel)"]');if(!card)return;
+  document.querySelectorAll('.srt-del-confirm').forEach(c=>c.remove());
+  const conf=document.createElement('div');conf.className='srt-del-confirm';
+  conf.style.cssText='background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px;margin-top:6px';
+  conf.innerHTML=`<div style="color:var(--red);font-weight:700;margin-bottom:8px">⚠ Delete this sorting entry and reverse stock?</div><div style="font-size:12px;color:var(--ink2);margin-bottom:10px">Sorted pallets will be moved back to Unsorted stock.</div><div style="display:flex;gap:8px"><button class="btn btn-danger btn-sm" onclick="confirmDeleteSorting('${id}')">✓ Yes, delete & reverse</button><button class="btn btn-ghost btn-sm" onclick="this.closest('.srt-del-confirm').remove()">✕ Cancel</button></div>`;
+  card.after(conf);
+}
+
+function confirmDeleteSorting(id){
+  const r=(S.sortings||[]).find(x=>x.id===id);if(!r)return;
+  // Reverse stock — move sorted pallets back to Unsorted
+  if(!S.stock)S.stock={};
+  (r.pallets||[]).forEach(p=>{
+    if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;
+    if(!S.stock['Unsorted'])S.stock['Unsorted']=0;
+    S.stock['Unsorted']+=p.qty;
+  });
+  addLedger('Sorting Reversed',r.id,'Unsorted','in',r.totalQty||0,'Sorting entry deleted');
+  S.sortings=(S.sortings||[]).filter(x=>x.id!==id);
+  fetch(`${SB_URL}/rest/v1/sp_sortings?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+  persist();toast('Sorting entry deleted — stock reversed');renderSorting();renderDash();
+}
+
 function editSorting(id){
   const r=(S.sortings||[]).find(x=>x.id===id);if(!r)return;
   SF={sup:r.supervisor||'',sorters:[...(r.sorters||[])]};
