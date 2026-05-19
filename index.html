@@ -385,7 +385,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 </div>
 
 <div class="page" id="page-dispatch">
-  <div class="phdr"><div><div class="ptitle">Dispatch</div><div class="psub">Outgoing — delivery orders</div></div></div>
+  <div class="phdr"><div><div class="ptitle">Dispatch</div><div class="psub">Outgoing — delivery orders</div></div><button class="btn btn-ghost btn-sm" onclick="exportDispatchExcel()">⬇ Excel</button></div>
   <div class="stats" id="dis-stats"></div>
   <div style="padding:0 0 12px"><input class="inp" id="dis-search" placeholder="🔍 Search AWB, company, driver..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderDispatch()"/></div>
   <div id="dis-body"></div>
@@ -401,7 +401,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 </div>
 
 <div class="page" id="page-repairs">
-  <div class="phdr"><div><div class="ptitle">Pallet Repairs</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="rep-sort-btn" onclick="toggleRepSort()">Newest First</button><button class="btn btn-primary" id="btn-log-repair" onclick="openRepairModal()">+ Log Repair</button></div></div>
+  <div class="phdr"><div><div class="ptitle">Pallet Repairs</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="rep-sort-btn" onclick="toggleRepSort()">Newest First</button><button class="btn btn-ghost btn-sm" onclick="exportRepairsExcel()">⬇ Excel</button><button class="btn btn-primary" id="btn-log-repair" onclick="openRepairModal()">+ Log Repair</button></div></div>
   <div style="padding:0 0 12px"><input class="inp" id="rep-search" placeholder="🔍 Search repairer, class, supervisor..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderRepairs()"/></div>
   <div class="stats" id="rep-stats"></div>
   <div id="rep-tasks"></div>
@@ -416,7 +416,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 </div>
 
 <div class="page" id="page-sorting">
-  <div class="phdr"><div><div class="ptitle">Sorting</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="srt-sort-btn" onclick="toggleSrtSort()">Newest First</button><button class="btn btn-primary" id="btn-log-sort" onclick="openSortModal()">+ Log Sorting</button></div></div>
+  <div class="phdr"><div><div class="ptitle">Sorting</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="srt-sort-btn" onclick="toggleSrtSort()">Newest First</button><button class="btn btn-ghost btn-sm" onclick="exportSortingExcel()">⬇ Excel</button><button class="btn btn-primary" id="btn-log-sort" onclick="openSortModal()">+ Log Sorting</button></div></div>
   <div style="padding:0 0 12px"><input class="inp" id="srt-search" placeholder="🔍 Search sorter, class, supervisor, order ref..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderSorting()"/></div>
   <div class="stats" id="srt-stats"></div>
   <div id="srt-tasks"></div>
@@ -447,7 +447,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
   <div class="tpane on" id="stk-inventory-pane">
     <div class="card">
       <div class="card-hdr">
-        <span class="card-hdr-title">Inventory</span>
+        <span class="card-hdr-title">Inventory</span><button class="btn btn-ghost btn-sm" onclick="exportInventoryExcel()">⬇ Excel</button>
         <div style="display:flex;gap:8px;align-items:center" id="stk-inv-filters"></div>
       </div>
       <div class="tbl-wrap">
@@ -465,7 +465,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
   <div class="tpane" id="stk-ledger-pane">
     <div class="card">
       <div class="card-hdr">
-        <span class="card-hdr-title">Stock Ledger</span>
+        <span class="card-hdr-title">Stock Ledger</span><button class="btn btn-ghost btn-sm" onclick="exportLedgerExcel()">⬇ Excel</button>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="ledger-filters"></div>
       </div>
       <div class="tbl-wrap">
@@ -504,12 +504,12 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 </div>
 
 <div class="page" id="page-users">
-  <div class="phdr"><div><div class="ptitle">Users</div></div><button class="btn btn-primary" onclick="openUserModal()">+ Add User</button></div>
+  <div class="phdr"><div><div class="ptitle">Users</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="exportUsersExcel()">⬇ Excel</button><button class="btn btn-primary" onclick="openUserModal()">+ Add User</button></div></div>
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th class="right">Actions</th></tr></thead><tbody id="users-tbody"></tbody></table></div></div>
 </div>
 
 <div class="page" id="page-companies">
-  <div class="phdr"><div><div class="ptitle">Companies</div></div><button class="btn btn-primary" onclick="openCompanyModal()">+ Add Company</button></div>
+  <div class="phdr"><div><div class="ptitle">Companies</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="exportCompaniesExcel()">⬇ Excel</button><button class="btn btn-primary" onclick="openCompanyModal()">+ Add Company</button></div></div>
   <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
     <input class="inp" id="co-search" placeholder="🔍 Search name, city, postcode, address..." style="flex:1" oninput="renderCompanies()"/>
     <button class="btn btn-ghost btn-sm" id="co-sort-btn" onclick="toggleCoSort()">A → Z</button>
@@ -2954,6 +2954,83 @@ async function exportOrdersPDF(){
   doc.save(`salpal-orders-${new Date().toISOString().slice(0,10)}.pdf`);
   toast('PDF exported ✓');
   }catch(err){toast('PDF error: '+err.message,'err');console.error(err);}
+}
+
+/* ── EXPORT TO EXCEL (CSV) ── */
+function exportCSV(filename, headers, rows){
+  const escape=v=>{
+    const s=v===null||v===undefined?'':String(v);
+    return s.includes(',')||s.includes('"')||s.includes('\n')?`"${s.replace(/"/g,'""')}"`:s;
+  };
+  const csv=[headers.join(','),...rows.map(r=>r.map(escape).join(','))].join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`${filename}-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+  toast(`${filename} exported ✓`);
+}
+
+function exportInventoryExcel(){
+  const stk=getStock();
+  const stkQ=(document.getElementById('stk-search')?.value||'').toLowerCase();
+  const stkCls=document.getElementById('stk-cls-filter')?.value||'';
+  let rows=getSKUS().filter(cls=>(!stkQ||cls.toLowerCase().includes(stkQ))&&(!stkCls||cls===stkCls));
+  exportCSV('inventory',['Class','On Hand','Incoming','Outgoing','Free to Use'],
+    rows.map(cls=>[cls,stk[cls].onHand,stk[cls].incoming,stk[cls].outgoing,stk[cls].free]));
+}
+
+function exportLedgerExcel(){
+  let list=S.ledger||[];
+  if(ledgerFilter.cls)list=list.filter(e=>ledgerFilter.cls.includes(e.cls));
+  if(ledgerFilter.type)list=list.filter(e=>ledgerFilter.type.includes(e.type));
+  if(ledgerFilter.dateFrom)list=list.filter(e=>e.date.slice(0,10)>=ledgerFilter.dateFrom);
+  if(ledgerFilter.dateTo)list=list.filter(e=>e.date.slice(0,10)<=ledgerFilter.dateTo);
+  if(ledgerFilter.dir)list=list.filter(e=>e.dir===ledgerFilter.dir);
+  if(ledgerFilter.search){const q=ledgerFilter.search.toLowerCase();list=list.filter(e=>(e.ref||'').toLowerCase().includes(q)||(e.cls||'').toLowerCase().includes(q)||(e.notes||'').toLowerCase().includes(q)||(e.type||'').toLowerCase().includes(q));}
+  exportCSV('stock-ledger',['Date','Type','Reference','Product','Direction','Qty','Balance After','By','Notes'],
+    list.map(e=>[new Date(e.date).toLocaleString(),e.type,e.ref,e.cls,e.dir==='in'?'In':'Out',e.qty,e.balance,e.by||'',e.notes||'']));
+}
+
+function exportRepairsExcel(){
+  const repQ=(document.getElementById('rep-search')?.value||'').toLowerCase();
+  let list=(S.repairs||[]).filter(r=>!repQ||(r.repairer||'').toLowerCase().includes(repQ)||(r.pallet_class||'').toLowerCase().includes(repQ)||(r.supervisor||'').toLowerCase().includes(repQ));
+  exportCSV('repairs',['Date','Supervisor','Repairer','Defect Source','Class','Qty'],
+    list.map(r=>[new Date(r.date).toLocaleString(),r.supervisor,r.repairer,r.src||'',r.pallet_class,r.qty]));
+}
+
+function exportSortingExcel(){
+  const srtQ=(document.getElementById('srt-search')?.value||'').toLowerCase();
+  let list=(S.sortings||[]).filter(r=>!srtQ||(r.sorters||[]).join(' ').toLowerCase().includes(srtQ)||(r.supervisor||'').toLowerCase().includes(srtQ)||(r.orderRef||'').toLowerCase().includes(srtQ));
+  exportCSV('sorting',['Date','Supervisor','Sorters','Order Ref','Pallets','Total Qty'],
+    list.map(r=>[new Date(r.date).toLocaleString(),r.supervisor,(r.sorters||[]).join(', '),r.orderRef||'',(r.pallets||[]).map(p=>`${p.cls}×${p.qty}`).join(', '),r.totalQty||0]));
+}
+
+function exportDispatchExcel(){
+  let list=(S.orders||[]).filter(j=>j.type==='Delivery');
+  if(disF.statuses)list=list.filter(j=>disF.statuses.includes(j.status));
+  exportCSV('dispatch',['AWB','Order Ref','Company','Delivery Date','Pallets','Total Qty','Driver','Status','Loaded By','Truck'],
+    list.map(j=>[j.awb,j.orderRef||'',j.companyName||'',j.deliveryDate||'',(j.pallets||[]).map(p=>`${p.cls}×${p.qty}`).join(', '),j.totalQty||0,j.driverId?uname(j.driverId):j.driver||'',j.status,j.whBy||'',j.truckPlate||'']));
+}
+
+function exportReceivingExcel(){
+  let list=(S.orders||[]).filter(j=>j.type==='Collection');
+  if(recF.statuses)list=list.filter(j=>recF.statuses.includes(j.status));
+  exportCSV('receiving',['AWB','Order Ref','Company','Date','Pallets','Total Qty','Driver/Source','Status','WH By','Condition'],
+    list.map(j=>[j.awb,j.orderRef||'',j.companyName||'',j.deliveryDate||'',(j.pallets||[]).map(p=>`${p.cls}×${p.qty}`).join(', '),j.totalQty||0,j.driverId?uname(j.driverId):j.driver||'',j.status,j.whBy||'',j.condition||'']));
+}
+
+function exportCompaniesExcel(){
+  const q=(document.getElementById('co-search')?.value||'').toLowerCase();
+  let list=(S.companies||[]).filter(c=>!q||(c.name||'').toLowerCase().includes(q)||(c.city||'').toLowerCase().includes(q));
+  exportCSV('companies',['Name','Address','City','Postcode'],
+    list.map(c=>[c.name,c.address||'',c.city||'',c.postcode||'']));
+}
+
+function exportUsersExcel(){
+  exportCSV('users',['First Name','Last Name','Username','Role'],
+    (S.users||[]).map(u=>[u.firstName,u.lastName,u.username,u.role]));
 }
 
 function exportOrdersExcel(){
