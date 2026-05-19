@@ -842,6 +842,21 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
   </div>
 </div>
 
+<div class="mbackdrop" id="m-merge-co">
+  <div class="mbox">
+    <div class="mhdr"><span class="mtitle">Merge Duplicate Companies</span><button class="mclose" onclick="closeM('m-merge-co')">✕</button></div>
+    <div class="mbody">
+      <p style="font-size:13px;color:var(--ink2);margin-bottom:16px">Select the <strong>master record</strong> to keep. All orders from the other duplicates will be moved to it, then duplicates will be deleted.</p>
+      <div id="merge-co-list"></div>
+      <div class="ferr" id="merge-co-err"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeM('m-merge-co')">Cancel</button>
+      <button class="btn btn-primary" onclick="doMergeCompany()">⟳ Merge into Selected</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -2087,7 +2102,26 @@ function renderCompanies(){
   let list=S.companies||[];
   if(q)list=list.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.city||'').toLowerCase().includes(q)||(c.postcode||'').toLowerCase().includes(q)||(c.address||'').toLowerCase().includes(q));
   list=sortList(list,'co-table','name',true);
-  document.getElementById('co-tbody').innerHTML=list.length?list.map(c=>`<tr><td><div style="font-weight:700">${esc(c.name)}</div><div style="font-size:11px;color:var(--ink3)">${esc(c.address||'')}</div></td><td>${esc(c.city||'\u2014')}</td><td style="font-family:'DM Mono',monospace;font-size:12px">${esc(c.postcode||'\u2014')}</td><td class="right"><button class="btn btn-ghost btn-sm" onclick="editCompany('${c.id}')">Edit</button> <button class="btn btn-danger btn-sm" onclick="delCo('${c.id}')">Delete</button></td></tr>`).join(''):`<tr><td colspan="4" class="empty">No companies found</td></tr>`;
+  // Find duplicates (same name, same city)
+  const dupNames=new Set();
+  list.forEach(c=>{
+    const key=(c.name||'').toLowerCase()+'|'+(c.city||'').toLowerCase();
+    const matches=list.filter(x=>(x.name||'').toLowerCase()+'|'+(x.city||'').toLowerCase()===key);
+    if(matches.length>1)dupNames.add(key);
+  });
+  document.getElementById('co-tbody').innerHTML=list.length?list.map(c=>{
+    const isDup=dupNames.has((c.name||'').toLowerCase()+'|'+(c.city||'').toLowerCase());
+    return`<tr${isDup?' style="background:rgba(245,200,66,.05)"':''}>
+      <td><div style="font-weight:700">${esc(c.name)}${isDup?` <span class="chip chip-amber" style="font-size:9px">DUPLICATE</span>`:''}</div><div style="font-size:11px;color:var(--ink3)">${esc(c.address||'')}</div></td>
+      <td>${esc(c.city||'\u2014')}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${esc(c.postcode||'\u2014')}</td>
+      <td class="right">
+        ${isDup?`<button class="btn btn-amber btn-sm" onclick="openMergeCompany('${c.id}')">⟳ Merge</button> `:''}
+        <button class="btn btn-ghost btn-sm" onclick="editCompany('${c.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="delCo('${c.id}')">Delete</button>
+      </td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="4" class="empty">No companies found</td></tr>`;
 }
 function openCompanyModal(){document.getElementById('cf-name').value='';document.getElementById('cf-addr').value='';document.getElementById('cf-city').value='';document.getElementById('cf-post').value='';document.getElementById('cf-id').value='';document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display='none';document.getElementById('co-modal-title').textContent='Add Company';_inlineCoCb=null;openM('m-company');}
 function editCompany(id){const c=(S.companies||[]).find(x=>x.id===id);if(!c)return;document.getElementById('cf-name').value=c.name;document.getElementById('cf-addr').value=c.address||'';document.getElementById('cf-city').value=c.city||'';document.getElementById('cf-post').value=c.postcode||'';document.getElementById('cf-id').value=c.id;document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display=canDelete()?'':'none';document.getElementById('co-modal-title').textContent='Edit Company';_inlineCoCb=null;openM('m-company');}
@@ -2097,15 +2131,18 @@ function saveCompany(){
   const city=document.getElementById('cf-city').value.trim();
   const post=document.getElementById('cf-post').value.trim();
   if(!name||!city||!post){document.getElementById('cf-err').textContent='Name, city, postcode required.';return;}
+  // Duplicate check: same name + same city
+  const duplicate=(S.companies||[]).find(c=>c.id!==id&&c.name.toLowerCase()===name.toLowerCase()&&(c.city||'').toLowerCase()===city.toLowerCase()&&(c.postcode||'').toLowerCase()===post.toLowerCase());
+  if(duplicate){
+    document.getElementById('cf-err').innerHTML=`⚠ "<strong>${esc(name)}</strong>" already exists in ${esc(city)}. <button class="btn btn-ghost btn-sm" onclick="editCompany('${duplicate.id}');closeM('m-company')">View existing</button>`;
+    return;
+  }
   const co={id:id||mkId(),name,address:document.getElementById('cf-addr').value.trim(),city,postcode:post};
   if(id){
     const i=(S.companies||[]).findIndex(x=>x.id===id);
     const oldName=i>=0?S.companies[i].name:'';
     S.companies[i]=co;
-    // Propagate name change to all orders
-    if(oldName&&oldName!==name){
-      (S.orders||[]).forEach(j=>{if(j.companyId===id)j.companyName=name;});
-    }
+    if(oldName&&oldName!==name)(S.orders||[]).forEach(j=>{if(j.companyId===id)j.companyName=name;});
   } else {
     if(!S.companies)S.companies=[];
     S.companies.push(co);
@@ -2114,7 +2151,48 @@ function saveCompany(){
   if(_inlineCoCb){_inlineCoCb(co);_inlineCoCb=null;}
   closeM('m-company');renderCompanies();
 }
-function deleteCompany(){delCo(document.getElementById('cf-id').value);}
+function openMergeCompany(id){
+  const c=(S.companies||[]).find(x=>x.id===id);if(!c)return;
+  // Find all companies with same name + city
+  const dupes=(S.companies||[]).filter(x=>(x.name||'').toLowerCase()===c.name.toLowerCase()&&(x.city||'').toLowerCase()===(c.city||'').toLowerCase());
+  if(dupes.length<2){toast('No duplicates found','err');return;}
+  document.getElementById('merge-co-list').innerHTML=dupes.map(d=>{
+    const orderCount=(S.orders||[]).filter(j=>j.companyId===d.id).length;
+    return`<label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:9px;margin-bottom:8px;cursor:pointer">
+      <input type="radio" name="merge-co-master" value="${d.id}" style="accent-color:var(--brand)"/>
+      <div style="flex:1">
+        <div style="font-weight:700">${esc(d.name)}</div>
+        <div style="font-size:11px;color:var(--ink3)">${esc(d.address||'—')} · ${esc(d.city)} ${esc(d.postcode||'')}</div>
+        <div style="font-size:11px;color:var(--blue);margin-top:2px">${orderCount} order${orderCount!==1?'s':''}</div>
+      </div>
+    </label>`;
+  }).join('');
+  document.getElementById('merge-co-err').textContent='';
+  openM('m-merge-co');
+}
+
+function doMergeCompany(){
+  const sel=document.querySelector('input[name="merge-co-master"]:checked');
+  if(!sel){document.getElementById('merge-co-err').textContent='Please select the master record.';return;}
+  const masterId=sel.value;
+  const master=(S.companies||[]).find(x=>x.id===masterId);if(!master)return;
+  // Find all duplicates
+  const dupes=(S.companies||[]).filter(x=>x.id!==masterId&&(x.name||'').toLowerCase()===master.name.toLowerCase()&&(x.city||'').toLowerCase()===(master.city||'').toLowerCase());
+  // Redirect all orders from duplicates to master
+  let moved=0;
+  dupes.forEach(d=>{
+    (S.orders||[]).forEach(j=>{
+      if(j.companyId===d.id){j.companyId=masterId;j.companyName=master.name;j.companyAddress=master.address;j.city=master.city;j.postcode=master.postcode;moved++;}
+    });
+    // Delete duplicate from Supabase
+    fetch(`${SB_URL}/rest/v1/sp_companies?id=eq.${encodeURIComponent(d.id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+  });
+  // Remove duplicates from state
+  S.companies=(S.companies||[]).filter(x=>x.id===masterId||(!dupes.find(d=>d.id===x.id)));
+  persist();
+  toast(`Merged ${dupes.length} duplicates into "${master.name}" — ${moved} orders updated`);
+  closeM('m-merge-co');renderCompanies();
+}
 function delCo(id){
   const c=(S.companies||[]).find(x=>x.id===id);if(!c)return;
   confirmDelete('cf-err',c.name,()=>{
