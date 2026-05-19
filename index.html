@@ -923,7 +923,6 @@ function updateNavBadges(){
 function persist(){try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}updateNavBadges();syncCloud();}
 let _syncT,_syncQ=[];
 function syncCloud(){
-  // Queue changed entities for per-row sync
   clearTimeout(_syncT);
   _syncT=setTimeout(async()=>{
     setSS('syncing');
@@ -935,21 +934,21 @@ function syncCloud(){
         sp_users:S.users||[],
         sp_companies:S.companies||[],
         sp_ledger:S.ledger||[],
-        sp_deleted:S.bin||[]
+        sp_deleted:(S.bin||[]).map(e=>({id:e.id,data:e}))
       };
-      // Stock and products as single rows
-      const stockRow=sbUpsert('sp_stock','__stock',S.stock||{});
-      const prodRow=sbUpsert('sp_products','__products',S.products||[]);
-      const workersRow=sbUpsert('sp_stock','__workers',S.workers||DEFAULT_WORKERS);
-      const promises=[stockRow,prodRow,workersRow];
+      const promises=[
+        sbUpsert('sp_stock','__stock',S.stock||{}).catch(e=>console.warn('stock sync',e)),
+        sbUpsert('sp_products','__products',S.products||[]).catch(e=>console.warn('products sync',e)),
+        sbUpsert('sp_stock','__workers',S.workers||DEFAULT_WORKERS).catch(e=>console.warn('workers sync',e)),
+      ];
       for(const[table,rows] of Object.entries(tables)){
         for(const row of rows){
-          if(row&&row.id)promises.push(sbUpsert(table,row.id,row));
+          if(row&&row.id)promises.push(sbUpsert(table,row.id,row).catch(e=>console.warn(table,'sync',e)));
         }
       }
       await Promise.all(promises);
       setSS('ok');
-    }catch(e){setSS('error');}
+    }catch(e){console.error('syncCloud',e);setSS('error');}
   },2000);
 }
 async function loadCloud(){
