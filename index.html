@@ -954,12 +954,12 @@ function syncCloud(){
 async function loadCloud(){
   try{
     setSS('syncing');
+    const safe=p=>p.catch(()=>null);
     const [orders,repairs,sortings,users,companies,ledger,stock,products,deleted]=await Promise.all([
-      sbGet('sp_orders'),sbGet('sp_repairs'),sbGet('sp_sortings'),
-      sbGet('sp_users'),sbGet('sp_companies'),sbGet('sp_ledger'),
-      sbGet('sp_stock'),sbGet('sp_products'),sbGet('sp_deleted')
+      safe(sbGet('sp_orders')),safe(sbGet('sp_repairs')),safe(sbGet('sp_sortings')),
+      safe(sbGet('sp_users')),safe(sbGet('sp_companies')),safe(sbGet('sp_ledger')),
+      safe(sbGet('sp_stock')),safe(sbGet('sp_products')),safe(sbGet('sp_deleted'))
     ]);
-    // Only overwrite users if Supabase has user data (prevents lockout on network failure)
     if(users&&users.length>0)S.users=users.map(r=>r.data).filter(Boolean);
     if(orders&&orders.length)S.orders=orders.map(r=>r.data).filter(Boolean);
     if(repairs&&repairs.length)S.repairs=repairs.map(r=>r.data).filter(Boolean);
@@ -971,7 +971,7 @@ async function loadCloud(){
     if(deleted&&deleted.length)S.bin=deleted.map(r=>r.data).filter(Boolean);
     localStorage.setItem(SKEY,JSON.stringify(S));
     setSS('ok');
-  }catch(e){setSS('error');}
+  }catch(e){console.error('loadCloud error',e);setSS('error');}
 }
 function setSS(s){const row=document.getElementById('sync-row'),txt=document.getElementById('sync-txt');if(!row)return;row.className='sync-row '+s;txt.textContent=s==='ok'?'Synced':s==='syncing'?'Saving...':'Sync error';}
 
