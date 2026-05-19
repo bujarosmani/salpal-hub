@@ -1946,7 +1946,7 @@ function addRepLine(cls,qty){
   const autoQty=(cls&&REP_DEFAULT_QTY_CLASSES.includes(cls))?REP_DEFAULT_QTY:'';
   const finalQty=(qty!==undefined&&qty!=='')?qty:autoQty;
   const d=document.createElement('div');d.className='plt-line';
-  d.innerHTML=`<select class="inp" onchange="onRepLineChange(this)"><option value="">— Class —</option>${repairableClasses.map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${finalQty}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="updateRepTotal()"/><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove();updateRepTotal()">−</button>`;
+  d.innerHTML=`<select class="inp" onchange="onRepLineChange(this)"><option value="">— Class —</option>${repairableClasses.map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${finalQty}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:80px" oninput="updateRepTotal()"/><button type="button" style="padding:0 10px;height:38px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;color:var(--ink2);font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0" onclick="this.previousElementSibling.value=15;updateRepTotal()">15</button><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove();updateRepTotal()">−</button>`;
   c.appendChild(d);
   updateRepTotal();
 }
