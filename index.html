@@ -2783,7 +2783,9 @@ async function exportOrdersPDF(){
     });
   }
   const {jsPDF}=window.jspdf;
+  // Use currently visible filtered orders from the table
   let orders=S.orders||[];
+  // Apply same filters as renderOrdTable
   if(ordF.types)orders=orders.filter(j=>ordF.types.includes(j.type));
   if(ordF.statuses)orders=orders.filter(j=>ordF.statuses.includes(j.status));
   if(ordF.drivers)orders=orders.filter(j=>ordF.drivers.includes(j.driverId));
@@ -2792,11 +2794,11 @@ async function exportOrdersPDF(){
     if(ordF.source.includes('dropoff')&&!ordF.source.includes('driver'))orders=orders.filter(j=>j.source==='dropoff');
     else if(ordF.source.includes('driver')&&!ordF.source.includes('dropoff'))orders=orders.filter(j=>j.source!=='dropoff');
   }
-  if(ordF.dateFrom)orders=orders.filter(j=>j.orderDate>=ordF.dateFrom);
-  if(ordF.dateTo)orders=orders.filter(j=>j.orderDate<=ordF.dateTo);
-  if(ordF.search){const q=ordF.search.toLowerCase();orders=orders.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q));}
+  if(ordF.dateFrom)orders=orders.filter(j=>(j.deliveryDate||j.orderDate||'')>=ordF.dateFrom);
+  if(ordF.dateTo)orders=orders.filter(j=>(j.deliveryDate||j.orderDate||'')<=ordF.dateTo);
+  if(ordF.search){const q=ordF.search.toLowerCase();orders=orders.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q)||(j.orderRef||'').toLowerCase().includes(q));}
   orders=orders.slice().sort((a,b)=>ordSortAsc?a.awb.localeCompare(b.awb):b.awb.localeCompare(a.awb));
-  if(!orders.length){toast('No orders to export','err');return;}
+  if(!orders.length){toast('No orders match current filters — clear filters to export all','err');return;}
 
   toast('Generating PDF...');
   try{
@@ -3046,8 +3048,8 @@ function exportOrdersExcel(){
     if(ordF.source.includes('dropoff')&&!ordF.source.includes('driver'))orders=orders.filter(j=>j.driver==='Customer Drop Off'||j.source==='dropoff');
     else if(ordF.source.includes('driver')&&!ordF.source.includes('dropoff'))orders=orders.filter(j=>j.driver!=='Customer Drop Off'&&j.source!=='dropoff');
   }
-  if(ordF.dateFrom)orders=orders.filter(j=>j.orderDate>=ordF.dateFrom);
-  if(ordF.dateTo)orders=orders.filter(j=>j.orderDate<=ordF.dateTo);
+  if(ordF.dateFrom)orders=orders.filter(j=>(j.deliveryDate||j.orderDate||'')>=ordF.dateFrom);
+  if(ordF.dateTo)orders=orders.filter(j=>(j.deliveryDate||j.orderDate||'')<=ordF.dateTo);
   if(!orders.length){toast('No orders to export','err');return;}
   // Build CSV content
   const headers=['AWB','Order Ref','Type','Status','Order Date','Delivery Date','Time From','Time To','Company','Address','City','Postcode','Driver','Pallets','Total Qty','Driver Notes','WH By','Created At','Updated At'];
