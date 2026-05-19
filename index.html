@@ -70,7 +70,7 @@ tr:hover td{background:rgba(255,255,255,.02)}.right{text-align:right}
 .qty-presets{display:flex;gap:8px;margin-top:8px}
 .qty-pre{flex:1;padding:10px;border-radius:8px;border:1.5px solid var(--line2);background:var(--panel2);font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--ink3);text-align:center;cursor:pointer;transition:all .15s}
 .qty-pre:hover,.qty-pre.sel{border-color:var(--brand-dim);background:var(--brand-dark);color:#fff}
-.plt-line{display:grid;grid-template-columns:1fr 90px 34px;gap:8px;align-items:center;margin-bottom:8px}
+.plt-line{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:nowrap}
 .rm-btn{width:34px;height:34px;border-radius:8px;background:var(--red-bg);color:var(--red);font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;border:none}
 .rm-btn:hover{background:rgba(245,107,107,.2)}
 .mbackdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:center;justify-content:center;padding:16px}
@@ -2012,7 +2012,8 @@ function addRepLine(cls,qty){
   const autoQty=(cls&&REP_DEFAULT_QTY_CLASSES.includes(cls))?REP_DEFAULT_QTY:'';
   const finalQty=(qty!==undefined&&qty!=='')?qty:autoQty;
   const d=document.createElement('div');d.className='plt-line';
-  d.innerHTML=`<select class="inp" onchange="onRepLineChange(this)"><option value="">— Class —</option>${repairableClasses.map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${finalQty}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:80px" oninput="updateRepTotal()"/><button type="button" style="padding:0 10px;height:38px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;color:var(--ink2);font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0" onclick="this.previousElementSibling.value=15;updateRepTotal()">15</button><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove();updateRepTotal()">−</button>`;
+  d.style.flexWrap='nowrap';
+  d.innerHTML=`<select class="inp" onchange="onRepLineChange(this)" style="flex:1;min-width:0;max-width:100%"><option value="">— Class —</option>${repairableClasses.map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${finalQty}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:68px;flex-shrink:0" oninput="updateRepTotal()"/><button type="button" style="padding:0 10px;height:38px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;color:var(--ink2);font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0" onclick="this.previousElementSibling.value=15;updateRepTotal()">15</button><button type="button" class="rm-btn" style="flex-shrink:0" onclick="this.closest('.plt-line').remove();updateRepTotal()">−</button>`;
   c.appendChild(d);
   updateRepTotal();
 }
