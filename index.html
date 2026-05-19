@@ -297,8 +297,8 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <button class="sb-btn" data-p="orders" id="snav-orders"><span class="ic">📋</span>Orders</button>
     <button class="sb-btn" data-p="dispatch" id="snav-dispatch"><span class="ic">📤</span>Dispatch</button>
     <button class="sb-btn" data-p="receiving" id="snav-receiving"><span class="ic">📥</span>Receiving</button>
-    <button class="sb-btn" data-p="repairs" id="snav-repairs"><span class="ic">🔧</span>Pallet Repairs</button>
-    <button class="sb-btn" data-p="sorting" id="snav-sorting"><span class="ic">📦</span>Sorting</button>
+    <button class="sb-btn" data-p="repairs" id="snav-repairs"><span class="ic">🔧</span>Pallet Repairs<span id="nav-badge-repairs" style="display:none;margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0"></span></button>
+    <button class="sb-btn" data-p="sorting" id="snav-sorting"><span class="ic">📦</span>Sorting<span id="nav-badge-sorting" style="display:none;margin-left:auto;background:var(--amber);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0"></span></button>
     <button class="sb-btn" data-p="stock" id="snav-stock"><span class="ic">📊</span>Stock</button>
     <button class="sb-btn" data-p="calendar" id="snav-calendar"><span class="ic">📅</span>Calendar</button>
   </div>
@@ -404,7 +404,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 </div>
 
 <div class="page" id="page-repairs">
-  <div class="phdr"><div><div class="ptitle">Pallet Repairs</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="rep-sort-btn" onclick="toggleRepSort()">Newest First</button><button class="btn btn-ghost btn-sm" onclick="exportRepairsExcel()">⬇ Excel</button><button class="btn btn-primary" id="btn-log-repair" onclick="openRepairModal()">+ Log Repair</button></div></div>
+  <div class="phdr"><div><div class="ptitle">Pallet Repairs</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="rep-sort-btn" onclick="toggleRepSort()">Oldest First</button><button class="btn btn-ghost btn-sm" onclick="exportRepairsExcel()">⬇ Excel</button><button class="btn btn-primary" id="btn-log-repair" onclick="openRepairModal()">+ Log Repair</button></div></div>
   <div style="padding:0 0 12px"><input class="inp" id="rep-search" placeholder="🔍 Search repairer, class, supervisor..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderRepairs()"/></div>
   <div class="stats" id="rep-stats"></div>
   <div id="rep-tasks"></div>
@@ -419,7 +419,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 </div>
 
 <div class="page" id="page-sorting">
-  <div class="phdr"><div><div class="ptitle">Sorting</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="srt-sort-btn" onclick="toggleSrtSort()">Newest First</button><button class="btn btn-ghost btn-sm" onclick="exportSortingExcel()">⬇ Excel</button><button class="btn btn-primary" id="btn-log-sort" onclick="openSortModal()">+ Log Sorting</button></div></div>
+  <div class="phdr"><div><div class="ptitle">Sorting</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="srt-sort-btn" onclick="toggleSrtSort()">Oldest First</button><button class="btn btn-ghost btn-sm" onclick="exportSortingExcel()">⬇ Excel</button><button class="btn btn-primary" id="btn-log-sort" onclick="openSortModal()">+ Log Sorting</button></div></div>
   <div style="padding:0 0 12px"><input class="inp" id="srt-search" placeholder="🔍 Search sorter, class, supervisor, order ref..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderSorting()"/></div>
   <div class="stats" id="srt-stats"></div>
   <div id="srt-tasks"></div>
@@ -724,12 +724,13 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       <div class="fwrap"><label class="flabel">Supervisor *</label><div class="pick-grid c2" id="rep-sup"></div></div>
       <div class="fwrap"><label class="flabel">Repairer *</label><div class="pick-grid c3" id="rep-rep"></div></div>
       <div class="fwrap"><label class="flabel">Defect Source *</label><div class="pick-grid c3" id="rep-src"></div></div>
-      <div class="fwrap"><label class="flabel">Repaired To Class *</label>
-        <select class="inp" id="rep-cls-sel"><option value="">— Select class —</option></select>
-      </div>
-      <div class="fwrap"><label class="flabel">Qty *</label>
-        <input class="qty-big" type="number" id="rep-qty" min="1" max="500" placeholder="0"/>
-        <div class="qty-presets"><button class="qty-pre" type="button" onclick="setRepQty(15)">15</button><button class="qty-pre" type="button" onclick="setRepQty(25)">25</button><button class="qty-pre" type="button" onclick="setRepQty(30)">30</button></div>
+      <div class="fwrap">
+        <div class="sec-row"><label class="flabel" style="margin:0">Repaired Classes *</label><button type="button" class="btn btn-ghost btn-sm" onclick="addRepLine()">+ Add Line</button></div>
+        <div id="rep-lines"></div>
+        <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px;padding:8px 12px;background:var(--panel2);border-radius:9px;border:1.5px solid var(--line2)">
+          <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:700">Total</span>
+          <span id="rep-total" style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--brand)">0</span>
+        </div>
       </div>
       <div class="fwrap"><label class="flabel">Date *</label><input class="inp" type="date" id="rep-date"/></div>
       <div id="rep-warn" style="display:none;margin-bottom:10px"></div>
@@ -896,7 +897,24 @@ function seed(){return{
 };}
 
 function loadState(){try{const r=localStorage.getItem(SKEY);if(r){S=JSON.parse(r);return;}}catch(e){}S=seed();persist();}
-function persist(){try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}syncCloud();}
+function updateNavBadges(){
+  const defEuro=(S.stock&&S.stock['Defected Euro'])||0;
+  const defK=(S.stock&&S.stock['Defected K'])||0;
+  const totalDefected=defEuro+defK;
+  const unsorted=(S.stock&&S.stock['Unsorted'])||0;
+  const rb=document.getElementById('nav-badge-repairs');
+  if(rb){
+    if(totalDefected>0){rb.textContent=totalDefected;rb.style.display='';}
+    else rb.style.display='none';
+  }
+  const sb=document.getElementById('nav-badge-sorting');
+  if(sb){
+    if(unsorted>0){sb.textContent=unsorted;sb.style.display='';}
+    else sb.style.display='none';
+  }
+}
+
+function persist(){try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}updateNavBadges();syncCloud();}
 let _syncT,_syncQ=[];
 function syncCloud(){
   // Queue changed entities for per-row sync
@@ -953,8 +971,8 @@ function setSS(s){const row=document.getElementById('sync-row'),txt=document.get
 
 /* ── HELPERS ── */
 const mkId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-const tod=()=>new Date().toISOString().slice(0,10);
-const isToday=s=>s&&s.slice(0,10)===tod();
+const tod=()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+const isToday=s=>{if(!s)return false;const d=new Date(s);const local=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;return local===tod();};
 const fd=s=>{if(!s)return'';const[y,m,d]=s.slice(0,10).split('-');return`${d}/${m}/${y}`;};
 const fdt=s=>s?new Date(s).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
 const esc=v=>String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1168,6 +1186,7 @@ function doLogin(){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='block';
     setupNav();
+    updateNavBadges();
     startRealtime();
     // Poll every 30s as fallback
     setInterval(()=>loadCloud().catch(()=>{}),30000);
@@ -1195,6 +1214,7 @@ function tryRestoreSession(){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='block';
     setupNav();
+    updateNavBadges();
     startRealtime();
     setInterval(()=>loadCloud().catch(()=>{}),30000);
     if(ME.role==='Driver')goTo('driver');
@@ -1260,7 +1280,19 @@ function renderDash(){
   const ords=S.orders||[];
   const ts=(S.sortings||[]).filter(r=>isToday(r.date));
   const stot=ts.reduce((s,r)=>s+(r.totalQty||r.qty||0),0);
-  document.getElementById('dash-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Repaired Today</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${stot}</div><div class="stat-lbl">Sorted Today</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open Orders</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.status==='Loaded').length}</div><div class="stat-lbl">Loaded</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${ords.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div>`;
+  const unsorted=(S.stock&&S.stock['Unsorted'])||0;
+  const defEuro=(S.stock&&S.stock['Defected Euro'])||0;
+  const defK=(S.stock&&S.stock['Defected K'])||0;
+  const totalDefected=defEuro+defK;
+  document.getElementById('dash-stats').innerHTML=`
+    <div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Repaired Today</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--blue)">${stot}</div><div class="stat-lbl">Sorted Today</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status==='Open').length}</div><div class="stat-lbl">Open Orders</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.status==='Loaded').length}</div><div class="stat-lbl">Loaded</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--purple)">${ords.filter(j=>j.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div>
+    <div class="stat-box" style="border-color:var(--amber);background:rgba(180,120,0,.06)"><div class="stat-num" style="color:var(--amber)">${unsorted}</div><div class="stat-lbl">Unsorted Remaining</div></div>
+    <div class="stat-box" style="border-color:var(--red);background:rgba(245,107,107,.06)"><div class="stat-num" style="color:var(--red)">${totalDefected}</div><div class="stat-lbl">Defected Remaining${defEuro||defK?`<br><span style="font-size:9px;color:var(--ink3)">Euro: ${defEuro} · K: ${defK}</span>`:''}</div></div>
+  `;
   const byw=REPAIRERS.map(n=>({n,t:tr.filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0);
   document.getElementById('dash-repairs').innerHTML=byw.length?byw.map(r=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join(''):'<div class="empty" style="padding:16px">No repairs today</div>';
   const sbyw=REPAIRERS.map(n=>({n,t:ts.filter(r=>(r.sorters||[]).includes(n)).reduce((s,r)=>s+(r.totalQty||0),0)})).filter(r=>r.t>0);
@@ -1458,23 +1490,20 @@ function editOrder(id){
   const ds=document.getElementById('of-driver');ds.innerHTML='<option value="">Unassigned</option>'+drvs().map(d=>`<option value="${d.id}"${d.id===j.driverId?' selected':''}>${d.firstName} ${d.lastName}</option>`).join('');
   document.getElementById('of-lines').innerHTML='';
   (j.pallets||[{cls:'A',qty:1}]).forEach(p=>addPltLine('of-lines',p.cls,p.qty));
-  // Show status selector (Admin only)
   document.getElementById('of-status-wrap').style.display='';
-  document.getElementById('of-status-display').innerHTML=stChip(j.status||'Open');
-  document.getElementById('of-status-value').value=j.status||'Open';
+  const currentStatus=j.status||'Open';
+  document.getElementById('of-status-display').innerHTML=stChip(currentStatus);
+  document.getElementById('of-status-value').value=currentStatus;
   document.getElementById('of-status-value').dataset.forced='';
   document.getElementById('of-force-status-box').style.display='none';
-  // Populate forward statuses (normal flow) as quick buttons
   const allStatuses=j.type==='Delivery'?['Open','Loaded','In Transit','Completed']:['Open','In Transit','Collected','Delivered','Completed'];
-  const fwdStatuses=allStatuses.filter(s=>isForwardStatus(j.type,j.status||'Open',s));
-  const bwdStatuses=allStatuses.filter(s=>s!==(j.status||'Open')&&!fwdStatuses.includes(s));
-  // Forward: show as quick-select buttons
+  const fwdStatuses=allStatuses.filter(s=>isForwardStatus(j.type,currentStatus,s));
+  const bwdStatuses=allStatuses.filter(s=>s!==currentStatus&&!fwdStatuses.includes(s));
   const fwdEl=document.getElementById('of-status-fwd');
   if(fwdEl)fwdEl.innerHTML=fwdStatuses.length
-    ?fwdStatuses.map(s=>`<button type="button" class="btn btn-ghost btn-sm" onclick="applyNormalStatus('${s}')">${stChip(s)}</button>`).join('')
+    ?fwdStatuses.map(s=>`<button type="button" class="btn btn-ghost btn-sm" onclick="applyNormalStatus('${s}')" style="display:flex;align-items:center;gap:6px">${stChip(currentStatus)} <span style="color:var(--ink3);font-size:13px">→</span> ${stChip(s)}</button>`).join('')
     :'<span style="font-size:11px;color:var(--ink3)">No forward steps available</span>';
-  // Force: only backward statuses in dropdown
-  document.getElementById('of-status').innerHTML=bwdStatuses.map(s=>`<option value="${s}">${s}</option>`).join('')||`<option value="${j.status}">${j.status}</option>`;
+  document.getElementById('of-status').innerHTML=bwdStatuses.map(s=>`<option value="${s}">${currentStatus} → ${s}</option>`).join('')||`<option value="${currentStatus}">${currentStatus}</option>`;
   // Show WH changes if any
   const cb=document.getElementById('of-changes-box');
   if(j.whChanges&&j.whChanges.length){
@@ -1752,7 +1781,7 @@ function saveDropoff(){
 let RF={sup:'',rep:'',cls:''};
 function repTab(name,btn){const page=document.getElementById('page-repairs');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`rep-${name}`).classList.add('on');renderRepTab(name);}
 let repSortAsc=false;
-function toggleRepSort(){repSortAsc=!repSortAsc;const btn=document.getElementById('rep-sort-btn');if(btn)btn.textContent=repSortAsc?'Oldest First':'Newest First';renderRepairs();}
+function toggleRepSort(){repSortAsc=!repSortAsc;const btn=document.getElementById('rep-sort-btn');if(btn)btn.textContent=repSortAsc?'Newest First':'Oldest First';renderRepairs();}
 function renderRepairs(){const tr=(S.repairs||[]).filter(r=>isToday(r.date));const tot=tr.reduce((s,r)=>s+(r.qty||0),0);document.getElementById('rep-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Today</div></div><div class="stat-box"><div class="stat-num">${tr.length}</div><div class="stat-lbl">Entries</div></div><div class="stat-box"><div class="stat-num">${(S.repairs||[]).reduce((s,r)=>s+(r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div>`;renderRepTab('today');}
 function renderRepTab(name){
   const adminEdit=isAdmin()?true:false;
@@ -1836,11 +1865,12 @@ function renderRepTab(name){
 
 function editRepair(id){
   const r=(S.repairs||[]).find(x=>x.id===id);if(!r)return;
-  RF={sup:r.supervisor||'',rep:r.repairer||'',cls:r.pallet_class||'',src:r.src||''};
+  RF={sup:r.supervisor||'',rep:r.repairer||'',src:r.src||''};
   renderRepPickers();
-  document.getElementById('rep-qty').value=r.qty||'';
-  document.getElementById('rep-date').value=r.date?r.date.slice(0,10):new Date().toISOString().slice(0,10);
-  document.querySelectorAll('.qty-pre').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('rep-lines').innerHTML='';
+  addRepLine(r.pallet_class,r.qty);
+  updateRepTotal();
+  document.getElementById('rep-date').value=r.date?localIso(new Date(r.date)):localIso(new Date());
   const warn=document.getElementById('rep-warn');if(warn){warn.style.display='none';warn.innerHTML='';}
   const btn=document.querySelector('#m-repair .btn-primary');
   if(btn){btn.textContent='✓ Update';btn.onclick=()=>saveRepairEdit(id,false);}
@@ -1878,45 +1908,72 @@ function confirmDeleteRepair(id){
 }
 
 function saveRepairEdit(id,force){
-  const qty=parseInt(document.getElementById('rep-qty').value);
-  if(!RF.sup||!RF.rep||!RF.cls||!RF.src||!qty){toast('Fill all fields','err');return;}
+  const lines=getRepLines();
+  if(!RF.sup||!RF.rep||!RF.src||!lines.length){toast('Fill all fields','err');return;}
+  const p=lines[0];const qty=p.qty;const cls=p.cls;
   const r=(S.repairs||[]).find(x=>x.id===id);if(!r)return;
-  // Reverse old stock transfer
   if(!S.stock)S.stock={};
+  // Reverse old
   if(S.stock[r.pallet_class]!==undefined)S.stock[r.pallet_class]-=r.qty;
   const oldSrc=r.src||'Defected';
   if(S.stock[oldSrc]!==undefined)S.stock[oldSrc]+=r.qty;
-  // Apply new stock transfer
   if(!force){
     const defectedStock=(S.stock[RF.src])||0;
     if(qty>defectedStock){
-      const short=qty-defectedStock;
       const warn=document.getElementById('rep-warn');
-      if(warn){warn.style.display='';warn.innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:12px 14px"><div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px">⚠ ${RF.src} stock: ${defectedStock} available, ${qty} needed (${short} short).<br>Proceed?</div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="saveRepairEdit('${id}',true)">✓ Yes</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('rep-warn').style.display='none'">✕ No</button></div></div>`;}
-      // Restore old stock since we reversed it
+      if(warn){warn.style.display='';warn.innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:12px 14px"><div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px">⚠ ${RF.src} stock: ${defectedStock} available, ${qty} needed.<br>Proceed?</div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="saveRepairEdit('${id}',true)">✓ Yes</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('rep-warn').style.display='none'">✕ No</button></div></div>`;}
       S.stock[r.pallet_class]+=r.qty;
       if(S.stock[oldSrc]!==undefined)S.stock[oldSrc]-=r.qty;
       return;
     }
   }
-  if(!S.stock[RF.cls])S.stock[RF.cls]=0;
-  S.stock[RF.cls]+=qty;
-  if(!S.stock[RF.src])S.stock[RF.src]=0;
-  S.stock[RF.src]-=qty;
-  // Update record
+  if(!S.stock[cls])S.stock[cls]=0;S.stock[cls]+=qty;
+  if(!S.stock[RF.src])S.stock[RF.src]=0;S.stock[RF.src]-=qty;
   const editRepDate=document.getElementById('rep-date').value;
-  r.supervisor=RF.sup;r.repairer=RF.rep;r.pallet_class=RF.cls;r.src=RF.src;r.qty=qty;
-  if(editRepDate)r.date=new Date(editRepDate).toISOString();
-  addLedger('Repair',r.id,RF.cls,'in',qty,`Edited repair by ${RF.rep}`);
-  addLedger('Repair',r.id,RF.src,'out',qty,`Edited repair \u2192 ${RF.cls}`);
+  r.supervisor=RF.sup;r.repairer=RF.rep;r.pallet_class=cls;r.src=RF.src;r.qty=qty;
+  if(editRepDate){const existingTime=r.date?new Date(r.date).toTimeString().slice(0,8):new Date().toTimeString().slice(0,8);r.date=new Date(editRepDate+'T'+existingTime).toISOString();}
+  addLedger('Repair',r.id,cls,'in',qty,`Edited repair by ${RF.rep}`);
+  addLedger('Repair',r.id,RF.src,'out',qty,`Edited repair \u2192 ${cls}`);
   persist();toast('Repair updated');closeM('m-repair');renderRepairs();
 }
+const REP_DEFAULT_QTY_CLASSES=['A','B','C'];
+const REP_DEFAULT_QTY=15;
+
+function addRepLine(cls,qty){
+  cls=cls||'';
+  const c=document.getElementById('rep-lines');if(!c)return;
+  const repairableClasses=getSKUS().filter(x=>!x.toLowerCase().includes('defect')&&x!=='Unsorted');
+  const autoQty=(cls&&REP_DEFAULT_QTY_CLASSES.includes(cls))?REP_DEFAULT_QTY:'';
+  const finalQty=(qty!==undefined&&qty!=='')?qty:autoQty;
+  const d=document.createElement('div');d.className='plt-line';
+  d.innerHTML=`<select class="inp" onchange="onRepLineChange(this)"><option value="">— Class —</option>${repairableClasses.map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${finalQty}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="updateRepTotal()"/><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove();updateRepTotal()">−</button>`;
+  c.appendChild(d);
+  updateRepTotal();
+}
+function onRepLineChange(sel){
+  const cls=sel.value;
+  const inp=sel.closest('.plt-line').querySelector('input');
+  if(cls&&REP_DEFAULT_QTY_CLASSES.includes(cls)&&!inp.value)inp.value=REP_DEFAULT_QTY;
+  updateRepTotal();
+}
+function updateRepTotal(){
+  const total=getRepLines().reduce((s,p)=>s+p.qty,0);
+  const el=document.getElementById('rep-total');if(el)el.textContent=total;
+}
+function getRepLines(){
+  return Array.from(document.querySelectorAll('#rep-lines .plt-line')).map(row=>({
+    cls:row.querySelector('select').value,
+    qty:parseInt(row.querySelector('input').value)||0
+  })).filter(p=>p.qty>0&&p.cls);
+}
+
 function openRepairModal(){
-  RF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',rep:'',cls:'',src:''};
+  RF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',rep:'',src:''};
   renderRepPickers();
-  document.getElementById('rep-qty').value='';
-  document.getElementById('rep-date').value=new Date().toISOString().slice(0,10);
-  document.querySelectorAll('.qty-pre').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('rep-lines').innerHTML='';
+  addRepLine();
+  updateRepTotal();
+  document.getElementById('rep-date').value=localIso(new Date());
   const btn=document.querySelector('#m-repair .btn-primary');
   if(btn){btn.textContent='✓ Save';btn.onclick=()=>saveRepair(false);}
   const warn=document.getElementById('rep-warn');if(warn){warn.style.display='none';warn.innerHTML='';}
@@ -1927,51 +1984,40 @@ function renderRepPickers(){
   document.getElementById('rep-rep').innerHTML=REPAIRERS.map(r=>`<button type="button" class="pick-btn${RF.rep===r?' sel':''}" onclick="RF.rep='${r}';renderRepPickers()">${esc(r)}</button>`).join('');
   const defectSrcs=getSKUS().filter(c=>c.toLowerCase().includes('defect'));
   document.getElementById('rep-src').innerHTML=defectSrcs.map(c=>`<button type="button" class="pick-btn${RF.src===c?' sel':''}" onclick="RF.src='${c}';renderRepPickers()" style="color:${RF.src===c?'#fff':'var(--red)'}">${esc(c)}</button>`).join('');
-  const clsSel=document.getElementById('rep-cls-sel');
-  if(clsSel){
-    const repairableClasses=getSKUS().filter(c=>!c.toLowerCase().includes('defect')&&c!=='Unsorted');
-    clsSel.innerHTML='<option value="">— Select class —</option>'+repairableClasses.map(c=>`<option value="${c}"${RF.cls===c?' selected':''}>${c}</option>`).join('');
-    clsSel.onchange=()=>{RF.cls=clsSel.value;};
-  }
 }
-function setRepQty(n){document.getElementById('rep-qty').value=n;document.querySelectorAll('.qty-pre').forEach(b=>b.classList.toggle('sel',+b.textContent===n));}
 function saveRepair(force){
-  const qty=parseInt(document.getElementById('rep-qty').value);
-  if(!RF.sup||!RF.rep||!RF.cls||!RF.src||!qty){highlightRequired(['rep-qty','rep-cls-sel']);document.getElementById('rep-warn').style.display='';document.getElementById('rep-warn').innerHTML=`<div style="color:var(--red);font-weight:700;font-size:13px">⚠ Please fill all required fields — select Supervisor, Repairer, Defect Source, Class and Qty.</div>`;return;}
+  const lines=getRepLines();
+  if(!RF.sup||!RF.rep||!RF.src){document.getElementById('rep-warn').style.display='';document.getElementById('rep-warn').innerHTML=`<div style="color:var(--red);font-weight:700;font-size:13px">⚠ Select Supervisor, Repairer and Defect Source.</div>`;return;}
+  if(!lines.length){document.getElementById('rep-warn').style.display='';document.getElementById('rep-warn').innerHTML=`<div style="color:var(--red);font-weight:700;font-size:13px">⚠ Add at least one class with qty.</div>`;return;}
+  const totalQty=lines.reduce((s,p)=>s+p.qty,0);
   if(!force){
     const defectedStock=(S.stock&&S.stock[RF.src])||0;
-    if(qty>defectedStock){
-      const short=qty-defectedStock;
+    if(totalQty>defectedStock){
+      const short=totalQty-defectedStock;
       const warn=document.getElementById('rep-warn');
-      if(warn){warn.style.display='';warn.innerHTML=`
-        <div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:12px 14px">
-          <div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px">⚠ ${RF.src} stock: ${defectedStock} available, ${qty} needed (${short} short).<br>Do you want to proceed anyway?</div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-primary btn-sm" onclick="saveRepair(true)">✓ Yes, proceed</button>
-            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('rep-warn').style.display='none'">✕ No, go back</button>
-          </div>
-        </div>`;}
+      if(warn){warn.style.display='';warn.innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:12px 14px"><div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px">⚠ ${RF.src} stock: ${defectedStock} available, ${totalQty} needed (${short} short).<br>Proceed anyway?</div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="saveRepair(true)">✓ Yes, proceed</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('rep-warn').style.display='none'">✕ No, go back</button></div></div>`;}
       return;
     }
   }
-  const btn=document.querySelector('#m-repair .btn-primary');
-  if(btn){btn.textContent='✓ Save';btn.onclick=()=>saveRepair(false);}
-  const warnEl=document.getElementById('rep-warn');if(warnEl){warnEl.style.display='none';}
+  const warnEl=document.getElementById('rep-warn');if(warnEl)warnEl.style.display='none';
   const repDate=document.getElementById('rep-date').value;
-  const rec={id:mkId(),supervisor:RF.sup,repairer:RF.rep,pallet_class:RF.cls,src:RF.src,qty,date:repDate?new Date(repDate).toISOString():new Date().toISOString()};
+  const repDateFull=repDate?new Date(repDate+'T'+new Date().toTimeString().slice(0,8)).toISOString():new Date().toISOString();
   if(!S.repairs)S.repairs=[];
-  S.repairs.unshift(rec);
-  // Stock transfer: RF.src (Defected/Euro Defect/K Defect) → specific class
   if(!S.stock)S.stock={};
-  if(!S.stock[RF.cls])S.stock[RF.cls]=0;
-  S.stock[RF.cls]+=qty;
-  addLedger('Repair',rec.id,RF.cls,'in',qty,`Repaired by ${RF.rep} from ${RF.src}`);
+  // Save one record per line
+  lines.forEach(p=>{
+    const rec={id:mkId(),supervisor:RF.sup,repairer:RF.rep,pallet_class:p.cls,src:RF.src,qty:p.qty,date:repDateFull};
+    S.repairs.unshift(rec);
+    if(!S.stock[p.cls])S.stock[p.cls]=0;
+    S.stock[p.cls]+=p.qty;
+    addLedger('Repair',rec.id,p.cls,'in',p.qty,`Repaired by ${RF.rep} from ${RF.src}`);
+  });
   if(!S.stock[RF.src])S.stock[RF.src]=0;
-  S.stock[RF.src]-=qty;
-  addLedger('Repair',rec.id,RF.src,'out',qty,`Repaired \u2192 ${RF.cls}`);
+  S.stock[RF.src]-=totalQty;
+  addLedger('Repair','batch',RF.src,'out',totalQty,`Repaired \u2192 ${lines.map(p=>`${p.qty}\u00d7${p.cls}`).join(', ')}`);
   persist();
-  if(SHEETS_ENABLED){try{const d=new Date(rec.date);const ds=`${('0'+d.getDate()).slice(-2)}/${('0'+(d.getMonth()+1)).slice(-2)}/${d.getFullYear()}`;const sc=document.createElement('script');sc.src=SHEETS_URL+'?id='+encodeURIComponent(rec.id)+'&date='+encodeURIComponent(ds)+'&supervisor='+encodeURIComponent(rec.supervisor)+'&repairers='+encodeURIComponent(rec.repairer)+'&pallet_class='+encodeURIComponent(rec.pallet_class)+'&qty='+encodeURIComponent(rec.qty);sc.onload=sc.onerror=()=>{try{document.body.removeChild(sc)}catch(e){}};document.body.appendChild(sc);}catch(e){}}
-  clearDirty('m-repair');toast(`${qty} \u00d7 ${RF.cls} repaired \u2014 stock updated`);
+  clearDirty('m-repair');
+  toast(`${totalQty} pallets repaired across ${lines.length} class${lines.length>1?'es':''} \u2014 stock updated`);
   closeM('m-repair');renderRepairs();renderDash();
 }
 
@@ -2208,7 +2254,7 @@ function delCo(id){
 let SF={sup:'',sorters:[],cls:''};
 function srtTab(name,btn){const page=document.getElementById('page-sorting');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`srt-${name}`).classList.add('on');renderSrtTab(name);}
 let srtSortAsc=false;
-function toggleSrtSort(){srtSortAsc=!srtSortAsc;const btn=document.getElementById('srt-sort-btn');if(btn)btn.textContent=srtSortAsc?'Oldest First':'Newest First';renderSorting();}
+function toggleSrtSort(){srtSortAsc=!srtSortAsc;const btn=document.getElementById('srt-sort-btn');if(btn)btn.textContent=srtSortAsc?'Newest First':'Oldest First';renderSorting();}
 function renderSorting(){
   const tr=(S.sortings||[]).filter(r=>isToday(r.date));
   const tot=tr.reduce((s,r)=>s+(r.totalQty||r.qty||0),0);
@@ -3073,7 +3119,7 @@ async function exportOrdersPDF(){
     doc.text(`Generated: ${new Date().toLocaleString()}     Page ${idx+1} of ${orders.length}`,W-MR,H-9,{align:'right'});
   });
 
-  doc.save(`salpal-orders-${new Date().toISOString().slice(0,10)}.pdf`);
+  doc.save(`salpal-orders-${localIso(new Date())}.pdf`);
   toast('PDF exported ✓');
   }catch(err){toast('PDF error: '+err.message,'err');console.error(err);}
 }
@@ -3088,7 +3134,7 @@ function exportCSV(filename, headers, rows){
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url;a.download=`${filename}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.href=url;a.download=`${filename}-${localIso(new Date())}.csv`;
   document.body.appendChild(a);a.click();
   document.body.removeChild(a);URL.revokeObjectURL(url);
   toast(`${filename} exported ✓`);
@@ -3117,14 +3163,24 @@ function exportLedgerExcel(){
 
 function exportRepairsExcel(){
   const repQ=(document.getElementById('rep-search')?.value||'').toLowerCase();
-  let list=(S.repairs||[]).filter(r=>!repQ||(r.repairer||'').toLowerCase().includes(repQ)||(r.pallet_class||'').toLowerCase().includes(repQ)||(r.supervisor||'').toLowerCase().includes(repQ));
+  const rhW=document.getElementById('rhf-worker')?.value||document.getElementById('rmf-worker')?.value||'';
+  const rhC=document.getElementById('rhf-cls')?.value||document.getElementById('rmf-cls')?.value||'';
+  const rhFrom=window.rhfDateFrom||window.rmfDateFrom||'';
+  const rhTo=window.rhfDateTo||window.rmfDateTo||'';
+  let list=S.repairs||[];
+  if(repQ)list=list.filter(r=>(r.repairer||'').toLowerCase().includes(repQ)||(r.pallet_class||'').toLowerCase().includes(repQ)||(r.supervisor||'').toLowerCase().includes(repQ)||(r.src||'').toLowerCase().includes(repQ));
+  if(rhW)list=list.filter(r=>r.repairer===rhW);
+  if(rhC)list=list.filter(r=>r.pallet_class===rhC);
+  if(rhFrom)list=list.filter(r=>r.date&&r.date.slice(0,10)>=rhFrom);
+  if(rhTo)list=list.filter(r=>r.date&&r.date.slice(0,10)<=rhTo);
   exportCSV('repairs',['Date','Supervisor','Repairer','Defect Source','Class','Qty'],
     list.map(r=>[new Date(r.date).toLocaleString(),r.supervisor,r.repairer,r.src||'',r.pallet_class,r.qty]));
 }
 
 function exportSortingExcel(){
   const srtQ=(document.getElementById('srt-search')?.value||'').toLowerCase();
-  let list=(S.sortings||[]).filter(r=>!srtQ||(r.sorters||[]).join(' ').toLowerCase().includes(srtQ)||(r.supervisor||'').toLowerCase().includes(srtQ)||(r.orderRef||'').toLowerCase().includes(srtQ));
+  let list=S.sortings||[];
+  if(srtQ)list=list.filter(r=>(r.sorters||[]).join(' ').toLowerCase().includes(srtQ)||(r.supervisor||'').toLowerCase().includes(srtQ)||(r.orderRef||'').toLowerCase().includes(srtQ)||((r.pallets||[]).some(p=>(p.cls||'').toLowerCase().includes(srtQ))));
   exportCSV('sorting',['Date','Supervisor','Sorters','Order Ref','Pallets','Total Qty'],
     list.map(r=>[new Date(r.date).toLocaleString(),r.supervisor,(r.sorters||[]).join(', '),r.orderRef||'',(r.pallets||[]).map(p=>`${p.cls}×${p.qty}`).join(', '),r.totalQty||0]));
 }
@@ -3132,20 +3188,32 @@ function exportSortingExcel(){
 function exportDispatchExcel(){
   let list=(S.orders||[]).filter(j=>j.type==='Delivery');
   if(disF.statuses)list=list.filter(j=>disF.statuses.includes(j.status));
-  exportCSV('dispatch',['AWB','Order Ref','Company','Delivery Date','Pallets','Total Qty','Driver','Status','Loaded By','Truck'],
-    list.map(j=>[j.awb,j.orderRef||'',j.companyName||'',j.deliveryDate||'',(j.pallets||[]).map(p=>`${p.cls}×${p.qty}`).join(', '),j.totalQty||0,j.driverId?uname(j.driverId):j.driver||'',j.status,j.whBy||'',j.truckPlate||'']));
+  if(disF.dateFrom)list=list.filter(j=>(j.deliveryDate||'')>=disF.dateFrom);
+  if(disF.dateTo)list=list.filter(j=>(j.deliveryDate||'')<=disF.dateTo);
+  const disQ=(document.getElementById('dis-search')?.value||'').toLowerCase();
+  if(disQ)list=list.filter(j=>(j.awb||'').toLowerCase().includes(disQ)||(j.companyName||'').toLowerCase().includes(disQ)||(j.orderRef||'').toLowerCase().includes(disQ));
+  list=sortList(list,'dis-table','awb',false);
+  exportCSV('dispatch',['AWB','Order Ref','Company','City','Delivery Date','Pallets','Total Qty','Driver','Status','Loaded By','Truck'],
+    list.map(j=>[j.awb,j.orderRef||'',j.companyName||'',j.city||'',j.deliveryDate||'',(j.pallets||[]).map(p=>`${p.cls}×${p.qty}`).join(', '),j.totalQty||0,j.driverId?uname(j.driverId):j.driver||'',j.status,j.whBy||'',j.truckPlate||'']));
 }
 
 function exportReceivingExcel(){
-  let list=(S.orders||[]).filter(j=>j.type==='Collection');
+  let list=(S.orders||[]).filter(j=>j.type==='Collection'||j.type==='Drop-off');
   if(recF.statuses)list=list.filter(j=>recF.statuses.includes(j.status));
-  exportCSV('receiving',['AWB','Order Ref','Company','Date','Pallets','Total Qty','Driver/Source','Status','WH By','Condition'],
-    list.map(j=>[j.awb,j.orderRef||'',j.companyName||'',j.deliveryDate||'',(j.pallets||[]).map(p=>`${p.cls}×${p.qty}`).join(', '),j.totalQty||0,j.driverId?uname(j.driverId):j.driver||'',j.status,j.whBy||'',j.condition||'']));
+  if(recF.dateFrom)list=list.filter(j=>(j.deliveryDate||'')>=recF.dateFrom);
+  if(recF.dateTo)list=list.filter(j=>(j.deliveryDate||'')<=recF.dateTo);
+  const recQ=(document.getElementById('rec-search')?.value||'').toLowerCase();
+  if(recQ)list=list.filter(j=>(j.awb||'').toLowerCase().includes(recQ)||(j.companyName||'').toLowerCase().includes(recQ)||(j.orderRef||'').toLowerCase().includes(recQ));
+  list=sortList(list,'rec-table','awb',false);
+  exportCSV('receiving',['AWB','Order Ref','Company','City','Date','Pallets','Total Qty','Driver/Source','Status','WH By','Condition'],
+    list.map(j=>[j.awb,j.orderRef||'',j.companyName||'',j.city||'',j.deliveryDate||'',(j.pallets||[]).map(p=>`${p.cls}×${p.qty}`).join(', '),j.totalQty||0,j.driverId?uname(j.driverId):j.driver||'',j.status,j.whBy||'',j.condition||'']));
 }
 
 function exportCompaniesExcel(){
   const q=(document.getElementById('co-search')?.value||'').toLowerCase();
-  let list=(S.companies||[]).filter(c=>!q||(c.name||'').toLowerCase().includes(q)||(c.city||'').toLowerCase().includes(q));
+  let list=S.companies||[];
+  if(q)list=list.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.city||'').toLowerCase().includes(q)||(c.postcode||'').toLowerCase().includes(q)||(c.address||'').toLowerCase().includes(q));
+  list=sortList(list,'co-table','name',true);
   exportCSV('companies',['Name','Address','City','Postcode'],
     list.map(c=>[c.name,c.address||'',c.city||'',c.postcode||'']));
 }
@@ -3189,7 +3257,7 @@ function exportOrdersExcel(){
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url;a.download=`orders-${new Date().toISOString().slice(0,10)}.csv`;
+  a.href=url;a.download=`orders-${localIso(new Date())}.csv`;
   document.body.appendChild(a);a.click();
   document.body.removeChild(a);URL.revokeObjectURL(url);
   toast('Orders exported ✓');
