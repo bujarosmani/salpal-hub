@@ -1379,7 +1379,7 @@ function renderOrders(){
       cols.map(c=>`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ink2)"><input type="checkbox" id="col-${c.k}" ${c.k==='whNotes'?'':'checked'} onchange="renderOrdTable()"/> ${c.l}</label>`).join('');
   }
   const ords=S.orders||[];
-  document.getElementById('ord-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${list.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${list.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${list.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${list.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
+  document.getElementById('ord-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${ords.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${ords.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
   const typeOpts=[{value:'Delivery',label:'Delivery'},{value:'Collection',label:'Collection'}];
   const statOpts=['Open','Loaded','In Transit','Collected','Delivered','Completed'].map(s=>({value:s,label:s}));
   const drvOpts=drvs().map(d=>({value:d.id,label:`${d.firstName} ${d.lastName}`}));
@@ -1463,7 +1463,9 @@ function renderOrdTable(){
   }
   list=sortList(list,'ord-table','awb',false);
 
-  // Active filter tags
+  // Update stats with filtered counts
+  const statsEl=document.getElementById('ord-stats');
+  if(statsEl)statsEl.innerHTML=`<div class="stat-box"><div class="stat-num">${list.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${list.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${list.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${list.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
   const tags=[];
   if(ordF.company)tags.push({label:`Company: "${ordF.company}"`,key:'company'});
   if(ordF.dateFrom)tags.push({label:`Date: ${fd(ordF.dateFrom)}${ordF.dateTo?'–'+fd(ordF.dateTo):''}`,key:'dateFrom'});
