@@ -517,7 +517,8 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
   <div class="phdr">
     <div><div class="ptitle">Planner</div><div class="psub">Plan driver trips for the day</div></div>
     <div style="display:flex;gap:8px;align-items:center">
-      <input class="inp" type="date" id="planner-date" style="padding:7px 10px;font-size:13px" onchange="renderPlanner()"/>
+      <button class="dp-btn" id="planner-dp-btn">📅 Today</button>
+      <button class="dp-clear" id="planner-dp-clear" style="display:none" onclick="window.plannerDateFrom='';window.plannerDateTo='';renderPlanner()">✕</button>
     </div>
   </div>
   <div id="planner-body"></div>
@@ -1277,7 +1278,7 @@ function resetPageFilters(page){
   if(page==='repairs'){const s=document.getElementById('rep-search');if(s)s.value='';window.rmfDateFrom='';window.rmfDateTo='';window.rhfDateFrom='';window.rhfDateTo='';}
   if(page==='sorting'){const s=document.getElementById('srt-search');if(s)s.value='';}
   if(page==='companies'){coSortAsc=true;const s=document.getElementById('co-search');if(s)s.value='';tableSort['co-table']=null;}
-  if(page==='planner'){const d=document.getElementById('planner-date');if(d)d.value=localIso(new Date());}
+  if(page==='planner'){window.plannerDate=localIso(new Date());}
 }
 let currentPage=null;
 function goTo(page){
@@ -3671,9 +3672,19 @@ function exportOrdersExcel(){
 
 // ── PLANNER ──
 function renderPlanner(){
-  const dateEl=document.getElementById('planner-date');
-  if(!dateEl.value)dateEl.value=localIso(new Date());
-  const date=dateEl.value;
+  if(!window.plannerDate)window.plannerDate=localIso(new Date());
+  const date=window.plannerDate;
+
+  // Update date picker button
+  const dpBtn=document.getElementById('planner-dp-btn');
+  const dpClear=document.getElementById('planner-dp-clear');
+  if(dpBtn){
+    dpBtn.textContent=`📅 ${fd(date)}`;
+    dpBtn.classList.toggle('active',true);
+    dpBtn.onclick=()=>openDatePicker(date,date,(f,t)=>{window.plannerDate=f;renderPlanner();});
+  }
+  if(dpClear)dpClear.style.display=date!==localIso(new Date())?'':'none';
+
   const body=document.getElementById('planner-body');
   const allOrders=(S.orders||[]).filter(j=>j.status!=='Completed'&&(j.deliveryDate===date||['Loaded','In Transit','Collected','Delivered'].includes(j.status)));
   if(!S.plans)S.plans={};
@@ -3681,24 +3692,47 @@ function renderPlanner(){
   const plan=S.plans[date];
   const drivers=drvs();
   if(!drivers.length){body.innerHTML='<div class="empty">No drivers found.</div>';return;}
+
   const plannedIds=new Set();
   drivers.forEach(d=>{(plan.drivers[d.id]||[]).forEach(t=>{if(t.deliveryId)plannedIds.add(t.deliveryId);if(t.collectionId)plannedIds.add(t.collectionId);});});
-  const unassigned=allOrders.filter(j=>!plannedIds.has(j.id));
+
+  // Also include orders already assigned to drivers via driverId
+  const assignedToDriver={};
+  allOrders.forEach(j=>{
+    if(j.driverId&&!plannedIds.has(j.id)){
+      if(!assignedToDriver[j.driverId])assignedToDriver[j.driverId]=[];
+      assignedToDriver[j.driverId].push(j);
+    }
+  });
+
+  const unassigned=allOrders.filter(j=>!plannedIds.has(j.id)&&!j.driverId);
+
   body.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:16px">
-      ${drivers.map(d=>plannerDriverCol(d,plan,allOrders,date)).join('')}
+      ${drivers.map(d=>plannerDriverCol(d,plan,allOrders,date,assignedToDriver[d.id]||[])).join('')}
     </div>
     ${unassigned.length?`<div class="card"><div class="card-hdr"><span class="card-hdr-title" style="color:var(--amber)">⏳ Unassigned (${unassigned.length})</span></div><div style="padding:12px;display:flex;flex-wrap:wrap;gap:8px" id="planner-unassigned">${unassigned.map(j=>plannerOrderPill(j)).join('')}</div></div>`:'<div style="text-align:center;padding:16px;color:var(--brand);font-size:13px;font-weight:700">✓ All orders assigned</div>'}
   `;
   bindPlannerDnd(date);
 }
-function plannerDriverCol(driver,plan,allOrders,date){
+function plannerDriverCol(driver,plan,allOrders,date,assignedOrders){
+  assignedOrders=assignedOrders||[];
   const trips=plan.drivers[driver.id]||[];
+  const assignedHtml=assignedOrders.length?`
+    <div style="padding:8px;border-top:1px solid var(--line);margin-top:4px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:700;margin-bottom:6px">Already assigned</div>
+      ${assignedOrders.map(j=>`<div style="background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;padding:6px 10px;margin-bottom:4px;display:flex;align-items:center;gap:8px">
+        ${typeChip(j.type)}
+        <div style="flex:1"><div style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</div><div style="font-size:11px;color:var(--ink2)">${esc(j.companyName||'')} · ${esc(palletStr(j.pallets))}</div></div>
+        ${stChip(j.status)}
+      </div>`).join('')}
+    </div>`:'';
   return`<div class="card" data-driver="${driver.id}">
     <div class="card-hdr"><span class="card-hdr-title">🚛 ${esc(driver.firstName)} ${esc(driver.lastName)}</span><button class="btn btn-ghost btn-sm" onclick="addPlannerTrip('${driver.id}','${date}')">+ Trip</button></div>
     <div style="padding:8px;min-height:50px" id="trips-${driver.id}">
       ${trips.length?trips.map((t,i)=>plannerTrip(t,i,driver.id,allOrders,date)).join(''):'<div style="text-align:center;padding:16px;color:var(--ink3);font-size:12px">No trips — click + Trip to add</div>'}
     </div>
+    ${assignedHtml}
   </div>`;
 }
 function plannerTrip(trip,idx,driverId,allOrders,date){
