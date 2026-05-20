@@ -559,16 +559,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
         <div class="fwrap"><label class="flabel" id="of-ddate-lbl">Delivery Date *</label><input class="inp" id="of-ddate" type="date"/></div>
         <div class="fwrap"><label class="flabel">Time From</label><input class="inp" id="of-tfrom" type="time"/></div>
         <div class="fwrap"><label class="flabel">Time To</label><input class="inp" id="of-tto" type="time"/></div>
-        <div class="fwrap"><label class="flabel">Priority</label>
-          <select class="inp" id="of-priority">
-            <option value="">— No priority —</option>
-            <option value="1">#1 — First job</option>
-            <option value="2">#2 — Second job</option>
-            <option value="3">#3 — Third job</option>
-            <option value="4">#4</option>
-            <option value="5">#5</option>
-          </select>
-        </div>
+
       </div>
       <div class="div"></div>
       <div class="sec-title" style="margin-bottom:12px" id="of-addr-lbl">Ship To</div>
@@ -1688,7 +1679,7 @@ function saveOrder(force){
   const awb=ex?ex.awb:makeAWB();
   const driverId=document.getElementById('of-driver').value;
   const now=new Date().toISOString();
-  const order={id:ex?ex.id:mkId(),awb,orderRef:document.getElementById('of-ref').value.trim(),orderDate:document.getElementById('of-odate').value,deliveryDate:ddate,type,driverId,timeFrom:document.getElementById('of-tfrom').value,timeTo:document.getElementById('of-tto').value,priority:parseInt(document.getElementById('of-priority').value)||null,companyId:document.getElementById('of-co-id').value,companyName:coSearch,companyAddress:document.getElementById('of-addr').value.trim(),city,postcode:post,pallets,totalQty,driverNotes:document.getElementById('of-notes').value.trim(),status:newStatus,whBy:ex?ex.whBy:'',whChanges:ex?ex.whChanges:[],history:ex?ex.history:[],createdAt:ex?ex.createdAt:now,updatedAt:now};
+  const order={id:ex?ex.id:mkId(),awb,orderRef:document.getElementById('of-ref').value.trim(),orderDate:document.getElementById('of-odate').value,deliveryDate:ddate,type,driverId,timeFrom:document.getElementById('of-tfrom').value,timeTo:document.getElementById('of-tto').value,companyId:document.getElementById('of-co-id').value,companyName:coSearch,companyAddress:document.getElementById('of-addr').value.trim(),city,postcode:post,pallets,totalQty,driverNotes:document.getElementById('of-notes').value.trim(),status:newStatus,whBy:ex?ex.whBy:'',whChanges:ex?ex.whChanges:[],history:ex?ex.history:[],createdAt:ex?ex.createdAt:now,updatedAt:now};
   if(!ex){addTL(order,'Order created','create',[`Type: ${type}`,`${totalQty} pallets`,`Company: ${coSearch}`]);S.orders.unshift(order);toast(`Order ${awb} created`);}
   else{
     const changes=[];
@@ -2211,17 +2202,14 @@ function renderDrvTab(name){
       const aOver=a.deliveryDate<today?0:1;
       const bOver=b.deliveryDate<today?0:1;
       if(aOver!==bOver)return aOver-bOver;
-      const ap=a.priority||999,bp=b.priority||999;
-      if(ap!==bp)return ap-bp;
+
       return (a.timeFrom||'').localeCompare(b.timeFrom||'');
     });
     document.getElementById('drv-today').innerHTML=tj.length?tj.map(j=>drvCard(j,today)).join(''):'<div class="empty">No tasks today<br><span style="font-size:11px;color:var(--ink3)">Delivery tasks appear once marked Loaded</span></div>';
   }
   if(name==='upcoming'){
     const uj=mj.filter(j=>j.deliveryDate>tod()&&!['Completed','In Transit','Collected'].includes(j.status)).sort((a,b)=>{
-      const d=a.deliveryDate.localeCompare(b.deliveryDate);
-      if(d!==0)return d;
-      return (a.priority||999)-(b.priority||999);
+      return a.deliveryDate.localeCompare(b.deliveryDate);
     });
     const byD={};uj.forEach(j=>{if(!byD[j.deliveryDate])byD[j.deliveryDate]=[];byD[j.deliveryDate].push(j);});
     document.getElementById('drv-upcoming').innerHTML=Object.keys(byD).length?Object.keys(byD).sort().map(d=>`<div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:10px 0 6px">${fd(d)}</div>${byD[d].map(j=>drvCard(j,tod())).join('')}`).join(''):'<div class="empty">No upcoming tasks</div>';
@@ -2236,7 +2224,7 @@ function drvCard(j,today){
   const t=j.timeFrom&&j.timeTo?`${j.timeFrom}\u2013${j.timeTo}`:j.timeFrom||'Any';
   const borderColor=isOverdue?'var(--red)':isD?'var(--brand)':'var(--amber)';
   const bg=isOverdue?'background:rgba(245,107,107,.06);':'';
-  const priorityBadge=j.priority?`<span style="background:var(--brand);color:#000;font-size:10px;font-weight:900;padding:1px 7px;border-radius:8px;font-family:'Barlow Condensed',sans-serif">#${j.priority}</span> `:'';
+  const priorityBadge='';
   const overdueBadge=isOverdue?`<span style="background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:8px">OVERDUE</span> `:'';
   return`<div style="${bg}border:1.5px solid ${isOverdue?'rgba(245,107,107,.4)':'var(--line)'};border-radius:var(--r);padding:14px;margin-bottom:8px;cursor:pointer;border-left:4px solid ${borderColor}" onclick="viewDrvTask('${j.id}')">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
