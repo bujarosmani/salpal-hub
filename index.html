@@ -1290,7 +1290,7 @@ function goTo(page){
   document.querySelectorAll(`.sb-btn[data-p="${page}"]`).forEach(b=>b.classList.add('on'));
   closeMob();renderPage(page);
 }
-function renderPage(p){if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch')renderDispatch();else if(p==='receiving')renderReceiving();else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='driver')renderDriver();}
+function renderPage(p){if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){renderDisTodo();renderDispatch&&document.getElementById('dis-pane-all').classList.contains('on')&&renderDispatch();}else if(p==='receiving'){renderRecTodo();document.getElementById('rec-pane-all').classList.contains('on')&&renderReceiving();}else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='driver')renderDriver();}
 document.querySelectorAll('.sb-btn[data-p]').forEach(btn=>{btn.onclick=()=>goTo(btn.dataset.p);});
 document.getElementById('ham-btn').onclick=()=>{document.getElementById('sidebar').classList.add('open');document.getElementById('mob-overlay').classList.add('open');};
 document.getElementById('mob-overlay').onclick=closeMob;
@@ -1767,7 +1767,7 @@ function viewOrder(id){
 function renderDispatch(){
   const todoPane=document.getElementById('dis-pane-todo');
   if(todoPane&&todoPane.classList.contains('on')){renderDisTodo();return;}
-  const dis=(S.orders||[]).filter(j=>j.type==='Delivery');
+  const dis=(S.orders||[]).filter(j=>j.type==='Delivery');'Delivery');
   const isMob=(ME&&ME.role==='Supervisor'&&currentView!=='desktop')||window.innerWidth<768;
   const statOpts=['Open','Loaded','In Transit','Completed'].map(s=>({value:s,label:s}));
   const dl=disF.dateFrom&&disF.dateTo?`${fd(disF.dateFrom)}\u2013${fd(disF.dateTo)}`:disF.dateFrom?fd(disF.dateFrom):'All Dates';
@@ -1833,19 +1833,33 @@ function toggleRecSort(){recSortAsc=!recSortAsc;const btn=document.getElementByI
 function disTab(name,btn){const page=document.getElementById('page-dispatch');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`dis-pane-${name}`).classList.add('on');if(name==='todo')renderDisTodo();else renderDispatch();}
 function recTab(name,btn){const page=document.getElementById('page-receiving');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`rec-pane-${name}`).classList.add('on');if(name==='todo')renderRecTodo();else renderReceiving();}
 
+let disTodoSort='date';
+let recTodoSort='date';
+
 function renderDisTodo(){
   const pane=document.getElementById('dis-pane-todo');if(!pane)return;
   const isSup=ME&&(ME.role==='Supervisor'||ME.role==='Admin'||ME.role==='Manager');
-  // To Do = Open (need loading) + Loaded (need dispatch confirmation)
-  const todo=(S.orders||[]).filter(j=>j.type==='Delivery'&&j.status==='Open')
-    .sort((a,b)=>a.awb.localeCompare(b.awb));
-  if(!todo.length){pane.innerHTML='<div class="empty" style="padding:40px;text-align:center">✓ Nothing to load — all orders are dispatched!</div>';return;}
-  pane.innerHTML=todo.map(j=>{
-    const canLoad=j.status==='Open'&&isSup&&!isViewer();
-    const pallets=palletStr(j.pallets);
+  const q=(document.getElementById('dis-todo-search')?.value||'').toLowerCase();
+  let todo=(S.orders||[]).filter(j=>j.type==='Delivery'&&j.status==='Open');
+  if(q)todo=todo.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q)||(j.driverId?uname(j.driverId).toLowerCase():'').includes(q)||(j.orderRef||'').toLowerCase().includes(q));
+  todo=todo.sort((a,b)=>{
+    if(disTodoSort==='date')return(a.deliveryDate||'').localeCompare(b.deliveryDate||'')||(a.companyName||'').localeCompare(b.companyName||'');
+    if(disTodoSort==='company')return(a.companyName||'').localeCompare(b.companyName||'');
+    if(disTodoSort==='driver')return(a.driverId?uname(a.driverId):'').localeCompare(a.driverId?uname(b.driverId):'');
+    return 0;
+  });
+  const sortBtn=(key,label)=>`<button class="btn btn-sm" style="background:${disTodoSort===key?'var(--brand)':'var(--panel2)'};color:${disTodoSort===key?'#000':'var(--ink2)'};border:1.5px solid ${disTodoSort===key?'var(--brand)':'var(--line2)'}" onclick="disTodoSort='${key}';renderDisTodo()">${label}</button>`;
+  const filters=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <input class="inp" id="dis-todo-search" placeholder="🔍 Search AWB, company, driver..." autocomplete="off" style="flex:1;font-size:13px" oninput="renderDisTodo()" value="${esc(q)}"/>
+    ${sortBtn('date','📅 Date')}${sortBtn('company','🏢 Company')}${sortBtn('driver','🚛 Driver')}
+  </div>`;
+  if(!todo.length){pane.innerHTML=filters+'<div class="empty" style="padding:30px;text-align:center">✓ Nothing to load!</div>';return;}
+  const today=localIso(new Date());
+  pane.innerHTML=filters+todo.map(j=>{
+    const canLoad=isSup&&!isViewer();
     const driver=j.driverId?uname(j.driverId):j.driver||'—';
-    const isOverdue=j.deliveryDate<localIso(new Date());
-    return`<div style="background:var(--panel);border:1.5px solid ${j.status==='Loaded'?'var(--brand-dim)':isOverdue?'rgba(245,107,107,.4)':'var(--line)'};border-left:4px solid ${j.status==='Loaded'?'var(--brand)':isOverdue?'var(--red)':'var(--amber)'};border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
+    const isOverdue=j.deliveryDate<today;
+    return`<div style="background:var(--panel);border:1.5px solid ${isOverdue?'rgba(245,107,107,.4)':'var(--line)'};border-left:4px solid ${isOverdue?'var(--red)':'var(--amber)'};border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
         <div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
@@ -1856,7 +1870,7 @@ function renderDisTodo(){
           </div>
           <div style="font-weight:700;font-size:14px">${esc(j.companyName||'—')}</div>
           <div style="font-size:12px;color:var(--ink3)">${esc([j.companyAddress,j.city,j.postcode].filter(Boolean).join(', '))}</div>
-          <div style="font-size:12px;color:var(--ink2);margin-top:4px">📅 ${fd(j.deliveryDate)} · 🚛 ${esc(driver)} · 📦 ${esc(pallets)}</div>
+          <div style="font-size:12px;color:var(--ink2);margin-top:4px">📅 ${fd(j.deliveryDate)} · 🚛 ${esc(driver)} · 📦 ${esc(palletStr(j.pallets))}</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           ${canLoad?`<button class="btn btn-amber btn-sm" onclick="openLoadModal('${j.id}')">📦 Load</button>`:''}
@@ -1871,11 +1885,22 @@ function renderDisTodo(){
 function renderRecTodo(){
   const pane=document.getElementById('rec-pane-todo');if(!pane)return;
   const isSup=ME&&(ME.role==='Supervisor'||ME.role==='Admin'||ME.role==='Manager');
-  // To Do = Open, In Transit, Collected, Delivered (not Completed)
-  const todo=(S.orders||[]).filter(j=>(j.type==='Collection'||j.type==='Drop-off')&&j.status!=='Completed')
-    .sort((a,b)=>a.awb.localeCompare(b.awb));
-  if(!todo.length){pane.innerHTML='<div class="empty" style="padding:40px;text-align:center">✓ Nothing to do — all received!</div>';return;}
-  pane.innerHTML=todo.map(j=>{
+  const q=(document.getElementById('rec-todo-search')?.value||'').toLowerCase();
+  let todo=(S.orders||[]).filter(j=>(j.type==='Collection'||j.type==='Drop-off')&&j.status!=='Completed');
+  if(q)todo=todo.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q)||(j.driverId?uname(j.driverId).toLowerCase():'').includes(q)||(j.orderRef||'').toLowerCase().includes(q));
+  todo=todo.sort((a,b)=>{
+    if(recTodoSort==='date')return(a.deliveryDate||'').localeCompare(b.deliveryDate||'')||(a.companyName||'').localeCompare(b.companyName||'');
+    if(recTodoSort==='company')return(a.companyName||'').localeCompare(b.companyName||'');
+    if(recTodoSort==='driver')return(a.driverId?uname(a.driverId):'').localeCompare(b.driverId?uname(b.driverId):'');
+    return 0;
+  });
+  const sortBtn=(key,label)=>`<button class="btn btn-sm" style="background:${recTodoSort===key?'var(--brand)':'var(--panel2)'};color:${recTodoSort===key?'#000':'var(--ink2)'};border:1.5px solid ${recTodoSort===key?'var(--brand)':'var(--line2)'}" onclick="recTodoSort='${key}';renderRecTodo()">${label}</button>`;
+  const filters=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <input class="inp" id="rec-todo-search" placeholder="🔍 Search AWB, company, driver..." autocomplete="off" style="flex:1;font-size:13px" oninput="renderRecTodo()" value="${esc(q)}"/>
+    ${sortBtn('date','📅 Date')}${sortBtn('company','🏢 Company')}${sortBtn('driver','🚛 Driver')}
+  </div>`;
+  if(!todo.length){pane.innerHTML=filters+'<div class="empty" style="padding:30px;text-align:center">✓ Nothing to receive!</div>';return;}
+  pane.innerHTML=filters+todo.map(j=>{
     const canAW=j.status==='Collected'&&isSup&&!isViewer();
     const canC=j.status==='Delivered'&&isSup&&!isViewer();
     const driver=j.driver==='Customer Drop Off'?'Drop-off':(j.driverId?uname(j.driverId):j.driver||'—');
