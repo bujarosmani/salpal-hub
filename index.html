@@ -735,6 +735,35 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
   </div>
 </div>
 
+<div class="mbackdrop" id="m-partial">
+  <div class="mbox">
+    <div class="mhdr"><span class="mtitle">⚠ Partial Delivery</span><button class="mclose" onclick="closeM('m-partial')">✕</button></div>
+    <div class="mbody">
+      <div style="background:rgba(245,200,66,.1);border:1.5px solid rgba(245,200,66,.3);border-radius:9px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--amber)">Customer refused some pallets. Record what was delivered and what's coming back.</div>
+      <div id="partial-lines" style="margin-bottom:12px"></div>
+      <div class="fwrap"><label class="flabel">Reason for refusal *</label>
+        <select class="inp" id="partial-reason">
+          <option value="">— Select reason —</option>
+          <option value="Damaged">Damaged — pallets arrived broken</option>
+          <option value="Wrong class">Wrong class — wrong product delivered</option>
+          <option value="Over-delivery">Over-delivery — too many sent</option>
+          <option value="Customer cancelled">Customer cancelled</option>
+          <option value="No space">No space — warehouse full</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="fwrap" id="partial-other-wrap" style="display:none"><label class="flabel">Specify reason</label><input class="inp" id="partial-other" placeholder="Describe reason..."/></div>
+      <div class="fwrap"><label class="flabel">Recipient Name *</label><input class="inp" id="partial-recipient" placeholder="Name on site"/></div>
+      <div class="ferr" id="partial-err"></div>
+      <input type="hidden" id="partial-task-id"/>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeM('m-partial')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitPartial()">✓ Submit</button>
+    </div>
+  </div>
+</div>
+
 <div class="mbackdrop" id="m-proof">
   <div class="mbox">
     <div class="mhdr"><span class="mtitle">Proof of Delivery</span><button class="mclose" onclick="closeM('m-proof')">✕</button></div>
@@ -1273,7 +1302,7 @@ function setupNav(){
 function setView(v){currentView=v;['vt-d','vt-d2'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('on',v==='desktop');});['vt-m','vt-m2'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('on',v==='mobile');});const pg=document.querySelector('.page.on');if(pg)renderPage(pg.id.replace('page-',''));}
 function resetPageFilters(page){
   if(page==='orders'){ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('ord-search');if(s)s.value='';tableSort['ord-table']=null;}
-  if(page==='dispatch'){disF={statuses:null,drivers:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('dis-search');if(s)s.value='';tableSort['dis-table']=null;}
+  if(page==='dispatch'){disF={statuses:null,drivers:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('dis-search');if(s)s.value='';tableSort['dis-table']=null;disTodoSort='date';const tp=document.getElementById('dis-pane-todo');if(tp)tp.innerHTML='';}
   if(page==='receiving'){recF={statuses:null,drivers:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('rec-search');if(s)s.value='';tableSort['rec-table']=null;tableSort['rec-table']=null;}
   if(page==='repairs'){const s=document.getElementById('rep-search');if(s)s.value='';window.rmfDateFrom='';window.rmfDateTo='';window.rhfDateFrom='';window.rhfDateTo='';}
   if(page==='sorting'){const s=document.getElementById('srt-search');if(s)s.value='';}
@@ -1838,6 +1867,23 @@ let recTodoSort='date';
 
 function renderDisTodo(){
   const pane=document.getElementById('dis-pane-todo');if(!pane)return;
+  if(!document.getElementById('dis-todo-search')){
+    pane.innerHTML='<div id="dis-todo-filters"></div><div id="dis-todo-results"></div>';
+  }
+  // Build filter bar
+  const filtersDiv=document.getElementById('dis-todo-filters');
+  if(filtersDiv){
+    filtersDiv.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <input class="inp" id="dis-todo-search" placeholder="🔍 Search AWB, company, driver..." autocomplete="off" style="flex:1;font-size:13px" oninput="renderDisTodoResults()"/>
+      <button class="btn btn-sm" style="background:${disTodoSort==='date'?'var(--brand)':'var(--panel2)'};color:${disTodoSort==='date'?'#000':'var(--ink2)'};border-color:${disTodoSort==='date'?'var(--brand)':'var(--line2)'}" onclick="disTodoSort='date';renderDisTodo()">📅 Date</button>
+      <button class="btn btn-sm" style="background:${disTodoSort==='company'?'var(--brand)':'var(--panel2)'};color:${disTodoSort==='company'?'#000':'var(--ink2)'};border-color:${disTodoSort==='company'?'var(--brand)':'var(--line2)'}" onclick="disTodoSort='company';renderDisTodo()">🏢 Company</button>
+      <button class="btn btn-sm" style="background:${disTodoSort==='driver'?'var(--brand)':'var(--panel2)'};color:${disTodoSort==='driver'?'#000':'var(--ink2)'};border-color:${disTodoSort==='driver'?'var(--brand)':'var(--line2)'}" onclick="disTodoSort='driver';renderDisTodo()">🚛 Driver</button>
+    </div>`;
+  }
+  renderDisTodoResults();
+}
+function renderDisTodoResults(){
+  const results=document.getElementById('dis-todo-results');if(!results)return;
   const isSup=ME&&(ME.role==='Supervisor'||ME.role==='Admin'||ME.role==='Manager');
   const q=(document.getElementById('dis-todo-search')?.value||'').toLowerCase();
   let todo=(S.orders||[]).filter(j=>j.type==='Delivery'&&j.status==='Open');
@@ -1845,17 +1891,12 @@ function renderDisTodo(){
   todo=todo.sort((a,b)=>{
     if(disTodoSort==='date')return(a.deliveryDate||'').localeCompare(b.deliveryDate||'')||(a.companyName||'').localeCompare(b.companyName||'');
     if(disTodoSort==='company')return(a.companyName||'').localeCompare(b.companyName||'');
-    if(disTodoSort==='driver')return(a.driverId?uname(a.driverId):'').localeCompare(a.driverId?uname(b.driverId):'');
+    if(disTodoSort==='driver')return(a.driverId?uname(a.driverId):'').localeCompare(b.driverId?uname(b.driverId):'');
     return 0;
   });
-  const sortBtn=(key,label)=>`<button class="btn btn-sm" style="background:${disTodoSort===key?'var(--brand)':'var(--panel2)'};color:${disTodoSort===key?'#000':'var(--ink2)'};border:1.5px solid ${disTodoSort===key?'var(--brand)':'var(--line2)'}" onclick="disTodoSort='${key}';renderDisTodo()">${label}</button>`;
-  const filters=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-    <input class="inp" id="dis-todo-search" placeholder="🔍 Search AWB, company, driver..." autocomplete="off" style="flex:1;font-size:13px" oninput="renderDisTodo()" value="${esc(q)}"/>
-    ${sortBtn('date','📅 Date')}${sortBtn('company','🏢 Company')}${sortBtn('driver','🚛 Driver')}
-  </div>`;
-  if(!todo.length){pane.innerHTML=filters+'<div class="empty" style="padding:30px;text-align:center">✓ Nothing to load!</div>';return;}
   const today=localIso(new Date());
-  pane.innerHTML=filters+todo.map(j=>{
+  if(!todo.length){results.innerHTML='<div class="empty" style="padding:30px;text-align:center">✓ Nothing to load!</div>';return;}
+  results.innerHTML=todo.map(j=>{
     const canLoad=isSup&&!isViewer();
     const driver=j.driverId?uname(j.driverId):j.driver||'—';
     const isOverdue=j.deliveryDate<today;
@@ -1884,6 +1925,22 @@ function renderDisTodo(){
 
 function renderRecTodo(){
   const pane=document.getElementById('rec-pane-todo');if(!pane)return;
+  if(!document.getElementById('rec-todo-search')){
+    pane.innerHTML='<div id="rec-todo-filters"></div><div id="rec-todo-results"></div>';
+  }
+  const filtersDiv=document.getElementById('rec-todo-filters');
+  if(filtersDiv){
+    filtersDiv.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <input class="inp" id="rec-todo-search" placeholder="🔍 Search AWB, company, driver..." autocomplete="off" style="flex:1;font-size:13px" oninput="renderRecTodoResults()"/>
+      <button class="btn btn-sm" style="background:${recTodoSort==='date'?'var(--brand)':'var(--panel2)'};color:${recTodoSort==='date'?'#000':'var(--ink2)'};border-color:${recTodoSort==='date'?'var(--brand)':'var(--line2)'}" onclick="recTodoSort='date';renderRecTodo()">📅 Date</button>
+      <button class="btn btn-sm" style="background:${recTodoSort==='company'?'var(--brand)':'var(--panel2)'};color:${recTodoSort==='company'?'#000':'var(--ink2)'};border-color:${recTodoSort==='company'?'var(--brand)':'var(--line2)'}" onclick="recTodoSort='company';renderRecTodo()">🏢 Company</button>
+      <button class="btn btn-sm" style="background:${recTodoSort==='driver'?'var(--brand)':'var(--panel2)'};color:${recTodoSort==='driver'?'#000':'var(--ink2)'};border-color:${recTodoSort==='driver'?'var(--brand)':'var(--line2)'}" onclick="recTodoSort='driver';renderRecTodo()">🚛 Driver</button>
+    </div>`;
+  }
+  renderRecTodoResults();
+}
+function renderRecTodoResults(){
+  const results=document.getElementById('rec-todo-results');if(!results)return;
   const isSup=ME&&(ME.role==='Supervisor'||ME.role==='Admin'||ME.role==='Manager');
   const q=(document.getElementById('rec-todo-search')?.value||'').toLowerCase();
   let todo=(S.orders||[]).filter(j=>(j.type==='Collection'||j.type==='Drop-off')&&j.status!=='Completed');
@@ -1894,13 +1951,8 @@ function renderRecTodo(){
     if(recTodoSort==='driver')return(a.driverId?uname(a.driverId):'').localeCompare(b.driverId?uname(b.driverId):'');
     return 0;
   });
-  const sortBtn=(key,label)=>`<button class="btn btn-sm" style="background:${recTodoSort===key?'var(--brand)':'var(--panel2)'};color:${recTodoSort===key?'#000':'var(--ink2)'};border:1.5px solid ${recTodoSort===key?'var(--brand)':'var(--line2)'}" onclick="recTodoSort='${key}';renderRecTodo()">${label}</button>`;
-  const filters=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-    <input class="inp" id="rec-todo-search" placeholder="🔍 Search AWB, company, driver..." autocomplete="off" style="flex:1;font-size:13px" oninput="renderRecTodo()" value="${esc(q)}"/>
-    ${sortBtn('date','📅 Date')}${sortBtn('company','🏢 Company')}${sortBtn('driver','🚛 Driver')}
-  </div>`;
-  if(!todo.length){pane.innerHTML=filters+'<div class="empty" style="padding:30px;text-align:center">✓ Nothing to receive!</div>';return;}
-  pane.innerHTML=filters+todo.map(j=>{
+  if(!todo.length){results.innerHTML='<div class="empty" style="padding:30px;text-align:center">✓ Nothing to receive!</div>';return;}
+  results.innerHTML=todo.map(j=>{
     const canAW=j.status==='Collected'&&isSup&&!isViewer();
     const canC=j.status==='Delivered'&&isSup&&!isViewer();
     const driver=j.driver==='Customer Drop Off'?'Drop-off':(j.driverId?uname(j.driverId):j.driver||'—');
@@ -1911,6 +1963,7 @@ function renderRecTodo(){
             <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px">${esc(j.awb)}</span>
             ${j.orderRef?`<span style="font-size:11px;color:var(--ink3)">${esc(j.orderRef)}</span>`:''}
             ${stChip(j.status)}
+            ${j.isReturn?`<span style="background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px">↩ RETURN</span>`:''}
           </div>
           <div style="font-weight:700;font-size:14px">${esc(j.companyName||'—')}</div>
           <div style="font-size:12px;color:var(--ink3)">${esc([j.companyAddress,j.city,j.postcode].filter(Boolean).join(', '))}</div>
@@ -2377,12 +2430,28 @@ function viewDrvTask(id){
   document.getElementById('det-title').textContent=j.awb;
   document.getElementById('det-body').innerHTML=`<div style="display:flex;gap:8px;margin-bottom:14px">${typeChip(j.type)} ${stChip(j.status)}</div>${j.status==='Open'&&isD?`<div style="background:var(--amber-bg);border:1px solid rgba(245,200,66,.3);border-radius:9px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:var(--amber);font-weight:600">\u23f3 Waiting for warehouse to load</div>`:''}<div class="card" style="background:rgba(61,214,104,.04);border-color:var(--brand-dim);margin-bottom:12px"><div class="card-body"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--brand);font-weight:700;margin-bottom:6px">${isD?'Deliver To':'Collect From'}</div><div style="font-weight:800;font-size:15px">${esc(j.companyName||'')}</div><div style="font-size:13px;color:var(--ink3);margin-top:3px">${esc([j.companyAddress,j.city,j.postcode].filter(Boolean).join(', '))}</div><a href="${mapUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;margin-top:10px;color:var(--blue);font-size:12px;font-weight:700">\uD83D\uDCCD Open in Maps</a></div></div><div style="display:grid;gap:6px;margin-bottom:12px">${[['Order Ref',j.orderRef||'\u2014'],['Date',fd(j.deliveryDate)],['Window',j.timeFrom&&j.timeTo?j.timeFrom+'\u2013'+j.timeTo:'Any time'],['Notes',j.driverNotes||'\u2014']].map(([l,v])=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700">${l}</span><span style="font-weight:600;font-size:13px">${esc(v)}</span></div>`).join('')}</div><div class="card"><div class="card-body">${pr}<div style="display:flex;justify-content:space-between;padding:8px 0 0"><strong>TOTAL</strong><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--brand)">${j.totalQty}</span></div></div></div>${j.proof?`<div class="card" style="margin-top:12px;background:rgba(61,214,104,.05);border-color:var(--brand-dim)"><div class="card-body"><div style="color:var(--brand);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px">\u2713 Completed</div><div style="margin-top:4px;font-size:13px">${esc(j.proof.recipientName)} \u00b7 ${fdt(j.proof.completedAt)}</div></div></div>`:''}`;
   let foot=`<button class="btn btn-ghost" onclick="closeM('m-detail')">Back</button>`;
-  if(isD){if(j.status==='Loaded')foot+=` <button class="btn btn-primary" onclick="startDelivery('${j.id}')">🚛 Start Delivery</button>`;if(j.status==='In Transit')foot+=` <button class="btn btn-primary" onclick="openProofModal('${j.id}')">✓ Sign Off</button>`;}
-  else{if(j.status==='Open')foot+=` <button class="btn btn-primary" onclick="startCollect('${j.id}')">🚛 Leave to Collect</button>`;if(j.status==='In Transit')foot+=` <button class="btn btn-primary" onclick="markCollected('${j.id}')">📦 Pallets Collected</button>`;}
+  if(isD){if(j.status==='Loaded')foot+=` <button class="btn btn-primary" onclick="startDelivery('${j.id}')">🚛 Start Delivery</button>`;if(j.status==='In Transit')foot+=` <button class="btn btn-ghost" onclick="openPartialModal('${j.id}')">⚠ Partial</button><button class="btn btn-primary" onclick="openProofModal('${j.id}')">✓ Sign Off</button>`;}
+  else{
+    if(j.status==='Open')foot+=` <button class="btn btn-primary" onclick="startCollect('${j.id}')">🚛 Leave to Collect</button>`;
+    if(j.status==='In Transit'){
+      if(j.isReturn){
+        foot+=` <button class="btn btn-primary" onclick="markReturnArrived('${j.id}')">🔄 Arrived at WH</button>`;
+      } else {
+        foot+=` <button class="btn btn-primary" onclick="markCollected('${j.id}')">📦 Pallets Collected</button>`;
+      }
+    }
+  }
   document.getElementById('det-foot').innerHTML=foot;openM('m-detail');
 }
 function startDelivery(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Started delivery','status');persist();toast('Delivery started 🚛');closeM('m-detail');renderDriver();}
 function startCollect(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Left to collect','status');persist();toast('Left to collect 🚛');closeM('m-detail');renderDriver();}
+function markReturnArrived(id){
+  const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
+  j.status='Delivered';j.updatedAt=new Date().toISOString();
+  addTL(j,'Driver arrived at WH with returned pallets','status');
+  persist();toast('WH notified — pallets arriving');closeM('m-detail');renderDriver();
+}
+
 function markCollected(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Collected';j.updatedAt=new Date().toISOString();addTL(j,'Pallets collected \u2014 returning to warehouse','status');persist();toast('Pallets collected');closeM('m-detail');renderDriver();}
 
 /* ── WHATSAPP FORMS ── */
@@ -2421,6 +2490,110 @@ function openWhatsApp(){
   } else {
     window.open(`https://wa.me/?text=${encodeURIComponent(_waMsg)}`, '_blank');
   }
+}
+function openPartialModal(taskId){
+  const j=(S.orders||[]).find(x=>x.id===taskId);if(!j)return;
+  document.getElementById('partial-task-id').value=taskId;
+  document.getElementById('partial-reason').value='';
+  document.getElementById('partial-recipient').value='';
+  document.getElementById('partial-err').textContent='';
+  document.getElementById('partial-other-wrap').style.display='none';
+  document.getElementById('partial-reason').onchange=function(){
+    document.getElementById('partial-other-wrap').style.display=this.value==='Other'?'':'none';
+  };
+  // Build pallet lines with delivered/refused qty
+  const lines=document.getElementById('partial-lines');
+  lines.innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:8px">Enter how many were REFUSED per class:</div>`+
+    (j.pallets||[]).map((p,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;background:var(--panel2);border-radius:8px;padding:8px 10px">
+      <div style="flex:1">${skuBadge(p.cls,true)} <span style="font-size:12px;color:var(--ink3)">Ordered: ${p.qty}</span></div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:11px;color:var(--ink3)">Refused:</label>
+        <input class="inp" type="number" min="0" max="${p.qty}" value="" id="partial-refused-${i}" placeholder="0" style="width:70px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="updatePartialSummary('${taskId}')"/>
+      </div>
+    </div>`).join('');
+  lines.innerHTML+=`<div id="partial-summary" style="background:var(--panel);border:1.5px solid var(--line);border-radius:9px;padding:10px 14px;font-size:13px"></div>`;
+  updatePartialSummary(taskId);
+  closeM('m-detail');openM('m-partial');
+}
+
+function updatePartialSummary(taskId){
+  const j=(S.orders||[]).find(x=>x.id===taskId);if(!j)return;
+  let totalDelivered=0,totalRefused=0;
+  (j.pallets||[]).forEach((p,i)=>{
+    const refused=parseInt(document.getElementById(`partial-refused-${i}`)?.value)||0;
+    totalRefused+=Math.min(refused,p.qty);
+    totalDelivered+=(p.qty-Math.min(refused,p.qty));
+  });
+  const s=document.getElementById('partial-summary');
+  if(s)s.innerHTML=`<div style="display:flex;gap:16px">
+    <div><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--brand)">${totalDelivered}</div><div style="font-size:10px;color:var(--ink3);text-transform:uppercase">Delivered</div></div>
+    <div><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--red)">${totalRefused}</div><div style="font-size:10px;color:var(--ink3);text-transform:uppercase">Refused (returning)</div></div>
+  </div>`;
+}
+
+function submitPartial(){
+  const taskId=document.getElementById('partial-task-id').value;
+  const j=(S.orders||[]).find(x=>x.id===taskId);if(!j)return;
+  const reason=document.getElementById('partial-reason').value;
+  const other=document.getElementById('partial-other').value.trim();
+  const recipient=document.getElementById('partial-recipient').value.trim();
+  if(!reason){document.getElementById('partial-err').textContent='Please select a reason.';return;}
+  if(!recipient){document.getElementById('partial-err').textContent='Please enter recipient name.';return;}
+  const finalReason=reason==='Other'?other||'Other':reason;
+  // Build refused and delivered pallets
+  const refusedPallets=[];
+  const deliveredPallets=[];
+  (j.pallets||[]).forEach((p,i)=>{
+    const refused=Math.min(parseInt(document.getElementById(`partial-refused-${i}`)?.value)||0,p.qty);
+    const delivered=p.qty-refused;
+    if(refused>0)refusedPallets.push({cls:p.cls,qty:refused});
+    if(delivered>0)deliveredPallets.push({cls:p.cls,qty:delivered});
+  });
+  if(!refusedPallets.length){document.getElementById('partial-err').textContent='No pallets refused — use Sign Off instead.';return;}
+  const totalDelivered=deliveredPallets.reduce((s,p)=>s+p.qty,0);
+  const totalRefused=refusedPallets.reduce((s,p)=>s+p.qty,0);
+  // Complete original order with delivered qty only
+  j.status='Completed';
+  j.completedAt=new Date().toISOString();
+  j.updatedAt=j.completedAt;
+  j.pallets=deliveredPallets;
+  j.totalQty=totalDelivered;
+  j.proof={recipientName:recipient,companyName:j.companyName,completedAt:j.completedAt};
+  j.partialRefusal={reason:finalReason,refusedPallets,refusedQty:totalRefused};
+  addTL(j,`Partial delivery — ${totalDelivered} delivered, ${totalRefused} refused (${finalReason})`,'status');
+  // Adjust stock for delivered pallets
+  if(!S.stock)S.stock={};
+  deliveredPallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;});
+  // Create return task for WH
+  const returnOrder={
+    id:mkId(),
+    awb:`RTN-${j.awb}`,
+    orderRef:j.orderRef||'',
+    type:'Collection',
+    status:'In Transit',
+    companyName:j.companyName,
+    companyAddress:j.companyAddress,
+    city:j.city,
+    postcode:j.postcode,
+    driverId:j.driverId,
+    driver:j.driver,
+    deliveryDate:localIso(new Date()),
+    orderDate:localIso(new Date()),
+    pallets:refusedPallets,
+    totalQty:totalRefused,
+    isReturn:true,
+    returnReason:finalReason,
+    originalAwb:j.awb,
+    createdAt:new Date().toISOString(),
+    updatedAt:new Date().toISOString(),
+    driverNotes:`RETURN from ${j.awb} — ${finalReason}`
+  };
+  if(!S.orders)S.orders=[];
+  S.orders.unshift(returnOrder);
+  addLedger('Return',returnOrder.id,'','out',totalRefused,`Refused: ${finalReason} from ${j.awb}`);
+  persist();
+  toast(`✓ Partial delivery recorded — ${totalRefused} pallets returning to WH`);
+  closeM('m-partial');renderDriver();renderDash();
 }
 function openProofModal(taskId){const j=(S.orders||[]).find(x=>x.id===taskId);document.getElementById('prf-task-id').value=taskId;document.getElementById('prf-co').value=j?j.companyName:'';document.getElementById('prf-name').value='';document.getElementById('prf-err').textContent='';closeM('m-detail');openM('m-proof');}
 function submitProof(){
@@ -3750,6 +3923,7 @@ function plannerDriverCol(driver,plan,allOrders,date,assignedOrders){
         ${typeChip(j.type)}
         <div style="flex:1"><div style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</div><div style="font-size:11px;color:var(--ink2)">${esc(j.companyName||'')} · ${esc(palletStr(j.pallets))}</div></div>
         ${stChip(j.status)}
+        <button class="btn btn-ghost btn-sm" style="font-size:11px;flex-shrink:0" onclick="assignToSlot('${j.id}','${date}')">→ Trip</button>
       </div>`).join('')}
     </div>`:'';
   return`<div class="card" data-driver="${driver.id}">
@@ -3786,7 +3960,51 @@ function plannerOrderPill(j){
     <div style="display:flex;align-items:center;gap:6px">${typeChip(j.type)}<span style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</span></div>
     <div style="font-size:12px;color:var(--ink2)">${esc(j.companyName||'')}</div>
     <div style="font-size:11px;color:var(--ink3)">${esc(palletStr(j.pallets))}</div>
-  </div>`;
+    <div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+      <span style="font-size:10px;color:var(--ink3)">⬆ Drag — or:</span>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="assignToSlot('${j.id}','${window.plannerDate||localIso(new Date())}')">Assign →</button>
+    </div>
+  </div>`;}
+
+function assignToSlot(orderId,date){
+  // Show picker modal to pick driver+trip+slot
+  const order=(S.orders||[]).find(j=>j.id===orderId);if(!order)return;
+  const isD=order.type==='Delivery';
+  const drivers=drvs();
+  if(!S.plans)S.plans={};if(!S.plans[date])S.plans[date]={drivers:{}};
+  const plan=S.plans[date];
+  let html=`<div style="font-size:13px;color:var(--ink2);margin-bottom:12px">Assign <strong>${esc(order.awb)}</strong> (${order.type}) to:</div>`;
+  drivers.forEach(d=>{
+    const trips=plan.drivers[d.id]||[];
+    if(!trips.length)return;
+    trips.forEach((t,i)=>{
+      const slot=isD?'delivery':'collection';
+      const taken=isD?t.deliveryId:t.collectionId;
+      if(!taken){
+        html+=`<button class="btn btn-ghost btn-sm" style="width:100%;text-align:left;margin-bottom:6px;padding:8px 12px" onclick="assignConfirm('${d.id}',${i},'${slot}','${orderId}','${date}')">
+          🚛 ${esc(d.firstName)} ${esc(d.lastName)} — Trip ${i+1} (${isD?'Delivery':'Collection'} slot)
+        </button>`;
+      }
+    });
+  });
+  if(!html.includes('onclick')){html+='<div style="color:var(--ink3);font-size:12px">No available trip slots. Add a trip first with + Trip button.</div>';}
+  // Show in a simple modal
+  const existing=document.getElementById('m-assign-tmp');if(existing)existing.remove();
+  const m=document.createElement('div');m.className='mbackdrop open';m.id='m-assign-tmp';
+  m.innerHTML=`<div class="mbox"><div class="mhdr"><span class="mtitle">Assign Order</span><button class="mclose" onclick="document.getElementById('m-assign-tmp').remove()">✕</button></div><div class="mbody">${html}</div><div class="mfoot"><button class="btn btn-ghost" onclick="document.getElementById('m-assign-tmp').remove()">Cancel</button></div></div>`;
+  document.body.appendChild(m);
+}
+
+function assignConfirm(driverId,tripIdx,slot,orderId,date){
+  if(!S.plans?.[date]?.drivers?.[driverId]?.[tripIdx]===undefined)return;
+  if(slot==='delivery')S.plans[date].drivers[driverId][tripIdx].deliveryId=orderId;
+  else S.plans[date].drivers[driverId][tripIdx].collectionId=orderId;
+  const order=(S.orders||[]).find(j=>j.id===orderId);
+  if(order){order.driverId=driverId;order.updatedAt=new Date().toISOString();}
+  savePlanToOrders(date);
+  persist();
+  const m=document.getElementById('m-assign-tmp');if(m)m.remove();
+  renderPlanner();
 }
 function addPlannerTrip(driverId,date){
   if(!S.plans)S.plans={};if(!S.plans[date])S.plans[date]={drivers:{}};
