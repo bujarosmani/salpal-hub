@@ -1044,42 +1044,11 @@ const stChip=s=>{const m={Open:'chip-amber',Loaded:'chip-blue','In Transit':'chi
 const typeChip=t=>`<span class="chip ${t==='Delivery'?'chip-green':'chip-blue'}" style="font-size:10px">${esc(t||'')}</span>`;
 function toast(msg,type='ok'){const t=document.getElementById('toast');t.textContent=msg;t.className=`show toast-${type}`;clearTimeout(t._t);t._t=setTimeout(()=>t.className='',3200);}
 const FORM_MODALS=['m-order','m-repair','m-sort','m-dropoff','m-user','m-company','m-product','m-stock-adj'];
-function openM(id){
-  const modal=document.getElementById(id);if(!modal)return;
-  modal.classList.add('open');
-  if(FORM_MODALS.includes(id)){
-    modal._saved=false;
-    modal._isNew=!modal.querySelector('input[type=hidden][id$="-id"]')?.value &&
-                 !modal.querySelector('input[type=hidden][value]')?.value;
-    // Wait for fields to be populated then snapshot
-    setTimeout(()=>{
-      const inputs=modal.querySelectorAll('input:not([type=hidden]):not([type=checkbox]),select,textarea');
-      modal._initSnap=Array.from(inputs).map(i=>i.value.trim()).join('|');
-    },400);
-  }
-}
-function closeM(id){
-  const modal=document.getElementById(id);if(!modal)return;
-  if(FORM_MODALS.includes(id)&&!modal._saved){
-    const inputs=Array.from(modal.querySelectorAll('input:not([type=hidden]):not([type=checkbox]),select,textarea'));
-    const cur=inputs.map(i=>i.value.trim()).join('|');
-    const hasChanges=cur!==modal._initSnap&&inputs.some(i=>i.value.trim()!=='');
-    if(hasChanges){
-      let warn=modal.querySelector('.unsaved-warn');
-      if(!warn){
-        warn=document.createElement('div');warn.className='unsaved-warn';
-        warn.style.cssText='position:sticky;bottom:0;background:var(--red-bg);border-top:1.5px solid rgba(245,107,107,.4);padding:10px 18px;display:flex;align-items:center;gap:10px;z-index:10;animation:slideUp .2s ease';
-        warn.innerHTML=`<span style="color:var(--red);font-weight:700;font-size:13px;flex:1">⚠ Unsaved changes. Close anyway?</span><button class="btn btn-danger btn-sm" onclick="forceCloseM('${id}')">Yes, close</button><button class="btn btn-ghost btn-sm" onclick="this.closest('.unsaved-warn').remove()">Keep editing</button>`;
-        modal.appendChild(warn);
-      }
-      return;
-    }
-  }
-  modal.classList.remove('open');
-  const warn=modal.querySelector('.unsaved-warn');if(warn)warn.remove();
-}
-function forceCloseM(id){const modal=document.getElementById(id);if(!modal)return;modal._saved=true;modal.classList.remove('open');const warn=modal.querySelector('.unsaved-warn');if(warn)warn.remove();}
-function clearDirty(id){const m=document.getElementById(id);if(m){m._saved=true;}}
+function openM(id){const modal=document.getElementById(id);if(!modal)return;modal.classList.add('open');}
+function markModalNew(id){}
+function closeM(id){const modal=document.getElementById(id);if(!modal)return;modal.classList.remove('open');const warn=modal.querySelector('.unsaved-warn');if(warn)warn.remove();}
+function forceCloseM(id){closeM(id);}
+function clearDirty(id){}
 
 /* ── TIMELINE ── */
 function addTL(order,action,type,changes){
@@ -1700,7 +1669,7 @@ function saveOrder(force){
     const i=(S.orders||[]).findIndex(x=>x.id===eid);if(i>=0)S.orders[i]=order;
     toast('Order updated');
   }
-  persist();closeM('m-order');renderOrders();renderDash();
+  persist();clearDirty('m-order');closeM('m-order');renderOrders();renderDash();
 }
 function confirmDelete(errElId,label,onConfirm){
   const el=document.getElementById(errElId);if(!el)return;
@@ -2088,6 +2057,7 @@ function openRepairModal(){
   addRepLine();
   updateRepTotal();
   document.getElementById('rep-date').value=localIso(new Date());
+  markModalNew('m-repair');
   const btn=document.querySelector('#m-repair .btn-primary');
   if(btn){btn.textContent='✓ Save';btn.onclick=()=>saveRepair(false);}
   const warn=document.getElementById('rep-warn');if(warn){warn.style.display='none';warn.innerHTML='';}
