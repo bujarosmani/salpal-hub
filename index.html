@@ -385,7 +385,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 </div>
 
 <div class="page" id="page-dispatch">
-  <div class="phdr"><div><div class="ptitle">Dispatch</div><div class="psub">Outgoing — delivery orders</div></div><button class="btn btn-ghost btn-sm" onclick="exportDispatchExcel()">⬇ Excel</button></div>
+  <div class="phdr"><div><div class="ptitle">Dispatch</div><div class="psub">Outgoing — delivery orders</div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="exportDispatchExcel()">⬇ Excel</button><button class="btn btn-primary" id="btn-quick-dispatch" onclick="openQuickEntry('Delivery')">⚡ Quick Entry</button></div></div>
   <div class="tabs">
     <button class="tab-btn on" onclick="disTab('todo',this)">To Do</button>
     <button class="tab-btn" onclick="disTab('all',this)">All Orders</button>
@@ -403,7 +403,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <div><div class="ptitle">Receiving</div><div class="psub">Incoming — collections &amp; drop-offs</div></div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost btn-sm" onclick="exportReceivingExcel()">⬇ Excel</button>
-      <button class="btn btn-primary" id="btn-dropoff" onclick="openDropoffModal()">📥 Direct Drop-off</button>
+      <button class="btn btn-primary" id="btn-dropoff" onclick="openQuickEntry('Collection')">⚡ Quick Entry</button>
     </div>
   </div>
   <div class="tabs">
@@ -682,6 +682,51 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       <input type="hidden" id="crec-order-id"/>
     </div>
     <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-crec')">Cancel</button><button class="btn btn-primary" onclick="confirmReceived()">✓ Complete</button></div>
+  </div>
+</div>
+
+<div class="mbackdrop" id="m-quick">
+  <div class="mbox">
+    <div class="mhdr"><span class="mtitle" id="quick-title">⚡ Quick Entry</span><button class="mclose" onclick="closeM('m-quick')">✕</button></div>
+    <div class="mbody">
+      <div id="quick-type-row" style="display:flex;gap:8px;margin-bottom:14px">
+        <button type="button" class="pick-btn" id="qt-delivery" onclick="setQuickType('Delivery')">📤 Delivery</button>
+        <button type="button" class="pick-btn" id="qt-collection" onclick="setQuickType('Collection')">📥 Collection</button>
+      </div>
+      <div class="fwrap"><label class="flabel">Company *</label>
+        <div style="position:relative">
+          <input class="inp" id="qk-co-search" placeholder="Type company name..." autocomplete="off" oninput="bindCoSearch('qk-co-search','qk-co-dd',co=>{QK.companyId=co.id;QK.companyName=co.name;QK.city=co.city;QK.postcode=co.postcode;QK.address=co.address;document.getElementById('qk-co-search').value=co.name;})"/>
+          <div class="co-dd" id="qk-co-dd"></div>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Date *</label><input class="inp" type="date" id="qk-date"/></div>
+        <div class="fwrap"><label class="flabel">Driver</label>
+          <select class="inp" id="qk-driver"><option value="">— Select driver —</option></select>
+        </div>
+      </div>
+      <div class="fwrap"><label class="flabel">Order Ref</label><input class="inp" id="qk-ref" placeholder="LS-12345..."/></div>
+      <div class="fwrap">
+        <div class="sec-row"><label class="flabel" style="margin:0">Pallets *</label><button type="button" class="btn btn-ghost btn-sm" onclick="addPltLine('qk-lines')">+ Add Line</button></div>
+        <div id="qk-lines"></div>
+      </div>
+      <div id="qk-condition-row" class="fwrap" style="display:none">
+        <label class="flabel">Condition</label>
+        <select class="inp" id="qk-condition">
+          <option value="Good">Good</option>
+          <option value="Damaged">Damaged</option>
+          <option value="Mixed">Mixed</option>
+        </select>
+      </div>
+      <div class="fwrap"><label class="flabel">Notes</label><input class="inp" id="qk-notes" placeholder="Any notes..."/></div>
+      <div class="ferr" id="qk-err"></div>
+      <input type="hidden" id="qk-type"/>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeM('m-quick')">Cancel</button>
+      <button class="btn btn-ghost" onclick="saveQuickEntry(true)">+ Create Only</button>
+      <button class="btn btn-primary" id="qk-save-btn" onclick="saveQuickEntry(false)">⚡ Create &amp; Load</button>
+    </div>
   </div>
 </div>
 
@@ -2038,6 +2083,80 @@ function confirmReceived(){
 }
 
 /* ── DROP-OFF ── */
+let QK={type:'Delivery',companyId:null,companyName:'',city:'',postcode:'',address:''};
+
+function openQuickEntry(type){
+  QK={type,companyId:null,companyName:'',city:'',postcode:'',address:''};
+  document.getElementById('qk-co-search').value='';
+  document.getElementById('qk-ref').value='';
+  document.getElementById('qk-notes').value='';
+  document.getElementById('qk-date').value=localIso(new Date());
+  document.getElementById('qk-err').textContent='';
+  document.getElementById('qk-lines').innerHTML='';addPltLine('qk-lines');
+  // Populate drivers
+  const drv=document.getElementById('qk-driver');
+  drv.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
+  setQuickType(type);
+  openM('m-quick');
+}
+
+function setQuickType(type){
+  QK.type=type;
+  document.getElementById('qk-type').value=type;
+  document.getElementById('qt-delivery').classList.toggle('sel',type==='Delivery');
+  document.getElementById('qt-collection').classList.toggle('sel',type==='Collection');
+  document.getElementById('qk-condition-row').style.display=type==='Collection'?'':'none';
+  const btn=document.getElementById('qk-save-btn');
+  btn.textContent=type==='Delivery'?'⚡ Create & Load':'⚡ Create & Receive';
+  document.getElementById('quick-title').textContent=type==='Delivery'?'⚡ Quick Dispatch':'⚡ Quick Receive';
+}
+
+function saveQuickEntry(){
+  const type=QK.type;
+  const co=document.getElementById('qk-co-search').value.trim();
+  const date=document.getElementById('qk-date').value;
+  const pallets=getLines('qk-lines');
+  const ref=document.getElementById('qk-ref').value.trim();
+  const notes=document.getElementById('qk-notes').value.trim();
+  const driverId=document.getElementById('qk-driver').value;
+  const condition=document.getElementById('qk-condition').value;
+  if(!co){document.getElementById('qk-err').textContent='Company is required.';return;}
+  if(!pallets.length){document.getElementById('qk-err').textContent='Add at least one pallet line.';return;}
+  const totalQty=pallets.reduce((s,p)=>s+p.qty,0);
+  const awb=makeAWB();
+  const now=new Date().toISOString();
+  const sup=ME?`${ME.firstName} ${ME.lastName}`.trim():'';
+  const j={
+    id:mkId(),awb,orderRef:ref,type,
+    status:type==='Delivery'?'Loaded':'Completed',
+    companyId:QK.companyId||'',companyName:QK.companyName||co,
+    companyAddress:QK.address||'',city:QK.city||'',postcode:QK.postcode||'',
+    driverId,driver:'',deliveryDate:date,orderDate:localIso(new Date()),
+    pallets,totalQty,driverNotes:notes,
+    whBy:sup,condition:type==='Collection'?condition:'',
+    createdAt:now,updatedAt:now,completedAt:type==='Collection'?now:null,
+    source:'quick'
+  };
+  addTL(j,type==='Delivery'?`Quick dispatch — loaded by ${sup}`:`Quick receive — received by ${sup}`,'status');
+  // Stock adjustment
+  if(!S.stock)S.stock={};
+  if(type==='Delivery'){
+    pallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;addLedger('Order Out',j.awb,p.cls,'out',p.qty,`Quick dispatch to ${j.companyName}`);});
+  } else {
+    pallets.forEach(p=>{if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]+=p.qty;addLedger('Order In',j.awb,p.cls,'in',p.qty,`Quick receive from ${j.companyName}`);});
+  }
+  if(!S.orders)S.orders=[];
+  S.orders.unshift(j);
+  persist();
+  toast(`✓ ${type==='Delivery'?'Order created & loaded':'Order created & received'} — ${awb}`);
+  closeM('m-quick');
+  if(type==='Delivery'){renderDispatch();sendWhatsAppDispatch(j);}
+  else{renderReceiving();sendWhatsAppReceiving(j);}
+  renderOrders();renderDash();
+}
+
+function openQuickEntryFromTodo(){openQuickEntry('Delivery');}
+
 function openDropoffModal(){
   const doBy=document.getElementById('do-by');doBy.innerHTML=supSelectHtml();doBy.disabled=ME&&ME.role==='Supervisor';
   document.getElementById('do-date').value=tod();
