@@ -1523,6 +1523,10 @@ function openOrderModal(){
   document.getElementById('of-status-wrap').style.display='none';
   document.getElementById('of-changes-box').style.display='none';
   const ds=document.getElementById('of-driver');ds.innerHTML='<option value="">Unassigned</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
+  document.querySelectorAll('#of-lines select,#of-lines input,#of-lines .rm-btn').forEach(el=>el.disabled=false);
+  const addPltBtnN=document.querySelector('[onclick="addPltLine(\'of-lines\')"]');if(addPltBtnN)addPltBtnN.style.display='';
+  ['of-co-search','of-addr','of-city','of-post','of-driver','of-ddate','of-odate','of-tfrom','of-tto','of-type'].forEach(f=>{const el=document.getElementById(f);if(el)el.disabled=false;});
+  const existingLock=document.getElementById('of-lock-msg');if(existingLock)existingLock.remove();
   document.getElementById('of-lines').innerHTML='';addPltLine('of-lines');
   bindCoSearch('of-co-search','of-co-dd',co=>{document.getElementById('of-co-id').value=co.id;document.getElementById('of-addr').value=co.address||'';document.getElementById('of-city').value=co.city||'';document.getElementById('of-post').value=co.postcode||'';});
   openM('m-order');
@@ -1563,7 +1567,44 @@ function editOrder(id){
     ?fwdStatuses.map(s=>`<button type="button" class="btn btn-ghost btn-sm" onclick="applyNormalStatus('${s}')" style="display:flex;align-items:center;gap:6px">${stChip(currentStatus)} <span style="color:var(--ink3);font-size:13px">→</span> ${stChip(s)}</button>`).join('')
     :'<span style="font-size:11px;color:var(--ink3)">No forward steps available</span>';
   document.getElementById('of-status').innerHTML=bwdStatuses.map(s=>`<option value="${s}">${currentStatus} → ${s}</option>`).join('')||`<option value="${currentStatus}">${currentStatus}</option>`;
-  // Show WH changes if any
+  // Lock fields based on status
+  const locked=['Loaded','In Transit','Collected','Delivered','Completed'].includes(currentStatus);
+  const fullyLocked=['Completed'].includes(currentStatus);
+  const lockedMsg=locked?`<div style="background:rgba(245,200,66,.1);border:1.5px solid rgba(245,200,66,.3);border-radius:9px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--amber);font-weight:600">⚠ Status is <strong>${currentStatus}</strong> — ${fullyLocked?'only Notes and Order Ref can be changed':'Pallets and Company cannot be changed'}</div>`:''
+  const existingMsg=document.getElementById('of-lock-msg');
+  if(existingMsg)existingMsg.remove();
+  if(locked){
+    const msg=document.createElement('div');msg.id='of-lock-msg';msg.innerHTML=lockedMsg;
+    document.getElementById('of-err').after(msg);
+  }
+  // Disable pallet lines for Loaded+
+  const pltWrap=document.querySelector('#of-lines')?.closest('.fwrap');
+  const addPltBtn=document.querySelector('[onclick="addPltLine(\'of-lines\')"]');
+  if(locked){
+    document.querySelectorAll('#of-lines select, #of-lines input, #of-lines .rm-btn').forEach(el=>el.disabled=true);
+    if(addPltBtn)addPltBtn.style.display='none';
+  } else {
+    document.querySelectorAll('#of-lines select, #of-lines input, #of-lines .rm-btn').forEach(el=>el.disabled=false);
+    if(addPltBtn)addPltBtn.style.display='';
+  }
+  // Disable company for Loaded+
+  const coSearch=document.getElementById('of-co-search');
+  const addrFields=['of-addr','of-city','of-post'];
+  if(locked){
+    if(coSearch)coSearch.disabled=true;
+    addrFields.forEach(f=>{const el=document.getElementById(f);if(el)el.disabled=true;});
+  } else {
+    if(coSearch)coSearch.disabled=false;
+    addrFields.forEach(f=>{const el=document.getElementById(f);if(el)el.disabled=false;});
+  }
+  // Disable type for any edit
+  const typeEl=document.getElementById('of-type');if(typeEl)typeEl.disabled=!!id;
+  // For Completed, also lock driver and dates
+  if(fullyLocked){
+    ['of-driver','of-ddate','of-odate','of-tfrom','of-tto'].forEach(f=>{const el=document.getElementById(f);if(el)el.disabled=true;});
+  } else {
+    ['of-driver','of-ddate','of-odate','of-tfrom','of-tto'].forEach(f=>{const el=document.getElementById(f);if(el)el.disabled=false;});
+  }
   const cb=document.getElementById('of-changes-box');
   if(j.whChanges&&j.whChanges.length){
     cb.style.display='';
