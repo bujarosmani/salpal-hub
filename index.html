@@ -2111,7 +2111,7 @@ function setQuickType(type){
   document.getElementById('quick-title').textContent=type==='Delivery'?'⚡ Quick Dispatch':'⚡ Quick Receive';
 }
 
-function saveQuickEntry(){
+function saveQuickEntry(createOnly){
   const type=QK.type;
   const co=document.getElementById('qk-co-search').value.trim();
   const date=document.getElementById('qk-date').value;
@@ -2126,33 +2126,48 @@ function saveQuickEntry(){
   const awb=makeAWB();
   const now=new Date().toISOString();
   const sup=ME?`${ME.firstName} ${ME.lastName}`.trim():'';
+  // Status depends on createOnly
+  let status='Open';
+  if(!createOnly){
+    status=type==='Delivery'?'Loaded':'Completed';
+  }
   const j={
-    id:mkId(),awb,orderRef:ref,type,
-    status:type==='Delivery'?'Loaded':'Completed',
+    id:mkId(),awb,orderRef:ref,type,status,
     companyId:QK.companyId||'',companyName:QK.companyName||co,
     companyAddress:QK.address||'',city:QK.city||'',postcode:QK.postcode||'',
     driverId,driver:'',deliveryDate:date,orderDate:localIso(new Date()),
     pallets,totalQty,driverNotes:notes,
-    whBy:sup,condition:type==='Collection'?condition:'',
-    createdAt:now,updatedAt:now,completedAt:type==='Collection'?now:null,
+    whBy:createOnly?'':sup,condition:type==='Collection'?condition:'',
+    createdAt:now,updatedAt:now,
+    completedAt:(!createOnly&&type==='Collection')?now:null,
     source:'quick'
   };
-  addTL(j,type==='Delivery'?`Quick dispatch — loaded by ${sup}`:`Quick receive — received by ${sup}`,'status');
-  // Stock adjustment
-  if(!S.stock)S.stock={};
-  if(type==='Delivery'){
-    pallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;addLedger('Order Out',j.awb,p.cls,'out',p.qty,`Quick dispatch to ${j.companyName}`);});
-  } else {
-    pallets.forEach(p=>{if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]+=p.qty;addLedger('Order In',j.awb,p.cls,'in',p.qty,`Quick receive from ${j.companyName}`);});
+  const tlMsg=createOnly?`Order created by ${sup}`:(type==='Delivery'?`Quick dispatch — loaded by ${sup}`:`Quick receive — received by ${sup}`);
+  addTL(j,tlMsg,'status');
+  // Stock adjustment only if not createOnly
+  if(!createOnly){
+    if(!S.stock)S.stock={};
+    if(type==='Delivery'){
+      pallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;addLedger('Order Out',j.awb,p.cls,'out',p.qty,`Quick dispatch to ${j.companyName}`);});
+    } else {
+      pallets.forEach(p=>{if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]+=p.qty;addLedger('Order In',j.awb,p.cls,'in',p.qty,`Quick receive from ${j.companyName}`);});
+    }
   }
   if(!S.orders)S.orders=[];
   S.orders.unshift(j);
   persist();
-  toast(`✓ ${type==='Delivery'?'Order created & loaded':'Order created & received'} — ${awb}`);
-  closeM('m-quick');
-  if(type==='Delivery'){renderDispatch();sendWhatsAppDispatch(j);}
-  else{renderReceiving();sendWhatsAppReceiving(j);}
-  renderOrders();renderDash();
+  if(createOnly){
+    toast(`✓ Order ${awb} created — Open`);
+    closeM('m-quick');
+    renderOrders();renderDash();
+    if(type==='Delivery')renderDispatch();else renderReceiving();
+  } else {
+    toast(`✓ ${type==='Delivery'?'Loaded':'Received'} — ${awb}`);
+    closeM('m-quick');
+    if(type==='Delivery'){renderDispatch();sendWhatsAppDispatch(j);}
+    else{renderReceiving();sendWhatsAppReceiving(j);}
+    renderOrders();renderDash();
+  }
 }
 
 function openQuickEntryFromTodo(){openQuickEntry('Delivery');}
