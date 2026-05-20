@@ -4017,9 +4017,21 @@ function renderPlanner(){
   const allOrders=(S.orders||[]).filter(j=>j.status!=='Completed'&&(j.deliveryDate===date||['Loaded','In Transit','Collected','Delivered'].includes(j.status)));
   const drivers=drvs();
 
-  // Add new orders to unassigned if not yet in plan
+  // Add new orders to correct column if not yet in plan
   const allPlannedIds=new Set([...(plan.unassigned||[]),...Object.values(plan.drivers).flat()]);
-  allOrders.forEach(j=>{if(!allPlannedIds.has(j.id)){if(!plan.unassigned)plan.unassigned=[];plan.unassigned.push(j.id);}});
+  allOrders.forEach(j=>{
+    if(!allPlannedIds.has(j.id)){
+      if(j.driverId&&drivers.find(d=>d.id===j.driverId)){
+        // Already assigned to a driver — put in their column
+        if(!plan.drivers[j.driverId])plan.drivers[j.driverId]=[];
+        plan.drivers[j.driverId].push(j.id);
+      } else {
+        // No driver — put in unassigned
+        if(!plan.unassigned)plan.unassigned=[];
+        plan.unassigned.push(j.id);
+      }
+    }
+  });
 
   const body=document.getElementById('planner-body');
   body.innerHTML=`<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;align-items:flex-start" id="planner-cols">
