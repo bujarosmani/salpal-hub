@@ -4006,204 +4006,110 @@ function exportOrdersExcel(){
 function renderPlanner(){
   if(!window.plannerDate)window.plannerDate=localIso(new Date());
   const date=window.plannerDate;
-
-  // Update date picker button
   const dpBtn=document.getElementById('planner-dp-btn');
+  if(dpBtn){dpBtn.textContent=`📅 ${fd(date)}`;dpBtn.onclick=()=>openDatePicker(date,date,(f)=>{window.plannerDate=f;renderPlanner();});}
   const dpClear=document.getElementById('planner-dp-clear');
-  if(dpBtn){
-    dpBtn.textContent=`📅 ${fd(date)}`;
-    dpBtn.classList.toggle('active',true);
-    dpBtn.onclick=()=>openDatePicker(date,date,(f,t)=>{window.plannerDate=f;renderPlanner();});
-  }
-  if(dpClear)dpClear.style.display=date!==localIso(new Date())?'':'none';
+  if(dpClear)dpClear.style.display=date!==localIso(new Date())?'':'';
+
+  if(!S.plans)S.plans={};
+  if(!S.plans[date])S.plans[date]={unassigned:[],drivers:{}};
+  const plan=S.plans[date];
+  const allOrders=(S.orders||[]).filter(j=>j.status!=='Completed'&&(j.deliveryDate===date||['Loaded','In Transit','Collected','Delivered'].includes(j.status)));
+  const drivers=drvs();
+
+  // Add new orders to unassigned if not yet in plan
+  const allPlannedIds=new Set([...(plan.unassigned||[]),...Object.values(plan.drivers).flat()]);
+  allOrders.forEach(j=>{if(!allPlannedIds.has(j.id)){if(!plan.unassigned)plan.unassigned=[];plan.unassigned.push(j.id);}});
 
   const body=document.getElementById('planner-body');
-  const allOrders=(S.orders||[]).filter(j=>j.status!=='Completed'&&(j.deliveryDate===date||['Loaded','In Transit','Collected','Delivered'].includes(j.status)));
-  if(!S.plans)S.plans={};
-  if(!S.plans[date])S.plans[date]={drivers:{}};
-  const plan=S.plans[date];
-  const drivers=drvs();
-  if(!drivers.length){body.innerHTML='<div class="empty">No drivers found.</div>';return;}
-
-  const plannedIds=new Set();
-  drivers.forEach(d=>{(plan.drivers[d.id]||[]).forEach(t=>{if(t.deliveryId)plannedIds.add(t.deliveryId);if(t.collectionId)plannedIds.add(t.collectionId);});});
-
-  // Also include orders already assigned to drivers via driverId
-  const assignedToDriver={};
-  allOrders.forEach(j=>{
-    if(j.driverId&&!plannedIds.has(j.id)){
-      if(!assignedToDriver[j.driverId])assignedToDriver[j.driverId]=[];
-      assignedToDriver[j.driverId].push(j);
-    }
-  });
-
-  const unassigned=allOrders.filter(j=>!plannedIds.has(j.id)&&!j.driverId);
-
-  body.innerHTML=`
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:16px">
-      ${drivers.map(d=>plannerDriverCol(d,plan,allOrders,date,assignedToDriver[d.id]||[])).join('')}
-    </div>
-    ${unassigned.length?`<div class="card"><div class="card-hdr"><span class="card-hdr-title" style="color:var(--amber)">⏳ Unassigned (${unassigned.length})</span></div><div style="padding:12px;display:flex;flex-wrap:wrap;gap:8px" id="planner-unassigned">${unassigned.map(j=>plannerOrderPill(j)).join('')}</div></div>`:'<div style="text-align:center;padding:16px;color:var(--brand);font-size:13px;font-weight:700">✓ All orders assigned</div>'}
-  `;
+  body.innerHTML=`<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;align-items:flex-start" id="planner-cols">
+    ${plannerCol('unassigned','📋 Unassigned',plan.unassigned||[],allOrders,'#f5c843')}
+    ${drivers.map(d=>plannerCol(d.id,`🚛 ${d.firstName} ${d.lastName}`,plan.drivers[d.id]||[],allOrders,'var(--brand)')).join('')}
+  </div>`;
   bindPlannerDnd(date);
 }
-function plannerDriverCol(driver,plan,allOrders,date,assignedOrders){
-  assignedOrders=assignedOrders||[];
-  const trips=plan.drivers[driver.id]||[];
-  const assignedHtml=assignedOrders.length?`
-    <div style="padding:8px;border-top:1px solid var(--line);margin-top:4px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:700;margin-bottom:6px">Already assigned</div>
-      ${assignedOrders.map(j=>`<div style="background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;padding:6px 10px;margin-bottom:4px;display:flex;align-items:center;gap:8px">
-        ${typeChip(j.type)}
-        <div style="flex:1"><div style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</div><div style="font-size:11px;color:var(--ink2)">${esc(j.companyName||'')} · ${esc(palletStr(j.pallets))}</div></div>
-        ${stChip(j.status)}
-        <button class="btn btn-ghost btn-sm" style="font-size:11px;flex-shrink:0" onclick="assignToSlot('${j.id}','${date}')">→ Trip</button>
-      </div>`).join('')}
-    </div>`:'';
-  return`<div class="card" data-driver="${driver.id}">
-    <div class="card-hdr"><span class="card-hdr-title">🚛 ${esc(driver.firstName)} ${esc(driver.lastName)}</span><button class="btn btn-ghost btn-sm" onclick="addPlannerTrip('${driver.id}','${date}')">+ Trip</button></div>
-    <div style="padding:8px;min-height:50px" id="trips-${driver.id}">
-      ${trips.length?trips.map((t,i)=>plannerTrip(t,i,driver.id,allOrders,date)).join(''):'<div style="text-align:center;padding:16px;color:var(--ink3);font-size:12px">No trips — click + Trip to add</div>'}
+
+function plannerCol(colId,title,orderIds,allOrders,color){
+  const orders=orderIds.map(id=>allOrders.find(j=>j.id===id)).filter(Boolean);
+  return`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);min-width:240px;width:240px;flex-shrink:0">
+    <div style="padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700;color:${color}">${title} <span style="font-size:11px;color:var(--ink3);font-weight:400">(${orders.length})</span></div>
+    <div class="planner-col-list" data-col="${colId}" style="padding:8px;min-height:80px">
+      ${orders.length?orders.map((j,i)=>plannerCard(j,i,colId)).join(''):`<div style="text-align:center;padding:20px;color:var(--ink3);font-size:12px;border:2px dashed var(--line2);border-radius:8px">Drop here</div>`}
     </div>
-    ${assignedHtml}
   </div>`;
 }
-function plannerTrip(trip,idx,driverId,allOrders,date){
-  const delivery=allOrders.find(j=>j.id===trip.deliveryId);
-  const collection=allOrders.find(j=>j.id===trip.collectionId);
-  const orderCard=(j,slot)=>`<div style="background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;padding:8px 10px;margin-top:4px">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <div><div style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</div><div style="font-size:12px;color:var(--ink2)">${esc(j.companyName||'')} · ${esc(palletStr(j.pallets))}</div><div style="margin-top:3px">${stChip(j.status)}</div></div>
-      <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="clearPlannerSlot('${driverId}',${idx},'${slot}','${date}')">✕</button>
-    </div></div>`;
-  const dropZone=(slot,label,color)=>`<div class="planner-dz" data-driver="${driverId}" data-trip="${idx}" data-slot="${slot}" style="border:2px dashed var(--line2);border-radius:8px;padding:10px;text-align:center;font-size:11px;color:${color};margin-top:4px;transition:all .15s">📭 ${label}</div>`;
-  return`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-      <span style="background:var(--brand);color:#000;font-size:11px;font-weight:900;padding:2px 8px;border-radius:8px;font-family:'Barlow Condensed',sans-serif">Trip ${idx+1}</span>
-      <button class="btn btn-danger btn-sm" style="margin-left:auto;padding:2px 8px;font-size:11px" onclick="removePlannerTrip('${driverId}',${idx},'${date}')">✕ Remove</button>
-    </div>
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--brand);font-weight:700">📤 Delivery</div>
-    ${delivery?orderCard(delivery,'delivery'):dropZone('delivery','Drop a Delivery here','var(--brand)')}
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--amber);font-weight:700;margin-top:8px">📥 Return Collection</div>
-    ${collection?orderCard(collection,'collection'):dropZone('collection','Drop a Collection here (optional)','var(--amber)')}
-  </div>`;
-}
-function plannerOrderPill(j){
+
+function plannerCard(j,idx,colId){
   const isD=j.type==='Delivery';
-  return`<div class="planner-pill" draggable="true" data-order="${j.id}" data-type="${isD?'delivery':'collection'}" style="background:var(--panel2);border:1.5px solid ${isD?'var(--brand-dim)':'rgba(245,200,66,.3)'};border-radius:9px;padding:8px 12px;cursor:grab;user-select:none;touch-action:none">
-    <div style="display:flex;align-items:center;gap:6px">${typeChip(j.type)}<span style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</span></div>
-    <div style="font-size:12px;color:var(--ink2)">${esc(j.companyName||'')}</div>
-    <div style="font-size:11px;color:var(--ink3)">${esc(palletStr(j.pallets))}</div>
-    <div style="margin-top:6px;display:flex;gap:6px;align-items:center">
-      <span style="font-size:10px;color:var(--ink3)">⬆ Drag — or:</span>
-      <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="assignToSlot('${j.id}','${window.plannerDate||localIso(new Date())}')">Assign →</button>
+  return`<div class="reorder-item planner-card" draggable="true" data-order="${j.id}" data-col="${colId}" style="background:var(--panel2);border:1.5px solid ${isD?'var(--brand-dim)':'rgba(245,200,66,.3)'};border-left:3px solid ${isD?'var(--brand)':'var(--amber)'};cursor:grab;margin-bottom:6px">
+    <span class="reorder-handle">⠿</span>
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:12px;color:var(--ink3)">#${idx+1}</span>
+        ${typeChip(j.type)}
+        <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:11px">${esc(j.awb)}</span>
+      </div>
+      <div style="font-size:12px;font-weight:600">${esc(j.companyName||'')}}</div>
+      <div style="font-size:11px;color:var(--ink3)">${esc(palletStr(j.pallets))} · ${fd(j.deliveryDate)}</div>
     </div>
-  </div>`;}
+    <button style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0" onclick="plannerRemove('${j.id}','${colId}')" title="Remove">✕</button>
+  </div>`;
+}
 
-function assignToSlot(orderId,date){
-  // Show picker modal to pick driver+trip+slot
-  const order=(S.orders||[]).find(j=>j.id===orderId);if(!order)return;
-  const isD=order.type==='Delivery';
-  const drivers=drvs();
-  if(!S.plans)S.plans={};if(!S.plans[date])S.plans[date]={drivers:{}};
+function plannerRemove(orderId,colId){
+  const date=window.plannerDate;if(!S.plans?.[date])return;
   const plan=S.plans[date];
-  let html=`<div style="font-size:13px;color:var(--ink2);margin-bottom:12px">Assign <strong>${esc(order.awb)}</strong> (${order.type}) to:</div>`;
-  drivers.forEach(d=>{
-    const trips=plan.drivers[d.id]||[];
-    if(!trips.length)return;
-    trips.forEach((t,i)=>{
-      const slot=isD?'delivery':'collection';
-      const taken=isD?t.deliveryId:t.collectionId;
-      if(!taken){
-        html+=`<button class="btn btn-ghost btn-sm" style="width:100%;text-align:left;margin-bottom:6px;padding:8px 12px" onclick="assignConfirm('${d.id}',${i},'${slot}','${orderId}','${date}')">
-          🚛 ${esc(d.firstName)} ${esc(d.lastName)} — Trip ${i+1} (${isD?'Delivery':'Collection'} slot)
-        </button>`;
-      }
-    });
-  });
-  if(!html.includes('onclick')){html+='<div style="color:var(--ink3);font-size:12px">No available trip slots. Add a trip first with + Trip button.</div>';}
-  // Show in a simple modal
-  const existing=document.getElementById('m-assign-tmp');if(existing)existing.remove();
-  const m=document.createElement('div');m.className='mbackdrop open';m.id='m-assign-tmp';
-  m.innerHTML=`<div class="mbox"><div class="mhdr"><span class="mtitle">Assign Order</span><button class="mclose" onclick="document.getElementById('m-assign-tmp').remove()">✕</button></div><div class="mbody">${html}</div><div class="mfoot"><button class="btn btn-ghost" onclick="document.getElementById('m-assign-tmp').remove()">Cancel</button></div></div>`;
-  document.body.appendChild(m);
+  if(colId==='unassigned')plan.unassigned=(plan.unassigned||[]).filter(id=>id!==orderId);
+  else plan.drivers[colId]=(plan.drivers[colId]||[]).filter(id=>id!==orderId);
+  persist();renderPlanner();
 }
 
-function assignConfirm(driverId,tripIdx,slot,orderId,date){
-  if(!S.plans?.[date]?.drivers?.[driverId]?.[tripIdx]===undefined)return;
-  if(slot==='delivery')S.plans[date].drivers[driverId][tripIdx].deliveryId=orderId;
-  else S.plans[date].drivers[driverId][tripIdx].collectionId=orderId;
-  const order=(S.orders||[]).find(j=>j.id===orderId);
-  if(order){order.driverId=driverId;order.updatedAt=new Date().toISOString();}
-  savePlanToOrders(date);
-  persist();
-  const m=document.getElementById('m-assign-tmp');if(m)m.remove();
-  renderPlanner();
-}
-function addPlannerTrip(driverId,date){
-  if(!S.plans)S.plans={};if(!S.plans[date])S.plans[date]={drivers:{}};
-  if(!S.plans[date].drivers[driverId])S.plans[date].drivers[driverId]=[];
-  S.plans[date].drivers[driverId].push({deliveryId:null,collectionId:null});
-  persist();renderPlanner();
-}
-function removePlannerTrip(driverId,idx,date){
-  if(!S.plans?.[date]?.drivers?.[driverId])return;
-  S.plans[date].drivers[driverId].splice(idx,1);
-  persist();renderPlanner();
-}
-function clearPlannerSlot(driverId,idx,slot,date){
-  if(!S.plans?.[date]?.drivers?.[driverId]?.[idx])return;
-  if(slot==='delivery')S.plans[date].drivers[driverId][idx].deliveryId=null;
-  else S.plans[date].drivers[driverId][idx].collectionId=null;
-  persist();renderPlanner();
-}
 function bindPlannerDnd(date){
-  let draggedId=null,draggedType=null,draggedEl=null;
-  document.querySelectorAll('.planner-pill').forEach(pill=>{
-    pill.addEventListener('dragstart',e=>{draggedId=pill.dataset.order;draggedType=pill.dataset.type;draggedEl=pill;pill.style.opacity='0.4';e.dataTransfer.effectAllowed='move';});
-    pill.addEventListener('dragend',()=>{if(draggedEl)draggedEl.style.opacity='';draggedId=null;draggedType=null;draggedEl=null;});
-    // Touch support
-    pill.addEventListener('touchstart',e=>{draggedId=pill.dataset.order;draggedType=pill.dataset.type;draggedEl=pill;pill.style.opacity='0.4';},{passive:true});
-    pill.addEventListener('touchend',e=>{
-      if(draggedEl)draggedEl.style.opacity='';
+  let dragId=null,fromCol=null,dragEl=null;
+
+  document.querySelectorAll('.planner-card').forEach(card=>{
+    card.addEventListener('dragstart',e=>{dragId=card.dataset.order;fromCol=card.dataset.col;dragEl=card;card.style.opacity='0.4';e.dataTransfer.effectAllowed='move';});
+    card.addEventListener('dragend',()=>{if(dragEl)dragEl.style.opacity='';dragId=null;fromCol=null;dragEl=null;});
+    // Touch
+    card.addEventListener('touchstart',e=>{dragId=card.dataset.order;fromCol=card.dataset.col;dragEl=card;card.style.opacity='0.4';},{passive:true});
+    card.addEventListener('touchend',e=>{
+      if(dragEl)dragEl.style.opacity='';
       const touch=e.changedTouches[0];
-      const el=document.elementFromPoint(touch.clientX,touch.clientY)?.closest('.planner-dz');
-      if(el&&draggedId)dropToZone(el,draggedId,draggedType,date);
-      draggedId=null;draggedType=null;draggedEl=null;
+      const target=document.elementFromPoint(touch.clientX,touch.clientY)?.closest('.planner-col-list');
+      if(target&&dragId)plannerDrop(target.dataset.col,dragId,fromCol);
+      dragId=null;fromCol=null;dragEl=null;
     });
   });
-  document.querySelectorAll('.planner-dz').forEach(zone=>{
-    zone.addEventListener('dragover',e=>{e.preventDefault();zone.style.background='rgba(61,214,104,.12)';zone.style.borderColor='var(--brand)';});
-    zone.addEventListener('dragleave',()=>{zone.style.background='';zone.style.borderColor='var(--line2)';});
-    zone.addEventListener('drop',e=>{e.preventDefault();zone.style.background='';zone.style.borderColor='var(--line2)';if(draggedId)dropToZone(zone,draggedId,draggedType,date);draggedId=null;draggedType=null;if(draggedEl)draggedEl.style.opacity='';draggedEl=null;});
+
+  document.querySelectorAll('.planner-col-list').forEach(col=>{
+    col.addEventListener('dragover',e=>{e.preventDefault();col.style.background='rgba(61,214,104,.07)';});
+    col.addEventListener('dragleave',()=>col.style.background='');
+    col.addEventListener('drop',e=>{
+      e.preventDefault();col.style.background='';
+      if(dragId)plannerDrop(col.dataset.col,dragId,fromCol);
+      dragId=null;fromCol=null;if(dragEl)dragEl.style.opacity='';dragEl=null;
+    });
   });
 }
-function dropToZone(zone,orderId,orderType,date){
-  const slot=zone.dataset.slot;
-  const driverId=zone.dataset.driver;
-  const tripIdx=parseInt(zone.dataset.trip);
-  if(slot==='delivery'&&orderType!=='delivery'){toast('Delivery slot — drop a Delivery order','err');return;}
-  if(slot==='collection'&&orderType!=='collection'){toast('Collection slot — drop a Collection order','err');return;}
-  if(!S.plans?.[date]?.drivers?.[driverId]?.[tripIdx]===undefined)return;
-  if(slot==='delivery')S.plans[date].drivers[driverId][tripIdx].deliveryId=orderId;
-  else S.plans[date].drivers[driverId][tripIdx].collectionId=orderId;
-  // Assign driver to order and set plan sequence
+
+function plannerDrop(toCol,orderId,fromCol){
+  const date=window.plannerDate;if(!S.plans?.[date])return;
+  if(toCol===fromCol)return;
+  const plan=S.plans[date];
+  // Remove from source col
+  if(fromCol==='unassigned')plan.unassigned=(plan.unassigned||[]).filter(id=>id!==orderId);
+  else{if(plan.drivers[fromCol])plan.drivers[fromCol]=plan.drivers[fromCol].filter(id=>id!==orderId);}
+  // Add to target col
+  if(toCol==='unassigned'){if(!plan.unassigned)plan.unassigned=[];plan.unassigned.push(orderId);}
+  else{if(!plan.drivers[toCol])plan.drivers[toCol]=[];plan.drivers[toCol].push(orderId);}
+  // Update order driver assignment
   const order=(S.orders||[]).find(j=>j.id===orderId);
-  if(order){order.driverId=driverId;order.updatedAt=new Date().toISOString();}
-  savePlanToOrders(date);
+  if(order){order.driverId=toCol==='unassigned'?'':toCol;order.updatedAt=new Date().toISOString();}
+  // Update planSeq
+  drvs().forEach(d=>{(plan.drivers[d.id]||[]).forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planDate=date;j.planSeq=i+1;j.driverId=d.id;}});});
   persist();renderPlanner();
 }
-function savePlanToOrders(date){
-  if(!S.plans?.[date])return;
-  drvs().forEach(d=>{
-    const trips=S.plans[date].drivers[d.id]||[];
-    let seq=1;
-    trips.forEach(t=>{
-      if(t.deliveryId){const j=(S.orders||[]).find(x=>x.id===t.deliveryId);if(j){j.planDate=date;j.planSeq=seq++;j.driverId=d.id;}}
-      if(t.collectionId){const j=(S.orders||[]).find(x=>x.id===t.collectionId);if(j){j.planDate=date;j.planSeq=seq++;j.driverId=d.id;}}
-    });
-  });
-}
+
 
 // ── RECYCLE BIN ──
 function sendToBin(type,id,name,data){
