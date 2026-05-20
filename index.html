@@ -2170,8 +2170,8 @@ function viewDrvTask(id){
   else{if(j.status==='Open')foot+=` <button class="btn btn-primary" onclick="startCollect('${j.id}')">🚛 Leave to Collect</button>`;if(j.status==='In Transit')foot+=` <button class="btn btn-primary" onclick="markCollected('${j.id}')">📦 Pallets Collected</button>`;}
   document.getElementById('det-foot').innerHTML=foot;openM('m-detail');
 }
-function startDelivery(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Started delivery','status');persist();toast('Delivery started');closeM('m-detail');renderDriver();viewDrvTask(id);}
-function startCollect(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Left to collect','status');persist();toast('Left to collect');closeM('m-detail');renderDriver();viewDrvTask(id);}
+function startDelivery(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Started delivery','status');persist();toast('Delivery started 🚛');closeM('m-detail');renderDriver();}
+function startCollect(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Left to collect','status');persist();toast('Left to collect 🚛');closeM('m-detail');renderDriver();}
 function markCollected(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Collected';j.updatedAt=new Date().toISOString();addTL(j,'Pallets collected \u2014 returning to warehouse','status');persist();toast('Pallets collected');closeM('m-detail');renderDriver();}
 
 /* ── PROOF ── */
