@@ -386,9 +386,16 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 
 <div class="page" id="page-dispatch">
   <div class="phdr"><div><div class="ptitle">Dispatch</div><div class="psub">Outgoing — delivery orders</div></div><button class="btn btn-ghost btn-sm" onclick="exportDispatchExcel()">⬇ Excel</button></div>
-  <div class="stats" id="dis-stats"></div>
-  <div style="padding:0 0 12px"><input class="inp" id="dis-search" placeholder="🔍 Search AWB, company, driver..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderDispatch()"/></div>
-  <div id="dis-body"></div>
+  <div class="tabs">
+    <button class="tab-btn on" onclick="disTab('todo',this)">To Do</button>
+    <button class="tab-btn" onclick="disTab('all',this)">All Orders</button>
+  </div>
+  <div class="tpane on" id="dis-pane-todo"></div>
+  <div class="tpane" id="dis-pane-all">
+    <div class="stats" id="dis-stats"></div>
+    <div style="padding:0 0 12px"><input class="inp" id="dis-search" placeholder="🔍 Search AWB, company, driver..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderDispatch()"/></div>
+    <div id="dis-body"></div>
+  </div>
 </div>
 
 <div class="page" id="page-receiving">
@@ -399,9 +406,16 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       <button class="btn btn-primary" id="btn-dropoff" onclick="openDropoffModal()">📥 Direct Drop-off</button>
     </div>
   </div>
-  <div class="stats" id="rec-stats"></div>
-  <div style="padding:0 0 12px"><input class="inp" id="rec-search" placeholder="🔍 Search AWB, company, driver, ref..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderReceiving()"/></div>
-  <div id="rec-body"></div>
+  <div class="tabs">
+    <button class="tab-btn on" onclick="recTab('todo',this)">To Do</button>
+    <button class="tab-btn" onclick="recTab('all',this)">All Orders</button>
+  </div>
+  <div class="tpane on" id="rec-pane-todo"></div>
+  <div class="tpane" id="rec-pane-all">
+    <div class="stats" id="rec-stats"></div>
+    <div style="padding:0 0 12px"><input class="inp" id="rec-search" placeholder="🔍 Search AWB, company, driver, ref..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderReceiving()"/></div>
+    <div id="rec-body"></div>
+  </div>
 </div>
 
 <div class="page" id="page-repairs">
@@ -1750,6 +1764,8 @@ function viewOrder(id){
   openM('m-detail');
 }
 function renderDispatch(){
+  const todoPane=document.getElementById('dis-pane-todo');
+  if(todoPane&&todoPane.classList.contains('on')){renderDisTodo();return;}
   const dis=(S.orders||[]).filter(j=>j.type==='Delivery');
   const isMob=(ME&&ME.role==='Supervisor'&&currentView!=='desktop')||window.innerWidth<768;
   const statOpts=['Open','Loaded','In Transit','Completed'].map(s=>({value:s,label:s}));
@@ -1813,9 +1829,85 @@ function confirmLoaded(){
 /* ── RECEIVING ── */
 let recF={statuses:null,drivers:null,dateFrom:'',dateTo:'',search:''};let recSortAsc=false;
 function toggleRecSort(){recSortAsc=!recSortAsc;const btn=document.getElementById('rec-sort-btn');if(btn)btn.textContent=recSortAsc?'A → Z':'Z → A';renderReceiving();}
-let disF={statuses:null,drivers:null,dateFrom:'',dateTo:'',search:''};let disSortAsc=false;
+function disTab(name,btn){const page=document.getElementById('page-dispatch');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`dis-pane-${name}`).classList.add('on');if(name==='todo')renderDisTodo();else renderDispatch();}
+function recTab(name,btn){const page=document.getElementById('page-receiving');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`rec-pane-${name}`).classList.add('on');if(name==='todo')renderRecTodo();else renderReceiving();}
+
+function renderDisTodo(){
+  const pane=document.getElementById('dis-pane-todo');if(!pane)return;
+  const isSup=ME&&(ME.role==='Supervisor'||ME.role==='Admin'||ME.role==='Manager');
+  // To Do = Open (need loading) + Loaded (need dispatch confirmation)
+  const todo=(S.orders||[]).filter(j=>j.type==='Delivery'&&j.status==='Open')
+    .sort((a,b)=>a.awb.localeCompare(b.awb));
+  if(!todo.length){pane.innerHTML='<div class="empty" style="padding:40px;text-align:center">✓ Nothing to load — all orders are dispatched!</div>';return;}
+  pane.innerHTML=todo.map(j=>{
+    const canLoad=j.status==='Open'&&isSup&&!isViewer();
+    const pallets=palletStr(j.pallets);
+    const driver=j.driverId?uname(j.driverId):j.driver||'—';
+    const isOverdue=j.deliveryDate<localIso(new Date());
+    return`<div style="background:var(--panel);border:1.5px solid ${j.status==='Loaded'?'var(--brand-dim)':isOverdue?'rgba(245,107,107,.4)':'var(--line)'};border-left:4px solid ${j.status==='Loaded'?'var(--brand)':isOverdue?'var(--red)':'var(--amber)'};border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+            <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px">${esc(j.awb)}</span>
+            ${j.orderRef?`<span style="font-size:11px;color:var(--ink3)">${esc(j.orderRef)}</span>`:''}
+            ${stChip(j.status)}
+            ${isOverdue?`<span style="background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px">OVERDUE</span>`:''}
+          </div>
+          <div style="font-weight:700;font-size:14px">${esc(j.companyName||'—')}</div>
+          <div style="font-size:12px;color:var(--ink3)">${esc([j.companyAddress,j.city,j.postcode].filter(Boolean).join(', '))}</div>
+          <div style="font-size:12px;color:var(--ink2);margin-top:4px">📅 ${fd(j.deliveryDate)} · 🚛 ${esc(driver)} · 📦 ${esc(pallets)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          ${canLoad?`<button class="btn btn-amber btn-sm" onclick="openLoadModal('${j.id}')">📦 Load</button>`:''}
+          <button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>
+          ${isAdmin()?`<button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderRecTodo(){
+  const pane=document.getElementById('rec-pane-todo');if(!pane)return;
+  const isSup=ME&&(ME.role==='Supervisor'||ME.role==='Admin'||ME.role==='Manager');
+  // To Do = Open, In Transit, Collected, Delivered (not Completed)
+  const todo=(S.orders||[]).filter(j=>(j.type==='Collection'||j.type==='Drop-off')&&j.status!=='Completed')
+    .sort((a,b)=>a.awb.localeCompare(b.awb));
+  if(!todo.length){pane.innerHTML='<div class="empty" style="padding:40px;text-align:center">✓ Nothing to do — all received!</div>';return;}
+  pane.innerHTML=todo.map(j=>{
+    const canAW=j.status==='Collected'&&isSup&&!isViewer();
+    const canC=j.status==='Delivered'&&isSup&&!isViewer();
+    const driver=j.driver==='Customer Drop Off'?'Drop-off':(j.driverId?uname(j.driverId):j.driver||'—');
+    return`<div style="background:var(--panel);border:1.5px solid var(--line);border-left:4px solid ${j.status==='Delivered'?'var(--blue)':j.status==='Collected'?'var(--amber)':'var(--line)'};border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+            <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px">${esc(j.awb)}</span>
+            ${j.orderRef?`<span style="font-size:11px;color:var(--ink3)">${esc(j.orderRef)}</span>`:''}
+            ${stChip(j.status)}
+          </div>
+          <div style="font-weight:700;font-size:14px">${esc(j.companyName||'—')}</div>
+          <div style="font-size:12px;color:var(--ink3)">${esc([j.companyAddress,j.city,j.postcode].filter(Boolean).join(', '))}</div>
+          <div style="font-size:12px;color:var(--ink2);margin-top:4px">📅 ${fd(j.deliveryDate)} · 🚛 ${esc(driver)} · 📦 ${esc(palletStr(j.pallets))}</div>
+          ${j.condition?`<div style="margin-top:4px"><span class="chip ${j.condition==='Good'?'chip-green':'chip-red'}" style="font-size:10px">${esc(j.condition)}</span></div>`:''}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          ${canAW?`<button class="btn btn-ghost btn-sm" onclick="setOrdStatus('${j.id}','Delivered')">At WH</button>`:''}
+          ${canC?`<button class="btn btn-primary btn-sm" onclick="openCompleteRecModal('${j.id}')">✓ Complete</button>`:''}
+          <button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>
+          ${isAdmin()?`<button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let disTabCurrent='todo';
+let recTabCurrent='todo';let disSortAsc=false;
 function toggleDisSort(){disSortAsc=!disSortAsc;const btn=document.getElementById('dis-sort-btn');if(btn)btn.textContent=disSortAsc?'A → Z':'Z → A';renderDispatch();}
 function renderReceiving(){
+  const todoPane=document.getElementById('rec-pane-todo');
+  if(todoPane&&todoPane.classList.contains('on')){renderRecTodo();return;}
   const cols=(S.orders||[]).filter(j=>j.type==='Collection');
   const isMob=(ME&&ME.role==='Supervisor'&&currentView!=='desktop')||window.innerWidth<768;
   const statOpts=['Open','In Transit','Collected','Delivered','Completed'].map(s=>({value:s,label:s}));
