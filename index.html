@@ -2785,8 +2785,53 @@ function openProductModal(){
   openM('m-product');
 }
 
+function openMergeProduct(cls){
+  const skus=getSKUS();
+  const stk=getStock();
+  const modal=document.createElement('div');modal.className='mbackdrop open';modal.id='m-merge-prod-tmp';
+  modal.innerHTML=`<div class="mbox"><div class="mhdr"><span class="mtitle">Merge Product into "${esc(cls)}"</span><button class="mclose" onclick="document.getElementById('m-merge-prod-tmp').remove()">✕</button></div>
+  <div class="mbody">
+    <p style="font-size:13px;color:var(--ink2);margin-bottom:16px">Select the product to merge <strong>into "${esc(cls)}"</strong>. All orders, repairs and sortings using the selected product will be renamed to "${esc(cls)}" and its stock will be combined.</p>
+    <div id="merge-prod-list">${skus.filter(s=>s!==cls).map(s=>`
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:9px;margin-bottom:8px;cursor:pointer">
+        <input type="radio" name="merge-prod-src" value="${esc(s)}" style="accent-color:var(--brand)"/>
+        <div style="flex:1">${skuBadge(s,true)}</div>
+        <div style="font-size:12px;color:var(--ink3)">Stock: ${stk[s]?.onHand||0}</div>
+      </label>`).join('')}
+    </div>
+    <div class="ferr" id="merge-prod-err"></div>
+  </div>
+  <div class="mfoot">
+    <button class="btn btn-ghost" onclick="document.getElementById('m-merge-prod-tmp').remove()">Cancel</button>
+    <button class="btn btn-primary" onclick="doMergeProduct('${esc(cls)}')">⟳ Merge</button>
+  </div></div>`;
+  document.body.appendChild(modal);
+}
+
+function doMergeProduct(master){
+  const sel=document.querySelector('input[name="merge-prod-src"]:checked');
+  if(!sel){document.getElementById('merge-prod-err').textContent='Please select a product to merge.';return;}
+  const src=sel.value;
+  // Rename src → master in all orders
+  (S.orders||[]).forEach(j=>{(j.pallets||[]).forEach(p=>{if(p.cls===src)p.cls=master;});});
+  // Rename in repairs
+  (S.repairs||[]).forEach(r=>{if(r.pallet_class===src)r.pallet_class=master;if(r.src===src)r.src=master;});
+  // Rename in sortings
+  (S.sortings||[]).forEach(r=>{(r.pallets||[]).forEach(p=>{if(p.cls===src)p.cls=master;});});
+  // Rename in ledger
+  (S.ledger||[]).forEach(e=>{if(e.cls===src)e.cls=master;});
+  // Merge stock
+  if(!S.stock)S.stock={};
+  S.stock[master]=(S.stock[master]||0)+(S.stock[src]||0);
+  delete S.stock[src];
+  // Remove src from products list
+  S.products=(S.products||getSKUS()).filter(p=>p!==src);
+  persist();
+  toast(`"${src}" merged into "${master}" ✓`);
+  document.getElementById('m-merge-prod-tmp').remove();
+  renderStock();
+}
 function editProduct(cls){
-  document.getElementById('prod-modal-title').textContent='Edit Product';
   document.getElementById('prod-name').value=cls;
   document.getElementById('prod-old-name').value=cls;
   document.getElementById('prod-err').textContent='';
@@ -3128,7 +3173,7 @@ function renderStock(){
       <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--amber)">${outgoing}</span></td>
       <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:${freeColor}">${free}</span></td>
       <td class="right" style="white-space:nowrap">
-        ${isAdminRow?`<button class="btn btn-ghost btn-sm" onclick="editProduct('${esc(cls)}')">Edit</button> ${canDelete()?`<button class="btn btn-danger btn-sm" onclick="deleteProductDirect('${esc(cls)}')" ${inUse?'title="In use by orders" style="opacity:.35;cursor:not-allowed" disabled':''}>Delete</button>`:""}`:''}
+        ${isAdminRow?`<button class="btn btn-ghost btn-sm" onclick="openMergeProduct('${esc(cls)}')">⟳ Merge</button> <button class="btn btn-ghost btn-sm" onclick="editProduct('${esc(cls)}')">Edit</button> ${canDelete()?`<button class="btn btn-danger btn-sm" onclick="deleteProductDirect('${esc(cls)}')" ${inUse?'title="In use by orders" style="opacity:.35;cursor:not-allowed" disabled':''}>Delete</button>`:""}`:''}
       </td>
     </tr>`;
   }).join('');
