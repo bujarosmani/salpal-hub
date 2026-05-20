@@ -1767,7 +1767,7 @@ function viewOrder(id){
 function renderDispatch(){
   const todoPane=document.getElementById('dis-pane-todo');
   if(todoPane&&todoPane.classList.contains('on')){renderDisTodo();return;}
-  const dis=(S.orders||[]).filter(j=>j.type==='Delivery');'Delivery');
+  const dis=(S.orders||[]).filter(j=>j.type==='Delivery');
   const isMob=(ME&&ME.role==='Supervisor'&&currentView!=='desktop')||window.innerWidth<768;
   const statOpts=['Open','Loaded','In Transit','Completed'].map(s=>({value:s,label:s}));
   const dl=disF.dateFrom&&disF.dateTo?`${fd(disF.dateFrom)}\u2013${fd(disF.dateTo)}`:disF.dateFrom?fd(disF.dateFrom):'All Dates';
