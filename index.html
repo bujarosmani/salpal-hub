@@ -357,7 +357,6 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <div class="card-hdr" style="flex-wrap:wrap;gap:6px">
       <span class="card-hdr-title">All Orders</span>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1" id="ord-filters"></div>
-      <button class="btn btn-ghost btn-sm" id="ord-sort-btn" onclick="toggleOrdSort()">Z → A</button>
       <div style="position:relative" id="ord-col-dd-wrap">
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ord-col-dd').style.display=document.getElementById('ord-col-dd').style.display==='none'?'block':'none'">⚙ Columns</button>
         <div id="ord-col-dd" style="display:none;position:absolute;right:0;top:110%;background:var(--panel2);border:1.5px solid var(--line2);border-radius:10px;padding:10px 14px;z-index:200;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,.5)">
@@ -1400,7 +1399,6 @@ function renderOrders(){
   const dlabel=ordF.dateFrom&&ordF.dateTo?`${fd(ordF.dateFrom)}–${fd(ordF.dateTo)}`:ordF.dateFrom?fd(ordF.dateFrom):'All Dates';
   const sourceOpts=[{value:'driver',label:'Driver orders'},{value:'dropoff',label:'Drop-offs'}];
   document.getElementById('ord-filters').innerHTML=
-    `<input class="inp" id="ord-co-search" placeholder="🔍 Company..." value="${esc(ordF.company)}" style="width:160px;padding:7px 10px;font-size:12px" oninput="ordF.company=this.value;renderOrdTable()"/> `+
     buildCbDropdown('ordType',typeOpts,ordF.types,'All Types')+' '+
     buildCbDropdown('ordStat',statOpts,ordF.statuses,'All Statuses')+' '+
     buildCbDropdown('ordSrc',sourceOpts,ordF.source,'All Sources')+' '+
