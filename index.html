@@ -291,7 +291,12 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <div class="app-layout">
 
 <nav class="sidebar" id="sidebar">
-  <div class="sb-brand"><div class="sb-logo">Sal<span>Pal</span> Hub</div><div class="sb-sub">Warehouse Ops</div></div>
+  <div class="sb-brand" style="display:flex;align-items:center;justify-content:space-between">
+    <div><div class="sb-logo">Sal<span>Pal</span> Hub</div><div class="sb-sub">Warehouse Ops</div></div>
+    <button onclick="forceSyncNow()" title="Force Sync" style="background:none;border:1px solid var(--line2);border-radius:8px;color:var(--ink3);cursor:pointer;padding:5px 8px;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:1px">
+      <span>↺</span><span style="font-size:8px;letter-spacing:.5px">SYNC</span>
+    </button>
+  </div>
   <div class="sb-sec" id="nav-ops">
     <div class="sb-sec-lbl">Operations</div>
     <button class="sb-btn" data-p="dashboard" id="snav-dashboard"><span class="ic">⊞</span>Dashboard</button>
@@ -336,6 +341,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <div class="page" id="page-dashboard">
   <div class="phdr"><div><div class="ptitle">Dashboard</div><div class="psub" id="dash-date"></div></div></div>
   <div class="card" id="dash-fleet-card" style="display:none;margin-bottom:14px;background:rgba(245,107,107,.06);border:1.5px solid rgba(245,107,107,.4)"><div class="card-hdr" style="border-bottom:1px solid rgba(245,107,107,.2)"><span class="card-hdr-title" style="color:var(--red)">⚠ Fleet & HR Alerts</span><button class="btn btn-ghost btn-sm" onclick="navTo('fleet')">View All</button></div><div class="card-body" id="dash-fleet"></div></div>
+  <div id="dash-recon-warn" style="display:none"></div>
   <div class="stats" id="dash-stats"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
     <div class="card"><div class="card-hdr"><span class="card-hdr-title">🔧 Today's Repairs</span></div><div class="card-body" id="dash-repairs"></div></div>
@@ -756,7 +762,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     </div>
     <div class="mfoot">
       <button class="btn btn-danger btn-sm" id="of-del-btn" style="display:none;margin-right:auto" onclick="deleteOrder()">Delete</button>
-      <button class="btn btn-ghost" onclick="closeM('m-order')">Cancel</button>
+      <button class="btn btn-ghost" onclick="closeOrderModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveOrder()">Save Order ✓</button>
     </div>
   </div>
@@ -826,7 +832,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 
 <div class="mbackdrop" id="m-quick">
   <div class="mbox">
-    <div class="mhdr"><span class="mtitle" id="quick-title">⚡ Quick Entry</span><button class="mclose" onclick="closeM('m-quick')">✕</button></div>
+    <div class="mhdr" id="quick-mhdr"><span class="mtitle" id="quick-title">⚡ Quick Entry</span><button class="mclose" onclick="closeM('m-quick')">✕</button></div>
     <div class="mbody">
       <div id="quick-type-row" style="display:none">
         <button type="button" class="pick-btn" id="qt-delivery" onclick="setQuickType('Delivery')">📤 Delivery</button>
@@ -1287,6 +1293,20 @@ async function loadCloud(){
         }
       });
       S.orders=merged.filter(o=>!deletedOrderIds.has(o.id));
+      // Fix duplicate AWBs — rename duplicates with -B suffix
+      const awbSeen={};
+      S.orders.forEach(o=>{
+        if(!o.awb)return;
+        if(awbSeen[o.awb]){
+          // This is a duplicate — give it a new unique AWB
+          const ns=S.orders.map(t=>{const m=(t.awb||'').match(/WMS-(\d+)/);return m?+m[1]:0}).filter(n=>n>0);
+          const newN=Math.max(...ns)+1;
+          console.warn(`Duplicate AWB ${o.awb} renamed to WMS-${newN}`);
+          o.awb=`WMS-${newN}`;
+          o.updatedAt=new Date().toISOString();
+        }
+        awbSeen[o.awb]=true;
+      });
     } else if(deletedOrderIds.size>0){
       S.orders=(S.orders||[]).filter(o=>!deletedOrderIds.has(o.id));
     }
@@ -1294,7 +1314,8 @@ async function loadCloud(){
     if(sortings&&sortings.length)S.sortings=sortings.map(r=>r.data).filter(Boolean);
     if(companies&&companies.length)S.companies=companies.map(r=>r.data).filter(Boolean);
     if(ledger&&ledger.length)S.ledger=ledger.map(r=>r.data).filter(Boolean);
-    if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;const wr=stock.find(r=>r.id==='__workers');if(wr&&wr.data)S.workers=wr.data;const pr=stock.find(r=>r.id==='__plans');if(pr&&pr.data)S.plans=pr.data;const fr=stock.find(r=>r.id==='__fleet');if(fr&&fr.data)S.fleet=fr.data;}
+    if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;const wr=stock.find(r=>r.id==='__workers');if(wr&&wr.data)S.workers=wr.data;const pr=stock.find(r=>r.id==='__plans');if(pr&&pr.data)S.plans=pr.data;const fr=stock.find(r=>r.id==='__fleet');if(fr&&fr.data)S.fleet=fr.data;
+    const lkr=stock.find(r=>r.id==='__locks');if(lkr&&lkr.data)S.orderLocks=lkr.data;}
     if(products&&products.length){const pr=products.find(r=>r.id==='__products');if(pr)S.products=pr.data;}
     if(stocktakes&&stocktakes.length){
       const remote=stocktakes.map(r=>r.data).filter(Boolean);
@@ -1320,7 +1341,24 @@ async function loadCloud(){
     }
   }catch(e){console.error('loadCloud error',e);setSS('error');}
 }
-function setSS(s){const row=document.getElementById('sync-row'),txt=document.getElementById('sync-txt');if(!row)return;row.className='sync-row '+s;txt.textContent=s==='ok'?'Synced':s==='syncing'?'Saving...':'Sync error';}
+function setSS(s){
+  const row=document.getElementById('sync-row'),txt=document.getElementById('sync-txt');
+  if(!row)return;
+  row.className='sync-row '+s;
+  if(s==='ok'){
+    const now=new Date();
+    const t=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    txt.textContent=`Synced ${t}`;
+    if(!S.lastSync)S.lastSync={};
+    S.lastSync[ME?.id||'anon']={user:ME?`${ME.firstName} ${ME.lastName}`.trim():'',time:now.toISOString()};
+    localStorage.setItem(SKEY,JSON.stringify(S));
+  } else if(s==='syncing'){
+    txt.textContent='Saving...';
+  } else {
+    txt.textContent='Sync error — tap to retry';
+    row.onclick=()=>{syncCloud();loadCloud().catch(()=>{});};
+  }
+}
 
 /* ── HELPERS ── */
 const mkId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -1346,7 +1384,19 @@ function supSelectHtml(){
   return (autoSel?'':'<option value="">— Select —</option>')+list.map(u=>`<option value="${u.firstName} ${u.lastName}" selected>${u.firstName} ${u.lastName}</option>`).join('');
 }
 const uname=id=>{const u=(S.users||[]).find(x=>x.id===id);return u?`${u.firstName} ${u.lastName}`:'—';};
-const makeAWB=()=>{const ns=(S.orders||[]).map(t=>{const m=(t.awb||'').match(/WMS-(\d+)/);return m?+m[1]:0}).filter(n=>n>0);return`WMS-${ns.length?Math.max(...ns)+1:1001}`;};
+const makeAWB=()=>{
+  // Use current max + 1 but add user-unique salt to avoid collisions
+  const ns=(S.orders||[]).map(t=>{const m=(t.awb||'').match(/WMS-(\d+)/);return m?+m[1]:0}).filter(n=>n>0);
+  const maxN=ns.length?Math.max(...ns):1000;
+  // Salt: last 2 digits of seconds + random 0-9 to make simultaneous creates unique
+  const salt=Math.floor(Date.now()/100)%100;
+  const candidate=maxN+1+salt;
+  // If candidate already exists locally (edge case), add more
+  const existing=new Set(ns);
+  let n=candidate;
+  while(existing.has(n))n++;
+  return`WMS-${n}`;
+};
 const skuBadge=(cls,lg)=>{const c=SKU_C[cls]||{bg:'var(--panel2)',c:'var(--ink3)'};return`<span class="sku" style="background:${c.bg};color:${c.c};font-size:${lg?13:11}px;padding:${lg?'4px 10px':'3px 7px'}">${esc(cls)}</span>`;};
 const palletStr=p=>{const total=(p||[]).filter(x=>x.qty>0).reduce((s,x)=>s+(x.qty||0),0);return total?`${total} Pallets`:'—';};
 const stChip=s=>{const m={Open:'chip-amber',Loaded:'chip-blue','In Transit':'chip-purple',Collected:'chip-amber',Delivered:'chip-blue','Pending Sort':'chip-amber',Completed:'chip-green'};return`<span class="chip ${m[s]||'chip-gray'}" style="font-size:10px">${esc(s)}</span>`;};
@@ -1550,7 +1600,7 @@ function doLogin(){
     updateNavBadges();
     startRealtime();
     // Poll every 30s as fallback
-    setInterval(()=>{if(!document.querySelector('.mbackdrop.open'))loadCloud().catch(()=>{});},30000);
+    setInterval(()=>loadCloud().catch(()=>{}),30000);
     if(ME.role==='Driver')goTo('driver');
     else if(ME.role==='Supervisor')goTo('dispatch');
     else goTo('dashboard');
@@ -1577,7 +1627,7 @@ function tryRestoreSession(){
     setupNav();
     updateNavBadges();
     startRealtime();
-    setInterval(()=>{if(!document.querySelector('.mbackdrop.open'))loadCloud().catch(()=>{});},30000);
+    setInterval(()=>loadCloud().catch(()=>{}),30000);
     if(ME.role==='Driver')goTo('driver');
     else if(ME.role==='Supervisor')goTo('dispatch');
     else goTo('dashboard');
@@ -1749,6 +1799,7 @@ function renderDash(){
           <span style="font-size:10px;font-weight:600;color:${st==='inprocess'?'var(--blue)':'var(--ink3)'};">${st==='inprocess'?'⏳ In Process':'— Open'}</span>
         </div>`;}).join(''):'';
     }
+    checkReconciliation();
   }
   const recent=ords.slice().sort((a,b)=>(b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')).slice(0,5);
   document.getElementById('dash-activity').innerHTML=recent.length?recent.map(j=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><div><div style="font-weight:700;font-size:13px;font-family:'DM Mono',monospace">${esc(j.awb)} \u2014 ${esc(j.companyName||'')}</div><div style="font-size:11px;color:var(--ink3)">${fdt(j.updatedAt||j.createdAt)} \u00b7 ${typeChip(j.type)}</div></div>${stChip(j.status)}</div>`).join(''):'<div class="empty" style="padding:16px">No activity</div>';
@@ -1893,7 +1944,8 @@ function renderOrdTable(){
       ${col('whBy')?`<td style="font-size:12px;font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td>`:''}
       ${col('whNotes')?`<td style="font-size:11px;color:var(--ink3);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(whn)}">${esc(whn)}</td>`:''}
       ${col('status')?`<td>${stChip(j.status)}</td>`:''}
-      <td class="right" style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>${isAdmin()?` <button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`:''}</td>
+      <td class="right" style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>${isAdmin()?`${(()=>{const lk=S.orderLocks&&S.orderLocks[j.id];const age=lk?(Date.now()-new Date(lk.time).getTime())/1000:999;return lk&&age<300?` <span style="font-size:10px;color:var(--amber);font-weight:600">🔒 ${esc(lk.user)}</span>`:(` <button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`);})()}`:''}
+      </td>
     </tr>`;
   }).join('');
 }
@@ -1928,7 +1980,21 @@ function onOrderTypeChange(){const t=document.getElementById('of-type').value;do
 function editOrder(id){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   document.getElementById('order-modal-title').textContent='Edit Order';
-  document.getElementById('of-edit-id').value=id;
+  // Lock the order for editing
+  if(!S.orderLocks)S.orderLocks={};
+  // Check if someone else already has it locked
+  const existingLock=S.orderLocks[id];
+  const lockAge=existingLock?(Date.now()-new Date(existingLock.time).getTime())/1000:999;
+  const myName=ME?`${ME.firstName} ${ME.lastName}`.trim():'';
+  if(existingLock&&lockAge<300&&existingLock.user!==myName){
+    const warn=document.createElement('div');
+    warn.style.cssText='background:rgba(245,200,66,.1);border:1.5px solid rgba(245,200,66,.3);border-radius:9px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--amber)';
+    warn.innerHTML=`⚠ <strong>${esc(existingLock.user)}</strong> is currently editing this order`;
+    const body=document.querySelector('#m-order .mbody');
+    if(body)body.insertBefore(warn,body.firstChild);
+  }
+  S.orderLocks[id]={user:myName,time:new Date().toISOString()};
+  persist();
   document.getElementById('of-del-btn').style.display=canDelete()?'':'none';
   document.getElementById('of-awb').value=j.awb;
   document.getElementById('of-ref').value=j.orderRef||'';
@@ -2148,7 +2214,12 @@ function deleteOrder(){
   });
 }
 
-/* ── VIEW ORDER ── */
+function closeOrderModal(){
+  // Release lock
+  const id=document.getElementById('of-edit-id')?.value;
+  if(id&&S.orderLocks){delete S.orderLocks[id];persist();}
+  closeM('m-order');
+}
 function viewOrder(id){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   const isD=j.type==='Delivery';
@@ -2250,11 +2321,23 @@ function openLoadModal(id){
 }
 function confirmLoaded(){
   const id=document.getElementById('load-order-id').value;
+  const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
+  // Check if order was already loaded/completed by someone else
+  if(['Loaded','In Transit','Completed'].includes(j.status)){
+    const who=j.whBy||'another user';
+    const when=j.loadedAt||j.updatedAt;
+    const whenStr=when?` at ${new Date(new Date(when).getTime()+TZ_OFFSET*3600000).toISOString().slice(11,16)} on ${fd(when.slice(0,10))}`:'';
+    document.getElementById('load-err').innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px">
+      <div style="font-weight:700;color:var(--red);margin-bottom:4px">⚠ Already ${j.status}</div>
+      <div style="font-size:12px;color:var(--ink2)">Processed by <strong>${esc(who)}</strong>${whenStr}</div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:4px">Close this form and refresh to see the latest status.</div>
+    </div>`;
+    return;
+  }
   const sup=document.getElementById('load-by').value;
   if(!sup){document.getElementById('load-err').textContent='Supervisor required.';return;}
   const newPallets=getLines('load-lines');
   if(!newPallets.length){document.getElementById('load-err').textContent='Add at least one pallet line.';return;}
-  const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   const oldPs=palletStr(j.pallets),newPs=palletStr(newPallets),newTotal=newPallets.reduce((s,p)=>s+(p.qty||0),0);
   const changes=[];if(oldPs!==newPs)changes.push(`Pallets: ${oldPs} \u2192 ${newPs}`);
   const driverId=document.getElementById('load-driver').value;
@@ -2263,7 +2346,7 @@ function confirmLoaded(){
   j.truckPlate=document.getElementById('load-truck').value.trim();j.trailerPlate=document.getElementById('load-trailer').value.trim();j.loadNotes=document.getElementById('load-notes').value.trim();j.loadedAt=new Date().toISOString();j.updatedAt=j.loadedAt;
   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Load check',value:`Ordered: ${oldPs} \u00b7 Actual: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
   addTL(j,`Marked Loaded by ${sup}`,'status',[...changes,...(j.loadNotes?[`Notes: ${j.loadNotes}`]:[])]);
-  persist();toast(`${j.awb} Loaded by ${sup}`);closeM('m-load');
+  persist();setTimeout(()=>syncCloud(),100);toast(`${j.awb} Loaded by ${sup}`);closeM('m-load');
   // Auto-complete if 3rd party driver
   const driverName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
   if(driverName.includes('3rd')||driverName.includes('third')||driverName.includes('3rd party')){
@@ -2456,11 +2539,23 @@ function openCompleteRecModal(id){
 }
 function confirmReceived(){
   const id=document.getElementById('crec-order-id').value;
+  const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
+  // Check if order was already completed by someone else
+  if(['Completed','Pending Sort'].includes(j.status)){
+    const who=j.whBy||'another user';
+    const when=j.completedAt||j.updatedAt;
+    const whenStr=when?` at ${new Date(new Date(when).getTime()+TZ_OFFSET*3600000).toISOString().slice(11,16)} on ${fd(when.slice(0,10))}`:'';
+    document.getElementById('crec-err').innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px">
+      <div style="font-weight:700;color:var(--red);margin-bottom:4px">⚠ Already ${j.status}</div>
+      <div style="font-size:12px;color:var(--ink2)">Processed by <strong>${esc(who)}</strong>${whenStr}</div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:4px">Close this form and refresh to see the latest status.</div>
+    </div>`;
+    return;
+  }
   const sup=document.getElementById('crec-by').value;
   if(!sup){document.getElementById('crec-err').textContent='Supervisor required.';return;}
   const newPallets=getLines('crec-lines');
   if(!newPallets.length){document.getElementById('crec-err').textContent='Add at least one pallet line.';return;}
-  const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   const oldPs=palletStr(j.pallets),newPs=palletStr(newPallets),newTotal=newPallets.reduce((s,p)=>s+(p.qty||0),0);
   const cond=document.getElementById('crec-cond').value,notes=document.getElementById('crec-notes').value.trim();
   const driverId=document.getElementById('crec-driver').value;
@@ -2478,8 +2573,7 @@ function confirmReceived(){
   adjustStockOnComplete(j);
   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Receive check',value:`Ordered: ${oldPs} \u00b7 Received: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
   addTL(j,`Completed by ${sup}`,'status',[...changes,...(notes?[`Notes: ${notes}`]:[])]);
-  persist();toast(`${j.awb} completed`);closeM('m-crec');renderReceiving();renderOrders();renderDash();
-  // Show WhatsApp receiving form
+  persist();setTimeout(()=>syncCloud(),100);toast(`${j.awb} completed`);closeM('m-crec');renderReceiving();renderOrders();renderDash();
   sendWhatsAppReceiving(j);
 }
 
@@ -2511,7 +2605,19 @@ function setQuickType(type){
   document.getElementById('qk-condition-row').style.display=type==='Collection'?'':'none';
   const btn=document.getElementById('qk-save-btn');
   btn.textContent=type==='Delivery'?'⚡ Create & Load':'⚡ Create & Receive';
-  document.getElementById('quick-title').textContent=type==='Delivery'?'⚡ Quick Dispatch':'⚡ Quick Receive';
+  document.getElementById('quick-title').textContent=type==='Delivery'?'⚡ Quick Dispatch':'📥 Quick Receive';
+  const mbox=document.querySelector('#m-quick .mbox');
+  if(mbox){
+    mbox.style.borderColor=type==='Delivery'?'':'rgba(245,200,66,.6)';
+    mbox.style.background=type==='Delivery'?'':'#1f1a00';
+  }
+  const hdr=document.getElementById('quick-mhdr');
+  if(hdr){
+    hdr.style.background=type==='Delivery'?'':'rgba(245,200,66,.18)';
+    hdr.style.borderBottom=type==='Delivery'?'':'1px solid rgba(245,200,66,.4)';
+  }
+  const title=document.getElementById('quick-title');
+  if(title)title.style.color=type==='Delivery'?'':'var(--amber)';
 }
 
 function saveQuickEntry(createOnly){
@@ -2559,7 +2665,10 @@ function saveQuickEntry(createOnly){
   }
   if(!S.orders)S.orders=[];
   S.orders.unshift(j);
+  j._pendingSync=true; // mark as pending until confirmed synced
   persist();
+  // Force immediate sync regardless of modal state
+  setTimeout(()=>syncCloud(),100);
   if(createOnly){
     toast(`✓ Order ${awb} created — Open`);
     closeM('m-quick');
@@ -5311,6 +5420,49 @@ function sendToBin(type,id,name,data){
   if(!S.bin)S.bin=[];
   S.bin.unshift(entry);
   sbUpsert('sp_deleted',entry.id,entry).catch(()=>{});
+}
+
+function forceSyncNow(){
+  toast('Syncing...');
+  syncCloud();
+  loadCloud().then(()=>{
+    const ap=typeof activePage!=='undefined'?activePage:null;
+    if(ap&&!document.querySelector('.mbackdrop.open'))renderPage(ap);
+    updateNavBadges();
+    toast('✓ Sync complete');
+  }).catch(()=>toast('Sync error — check connection','err'));
+}
+
+function checkReconciliation(){
+  if(!isAdmin()&&ME?.role!=='Manager')return;
+  const today=tod();
+  const completedToday=(S.orders||[]).filter(j=>
+    (j.status==='Completed'||j.status==='Pending Sort')&&
+    (j.completedAt||j.updatedAt||'').slice(0,10)===today
+  );
+  const issues=[];
+  completedToday.forEach(j=>{
+    const ledgerEntries=(S.ledger||[]).filter(l=>l.ref===j.awb||l.orderId===j.id);
+    if(!ledgerEntries.length){
+      issues.push({awb:j.awb,company:j.companyName,pallets:palletStr(j.pallets),type:j.type});
+    }
+  });
+  const warn=document.getElementById('dash-recon-warn');
+  if(warn){
+    if(issues.length){
+      warn.style.display='';
+      warn.innerHTML=`<div style="background:rgba(245,107,107,.1);border:1.5px solid rgba(245,107,107,.4);border-radius:var(--r);padding:12px 14px;margin-bottom:14px">
+        <div style="font-weight:700;color:var(--red);margin-bottom:8px">⚠ Stock Warning — ${issues.length} order${issues.length>1?'s':''} completed today with no stock movement</div>
+        ${issues.map(i=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid rgba(245,107,107,.2);display:flex;justify-content:space-between;gap:12px">
+          <span><strong>${esc(i.awb)}</strong> — ${esc(i.company)}</span>
+          <span style="color:var(--ink3)">${esc(i.pallets)} · ${esc(i.type)}</span>
+        </div>`).join('')}
+        <div style="font-size:11px;color:var(--ink3);margin-top:8px">Check Stock → Ledger to verify.</div>
+      </div>`;
+    } else {
+      warn.style.display='none';
+    }
+  }
 }
 
 function renderBin(){
