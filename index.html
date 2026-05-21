@@ -3887,8 +3887,10 @@ function addPltLine(cid,cls,qty){
   if(cid==='srt-lines') skuList=getSKUS().filter(s=>s!=='Unsorted'&&!s.toLowerCase().includes('new'));
   const rmCb=`this.closest('.plt-line').remove();${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}`;
   const inpCb=`${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}`;
-  d.innerHTML=`<select class="inp"><option value="">— Class —</option>${skuList.map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="${inpCb}"/><button type="button" class="rm-btn" onclick="${rmCb}">−</button>`;
+  d.innerHTML=`<select class="inp"><option value="">— Class —</option>${skuList.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="${inpCb}"/><button type="button" class="rm-btn" onclick="${rmCb}">−</button>`;
   c.appendChild(d);
+  // Set selected class after DOM insertion to ensure match
+  if(cls){const sel=d.querySelector('select');if(sel)sel.value=cls;}
   if(cid==='srt-lines'){
     d.querySelector('select').addEventListener('change',onSrtLinesChange);
     d.querySelector('input').addEventListener('input',onSrtLinesChange);
