@@ -1962,7 +1962,7 @@ function renderOrdTable(){
       ${col('whBy')?`<td style="font-size:12px;font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td>`:''}
       ${col('whNotes')?`<td style="font-size:11px;color:var(--ink3);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(whn)}">${esc(whn)}</td>`:''}
       ${col('status')?`<td>${stChip(j.status)}</td>`:''}
-      <td class="right" style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>${isAdmin()?`${(()=>{const lk=S.orderLocks&&S.orderLocks[j.id];const age=lk?(Date.now()-new Date(lk.time).getTime())/1000:999;return lk&&age<300?` <span style="font-size:10px;color:var(--amber);font-weight:600">🔒 ${esc(lk.user)}</span>`:(` <button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`);})()}`:''}
+      <td class="right" style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>${isAdmin()?`${(()=>{const lk=S.orderLocks&&S.orderLocks[j.id];const age=lk?(Date.now()-new Date(lk.time).getTime())/1000:999;return lk&&age<300?` <span style="font-size:10px;color:var(--amber);font-weight:600">🔒 ${esc(lk.user)}</span> <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="forceUnlockOrder('${j.id}')">Unlock</button>`:(` <button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`);})()}`:''}
       </td>
     </tr>`;
   }).join('');
@@ -2249,10 +2249,24 @@ function deleteOrder(){
   renderPlanner();
 }
 
+function forceUnlockOrder(id){
+  if(!S.orderLocks)return;
+  delete S.orderLocks[id];
+  sbUpsert('sp_stock','__locks',S.orderLocks).catch(()=>{});
+  persist();
+  renderOrders();
+  toast('Order unlocked');
+}
 function closeOrderModal(){
   // Release lock
   const id=document.getElementById('of-edit-id')?.value;
-  if(id&&S.orderLocks){delete S.orderLocks[id];persist();}
+  if(id&&S.orderLocks){
+    delete S.orderLocks[id];
+    // Force-push cleared locks to Supabase immediately (don't wait for debounce)
+    sbUpsert('sp_stock','__locks',S.orderLocks).catch(()=>{});
+    persist();
+    renderOrders();
+  }
   const dc=document.getElementById('of-del-confirm');if(dc)dc.style.display='none';
   closeM('m-order');
 }
