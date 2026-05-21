@@ -1221,8 +1221,10 @@ function syncCloud(){
   _syncT=setTimeout(async()=>{
     setSS('syncing');
     try{
+      // Mark all local orders as pending sync
+      (S.orders||[]).forEach(o=>o._pendingSync=true);
       const tables={
-        sp_orders:S.orders||[],
+        sp_orders:(S.orders||[]).map(o=>({...o,_pendingSync:undefined})), // don't save flag to cloud
         sp_repairs:S.repairs||[],
         sp_sortings:S.sortings||[],
         sp_users:S.users||[],
@@ -1242,6 +1244,9 @@ function syncCloud(){
         }
       }
       await Promise.all(promises);
+      // Clear pending flag after successful sync
+      (S.orders||[]).forEach(o=>delete o._pendingSync);
+      localStorage.setItem(SKEY,JSON.stringify(S));
       setSS('ok');
     }catch(e){console.error('syncCloud',e);setSS('error');}
   },2000);
@@ -1265,7 +1270,9 @@ async function loadCloud(){
     const deletedOrderIds=new Set((S.bin||[]).filter(e=>e.type==='order').map(e=>e.originalId));
     if(orders&&orders.length){
       const remote=orders.map(r=>r.data).filter(Boolean);
+      const remoteIds=new Set(remote.map(o=>o.id));
       const local=S.orders||[];
+      // Start with remote as source of truth
       const merged=remote.map(ro=>{
         const lo=local.find(x=>x.id===ro.id);
         if(!lo)return ro;
@@ -1273,12 +1280,14 @@ async function loadCloud(){
         const localTime=new Date(lo.updatedAt||lo.createdAt||0).getTime();
         return localTime>remoteTime?lo:ro;
       });
-      // Add local-only orders NOT in deleted list
-      local.forEach(lo=>{if(!merged.find(x=>x.id===lo.id)&&!deletedOrderIds.has(lo.id))merged.unshift(lo);});
-      // Always filter out deleted orders
+      // Keep local orders not yet on remote ONLY if flagged as pending sync
+      local.forEach(lo=>{
+        if(!remoteIds.has(lo.id)&&!deletedOrderIds.has(lo.id)&&lo._pendingSync){
+          merged.unshift(lo);
+        }
+      });
       S.orders=merged.filter(o=>!deletedOrderIds.has(o.id));
     } else if(deletedOrderIds.size>0){
-      // No remote orders but we have deletions — still filter local
       S.orders=(S.orders||[]).filter(o=>!deletedOrderIds.has(o.id));
     }
     if(repairs&&repairs.length)S.repairs=repairs.map(r=>r.data).filter(Boolean);
