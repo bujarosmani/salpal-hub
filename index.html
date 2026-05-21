@@ -5464,17 +5464,8 @@ function checkReconciliation(){
   );
   const issues=[];
   completedToday.forEach(j=>{
-    const ledgerEntries=(S.ledger||[]).filter(l=>
-      l.ref===j.awb||
-      l.orderId===j.id||
-      (l.notes&&l.notes.includes(j.awb))
-    );
-    // Also check if stock was moved via quick entry (ref might be different)
-    const qkEntries=(S.ledger||[]).filter(l=>
-      l.notes&&(l.notes.includes(j.companyName||'XXXXX'))&&
-      l.date&&l.date.slice(0,10)===today
-    );
-    if(!ledgerEntries.length&&!qkEntries.length){
+    const ledgerEntries=(S.ledger||[]).filter(l=>l.ref===j.awb);
+    if(!ledgerEntries.length){
       issues.push({id:j.id,awb:j.awb,company:j.companyName,pallets:palletStr(j.pallets),type:j.type});
     }
   });
