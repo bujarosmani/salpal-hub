@@ -720,8 +720,8 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       </div>
       <div class="frow">
         <div class="fwrap"><label class="flabel">Address</label><input class="inp" id="of-addr" placeholder="Street"/></div>
-        <div class="fwrap"><label class="flabel">City *</label><input class="inp" id="of-city" placeholder="City"/></div>
-        <div class="fwrap"><label class="flabel">Postcode *</label><input class="inp" id="of-post" placeholder="Postcode"/></div>
+        <div class="fwrap"><label class="flabel">City</label><input class="inp" id="of-city" placeholder="City"/></div>
+        <div class="fwrap"><label class="flabel">Postcode</label><input class="inp" id="of-post" placeholder="Postcode"/></div>
       </div>
       <div class="div"></div>
       <div class="sec-row"><div class="sec-title">Pallets</div><button class="btn btn-ghost btn-sm" type="button" onclick="addPltLine('of-lines')">+ Add Line</button></div>
@@ -2016,7 +2016,7 @@ function saveOrder(force){
   const city=document.getElementById('of-city').value.trim();
   const post=document.getElementById('of-post').value.trim();
   const type=document.getElementById('of-type').value;
-  if(!ddate||!coSearch||!city||!post||!type){highlightRequired(['of-ddate','of-co-search','of-city','of-post','of-type']);document.getElementById('of-err').textContent='Please fill all required fields highlighted in red.';return;}
+  if(!ddate||!coSearch||!type){highlightRequired(['of-ddate','of-co-search','of-type']);document.getElementById('of-err').textContent='Please fill all required fields highlighted in red.';return;}
   const pallets=getLines('of-lines');
   if(!pallets.length){document.getElementById('of-err').textContent='Add at least one pallet line.';return;}
   const totalQty=pallets.reduce((s,p)=>s+(p.qty||0),0);
