@@ -5422,6 +5422,28 @@ function sendToBin(type,id,name,data){
   sbUpsert('sp_deleted',entry.id,entry).catch(()=>{});
 }
 
+function fixMissingStock(orderId){
+  const j=(S.orders||[]).find(x=>x.id===orderId);if(!j)return;
+  if(!S.stock)S.stock={};
+  let fixed=0;
+  (j.pallets||[]).forEach(p=>{
+    if(!p.cls||!p.qty)return;
+    if(!S.stock[p.cls])S.stock[p.cls]=0;
+    if(j.type==='Delivery'){
+      S.stock[p.cls]-=p.qty;
+      addLedger('Order Out',j.awb,p.cls,'out',p.qty,`Manual fix — Delivered to ${j.companyName||''}`);
+    } else {
+      S.stock[p.cls]+=p.qty;
+      addLedger('Order In',j.awb,p.cls,'in',p.qty,`Manual fix — Received from ${j.companyName||''}`);
+    }
+    fixed++;
+  });
+  persist();
+  setTimeout(()=>syncCloud(),100);
+  toast(`✓ Stock fixed for ${j.awb} — ${fixed} product${fixed>1?'s':''} updated`);
+  renderDash();
+}
+
 function forceSyncNow(){
   toast('Syncing...');
   syncCloud();
@@ -5442,9 +5464,18 @@ function checkReconciliation(){
   );
   const issues=[];
   completedToday.forEach(j=>{
-    const ledgerEntries=(S.ledger||[]).filter(l=>l.ref===j.awb||l.orderId===j.id);
-    if(!ledgerEntries.length){
-      issues.push({awb:j.awb,company:j.companyName,pallets:palletStr(j.pallets),type:j.type});
+    const ledgerEntries=(S.ledger||[]).filter(l=>
+      l.ref===j.awb||
+      l.orderId===j.id||
+      (l.notes&&l.notes.includes(j.awb))
+    );
+    // Also check if stock was moved via quick entry (ref might be different)
+    const qkEntries=(S.ledger||[]).filter(l=>
+      l.notes&&(l.notes.includes(j.companyName||'XXXXX'))&&
+      l.date&&l.date.slice(0,10)===today
+    );
+    if(!ledgerEntries.length&&!qkEntries.length){
+      issues.push({id:j.id,awb:j.awb,company:j.companyName,pallets:palletStr(j.pallets),type:j.type});
     }
   });
   const warn=document.getElementById('dash-recon-warn');
@@ -5453,9 +5484,12 @@ function checkReconciliation(){
       warn.style.display='';
       warn.innerHTML=`<div style="background:rgba(245,107,107,.1);border:1.5px solid rgba(245,107,107,.4);border-radius:var(--r);padding:12px 14px;margin-bottom:14px">
         <div style="font-weight:700;color:var(--red);margin-bottom:8px">⚠ Stock Warning — ${issues.length} order${issues.length>1?'s':''} completed today with no stock movement</div>
-        ${issues.map(i=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid rgba(245,107,107,.2);display:flex;justify-content:space-between;gap:12px">
-          <span><strong>${esc(i.awb)}</strong> — ${esc(i.company)}</span>
-          <span style="color:var(--ink3)">${esc(i.pallets)} · ${esc(i.type)}</span>
+        ${issues.map(i=>`<div style="font-size:12px;padding:6px 0;border-bottom:1px solid rgba(245,107,107,.2);display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div><strong>${esc(i.awb)}</strong> — ${esc(i.company)}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="color:var(--ink3)">${esc(i.pallets)} · ${esc(i.type)}</span>
+            <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px;border-color:rgba(245,107,107,.4);color:var(--red)" onclick="fixMissingStock('${i.id}')">Fix Stock</button>
+          </div>
         </div>`).join('')}
         <div style="font-size:11px;color:var(--ink3);margin-top:8px">Check Stock → Ledger to verify.</div>
       </div>`;
