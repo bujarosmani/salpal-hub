@@ -307,6 +307,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <div class="sb-sec-lbl">Admin</div>
     <button class="sb-btn" data-p="users"><span class="ic">👥</span>Users</button>
     <button class="sb-btn" data-p="companies"><span class="ic">🏢</span>Companies</button>
+    <button class="sb-btn" data-p="fleet"><span class="ic">🚛</span>Fleet & HR</button>
     <button class="sb-btn" data-p="bin"><span class="ic">🗑</span>Recycle Bin</button>
   </div>
   <div class="sb-sec" id="nav-driver" style="display:none">
@@ -525,6 +526,116 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
   <div id="planner-body"></div>
 </div>
 
+<div class="page" id="page-fleet">
+  <div class="phdr">
+    <div><div class="ptitle">Fleet & HR</div><div class="psub">Vehicles, employees, documents & reminders</div></div>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn on" onclick="fleetTab('overview',this)">Overview</button>
+    <button class="tab-btn" onclick="fleetTab('vehicles',this)">Vehicles</button>
+    <button class="tab-btn" onclick="fleetTab('employees',this)">Employees</button>
+  </div>
+  <div class="tpane on" id="fleet-overview"></div>
+  <div class="tpane" id="fleet-vehicles"></div>
+  <div class="tpane" id="fleet-employees"></div>
+</div>
+
+<div class="mbackdrop" id="m-vehicle">
+  <div class="mbox">
+    <div class="mhdr"><span class="mtitle" id="veh-modal-title">Add Vehicle</span><button class="mclose" onclick="closeM('m-vehicle')">✕</button></div>
+    <div class="mbody">
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Type *</label>
+          <select class="inp" id="veh-type"><option value="Truck">Truck</option><option value="Trailer">Trailer</option><option value="Van">Van</option></select>
+        </div>
+        <div class="fwrap"><label class="flabel">Plate *</label><input class="inp" id="veh-plate" placeholder="AB 1234..."/></div>
+      </div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Make / Model</label><input class="inp" id="veh-model" placeholder="Mercedes Actros..."/></div>
+        <div class="fwrap"><label class="flabel">Year</label><input class="inp" type="number" id="veh-year" placeholder="2020"/></div>
+      </div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:700;margin:12px 0 8px">Documents</div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Registration Expiry</label><input class="inp" type="date" id="veh-reg"/></div>
+        <div class="fwrap"><label class="flabel">Warn (days before)</label><input class="inp" type="number" id="veh-reg-warn" value="30" min="1"/></div>
+      </div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Insurance Expiry</label><input class="inp" type="date" id="veh-ins"/></div>
+        <div class="fwrap"><label class="flabel">Warn (days before)</label><input class="inp" type="number" id="veh-ins-warn" value="45" min="1"/></div>
+      </div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">MOT / Inspection Expiry</label><input class="inp" type="date" id="veh-mot"/></div>
+        <div class="fwrap"><label class="flabel">Warn (days before)</label><input class="inp" type="number" id="veh-mot-warn" value="30" min="1"/></div>
+      </div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:700;margin:12px 0 8px">Service</div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Last Service Date</label><input class="inp" type="date" id="veh-svc-date"/></div>
+        <div class="fwrap"><label class="flabel">Last Service KM</label><input class="inp" type="number" id="veh-svc-km" placeholder="150000"/></div>
+      </div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Interval (months)</label><input class="inp" type="number" id="veh-svc-months" placeholder="6" min="1"/></div>
+        <div class="fwrap"><label class="flabel">Interval (km)</label><input class="inp" type="number" id="veh-svc-kmint" placeholder="30000" min="1"/></div>
+      </div>
+      <div class="fwrap"><label class="flabel">Current KM</label><input class="inp" type="number" id="veh-cur-km" placeholder="Current odometer reading"/></div>
+      <div class="fwrap"><label class="flabel">Notes</label><input class="inp" id="veh-notes" placeholder="Any notes..."/></div>
+      <div class="ferr" id="veh-err"></div>
+      <input type="hidden" id="veh-id"/>
+    </div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-vehicle')">Cancel</button><button class="btn btn-primary" onclick="saveVehicle()">✓ Save</button></div>
+  </div>
+</div>
+
+<div class="mbackdrop" id="m-employee">
+  <div class="mbox">
+    <div class="mhdr"><span class="mtitle" id="emp-modal-title">Add Employee</span><button class="mclose" onclick="closeM('m-employee')">✕</button></div>
+    <div class="mbody">
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">First Name *</label><input class="inp" id="emp-fn" placeholder="First name"/></div>
+        <div class="fwrap"><label class="flabel">Last Name *</label><input class="inp" id="emp-ln" placeholder="Last name"/></div>
+      </div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Role</label><input class="inp" id="emp-role" placeholder="Driver, Supervisor..."/></div>
+        <div class="fwrap"><label class="flabel">Phone</label><input class="inp" id="emp-phone" placeholder="+49..."/></div>
+      </div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:700;margin:12px 0 8px">Documents</div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Driving Licence No.</label><input class="inp" id="emp-lic-no" placeholder="Licence number"/></div>
+        <div class="fwrap"><label class="flabel">Licence Expiry</label><input class="inp" type="date" id="emp-lic-exp"/></div>
+      </div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Warn (days before)</label><input class="inp" type="number" id="emp-lic-warn" value="45" min="1"/></div>
+        <div class="fwrap"><label class="flabel">Passport Expiry</label><input class="inp" type="date" id="emp-pass-exp"/></div>
+      </div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Passport Warn (days)</label><input class="inp" type="number" id="emp-pass-warn" value="90" min="1"/></div>
+        <div class="fwrap"><label class="flabel">Work Permit Expiry</label><input class="inp" type="date" id="emp-wp-exp"/></div>
+      </div>
+      <div class="fwrap"><label class="flabel">Work Permit Warn (days)</label><input class="inp" type="number" id="emp-wp-warn" value="60" min="1"/></div>
+      <div class="fwrap"><label class="flabel">Notes</label><input class="inp" id="emp-notes" placeholder="Any notes..."/></div>
+      <div class="ferr" id="emp-err"></div>
+      <input type="hidden" id="emp-id"/>
+    </div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-employee')">Cancel</button><button class="btn btn-primary" onclick="saveEmployee()">✓ Save</button></div>
+  </div>
+</div>
+
+<div class="mbackdrop" id="m-service">
+  <div class="mbox">
+    <div class="mhdr"><span class="mtitle">Log Service</span><button class="mclose" onclick="closeM('m-service')">✕</button></div>
+    <div class="mbody">
+      <div style="font-size:13px;color:var(--ink2);margin-bottom:12px" id="svc-veh-info"></div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Service Date *</label><input class="inp" type="date" id="svc-date"/></div>
+        <div class="fwrap"><label class="flabel">KM at Service *</label><input class="inp" type="number" id="svc-km" placeholder="160000"/></div>
+      </div>
+      <div class="fwrap"><label class="flabel">Notes</label><input class="inp" id="svc-notes" placeholder="What was done..."/></div>
+      <div class="ferr" id="svc-err"></div>
+      <input type="hidden" id="svc-veh-id"/>
+    </div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-service')">Cancel</button><button class="btn btn-primary" onclick="saveService()">✓ Log &amp; Book Next</button></div>
+  </div>
+</div>
+
 <div class="page" id="page-bin">
   <div class="phdr"><div><div class="ptitle">Recycle Bin</div><div class="psub">Deleted items — restore or permanently delete</div></div></div>
   <div class="card">
@@ -657,11 +768,15 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       </div>
       <div class="sec-row"><div class="sec-title">Confirm / Edit Pallets</div><button class="btn btn-ghost btn-sm" type="button" onclick="addPltLine('load-lines')">+ Add</button></div>
       <div id="load-lines"></div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px;padding:8px 12px;background:var(--panel2);border-radius:9px;border:1.5px solid var(--line2)">
+        <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:700">Total</span>
+        <span id="load-total" style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--brand)">0</span>
+      </div>
       <div class="fwrap" style="margin-top:10px"><label class="flabel">Notes</label><textarea class="inp" id="load-notes" rows="2"></textarea></div>
       <div class="ferr" id="load-err"></div>
       <input type="hidden" id="load-order-id"/>
     </div>
-    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-load')">Cancel</button><button class="btn btn-primary" onclick="confirmLoaded()">✓ Mark Loaded</button></div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-load')">Cancel</button><button class="btn btn-ghost" onclick="saveLoadLater()">+ Save for Later</button><button class="btn btn-primary" onclick="confirmLoaded()">✓ Mark Loaded</button></div>
   </div>
 </div>
 
@@ -686,11 +801,15 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
       </div>
       <div class="sec-row"><div class="sec-title">Confirm / Edit Pallets</div><button class="btn btn-ghost btn-sm" type="button" onclick="addPltLine('crec-lines')">+ Add</button></div>
       <div id="crec-lines"></div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px;padding:8px 12px;background:var(--panel2);border-radius:9px;border:1.5px solid var(--line2)">
+        <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:700">Total</span>
+        <span id="crec-total" style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--brand)">0</span>
+      </div>
       <div class="fwrap" style="margin-top:10px"><label class="flabel">Notes</label><textarea class="inp" id="crec-notes" rows="2"></textarea></div>
       <div class="ferr" id="crec-err"></div>
       <input type="hidden" id="crec-order-id"/>
     </div>
-    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-crec')">Cancel</button><button class="btn btn-primary" onclick="confirmReceived()">✓ Complete</button></div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-crec')">Cancel</button><button class="btn btn-ghost" onclick="saveRecLater()">+ Save for Later</button><button class="btn btn-primary" onclick="confirmReceived()">✓ Complete</button></div>
   </div>
 </div>
 
@@ -1109,7 +1228,7 @@ async function loadCloud(){
     if(sortings&&sortings.length)S.sortings=sortings.map(r=>r.data).filter(Boolean);
     if(companies&&companies.length)S.companies=companies.map(r=>r.data).filter(Boolean);
     if(ledger&&ledger.length)S.ledger=ledger.map(r=>r.data).filter(Boolean);
-    if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;const wr=stock.find(r=>r.id==='__workers');if(wr&&wr.data)S.workers=wr.data;const pr=stock.find(r=>r.id==='__plans');if(pr&&pr.data)S.plans=pr.data;}
+    if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;const wr=stock.find(r=>r.id==='__workers');if(wr&&wr.data)S.workers=wr.data;const pr=stock.find(r=>r.id==='__plans');if(pr&&pr.data)S.plans=pr.data;const fr=stock.find(r=>r.id==='__fleet');if(fr&&fr.data)S.fleet=fr.data;}
     if(products&&products.length){const pr=products.find(r=>r.id==='__products');if(pr)S.products=pr.data;}
     if(deleted&&deleted.length)S.bin=deleted.map(r=>r.data).filter(Boolean);
     localStorage.setItem(SKEY,JSON.stringify(S));
@@ -1389,7 +1508,7 @@ function setupNav(){
   const r=ME.role;
   document.getElementById('nav-admin').style.display=(r==='Admin'||r==='Manager'||r==='Viewer')?'':'none';
   document.getElementById('nav-driver').style.display=r==='Driver'?'':'none';
-  const vis={Admin:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','planner'],Manager:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','planner'],Viewer:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'],Supervisor:['dispatch','receiving','repairs','sorting'],Driver:[]};
+  const vis={Admin:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','planner','fleet'],Manager:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','planner','fleet'],Viewer:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'],Supervisor:['dispatch','receiving','repairs','sorting'],Driver:[]};
   const allowed=vis[r]||[];
   ['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'].forEach(p=>{const el=document.getElementById(`snav-${p}`);if(el)el.style.display=allowed.includes(p)?'':'none';});
   document.getElementById('btn-new-order').style.display=(r==='Admin'||r==='Manager')?'':'none';
@@ -1428,7 +1547,7 @@ function goTo(page){
   document.querySelectorAll(`.sb-btn[data-p="${page}"]`).forEach(b=>b.classList.add('on'));
   closeMob();renderPage(page);
 }
-function renderPage(p){if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='driver')renderDriver();}
+function renderPage(p){if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='fleet')renderFleet();else if(p==='driver')renderDriver();}
 document.querySelectorAll('.sb-btn[data-p]').forEach(btn=>{btn.onclick=()=>goTo(btn.dataset.p);});
 document.getElementById('ham-btn').onclick=()=>{document.getElementById('sidebar').classList.add('open');document.getElementById('mob-overlay').classList.add('open');};
 document.getElementById('mob-overlay').onclick=closeMob;
@@ -1933,6 +2052,45 @@ function renderDispatch(){
   bindCbDropdown('disDrv',disDrvOpts,v=>{disF.drivers=v;renderDispatch();});
   const dpb=document.getElementById('dis-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(disF.dateFrom,disF.dateTo,(f,t)=>{disF.dateFrom=f;disF.dateTo=t;renderDispatch();});
 }
+function updateCrecTotal(){const t=getLines('crec-lines').reduce((s,p)=>s+p.qty,0);const el=document.getElementById('crec-total');if(el)el.textContent=t;}
+function updateLoadTotal(){const t=getLines('load-lines').reduce((s,p)=>s+p.qty,0);const el=document.getElementById('load-total');if(el)el.textContent=t;}
+
+function saveRecLater(){
+  const id=document.getElementById('crec-order-id').value;
+  const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
+  const newPallets=getLines('crec-lines');
+  const driverId=document.getElementById('crec-driver').value;
+  const truck=document.getElementById('crec-truck').value.trim();
+  const trailer=document.getElementById('crec-trailer').value.trim();
+  const notes=document.getElementById('crec-notes').value.trim();
+  const cond=document.getElementById('crec-cond').value;
+  if(newPallets.length){j.pallets=newPallets;j.totalQty=newPallets.reduce((s,p)=>s+(p.qty||0),0);}
+  if(driverId)j.driverId=driverId;
+  if(truck)j.truckPlate=truck;
+  if(trailer)j.trailerPlate=trailer;
+  if(notes)j.whNotes=notes;
+  if(cond)j.condition=cond;
+  j.updatedAt=new Date().toISOString();
+  persist();closeM('m-crec');renderReceiving();toast('Saved — complete later from To Do');
+}
+
+function saveLoadLater(){
+  const id=document.getElementById('load-order-id').value;
+  const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
+  const newPallets=getLines('load-lines');
+  const driverId=document.getElementById('load-driver').value;
+  const truck=document.getElementById('load-truck').value.trim();
+  const trailer=document.getElementById('load-trailer').value.trim();
+  const notes=document.getElementById('load-notes').value.trim();
+  if(newPallets.length){j.pallets=newPallets;j.totalQty=newPallets.reduce((s,p)=>s+(p.qty||0),0);}
+  if(driverId)j.driverId=driverId;
+  if(truck)j.truckPlate=truck;
+  if(trailer)j.trailerPlate=trailer;
+  if(notes)j.loadNotes=notes;
+  j.updatedAt=new Date().toISOString();
+  persist();closeM('m-load');renderDispatch();toast('Saved — load when ready from To Do');
+}
+
 function openLoadModal(id){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   document.getElementById('load-order-id').value=id;
@@ -1948,6 +2106,7 @@ function openLoadModal(id){
   drvSel.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}"${j.driverId===d.id?' selected':''}>${d.firstName} ${d.lastName}</option>`).join('');
   document.getElementById('load-lines').innerHTML='';
   (j.pallets||[]).forEach(p=>addPltLine('load-lines',p.cls,p.qty));
+  setTimeout(updateLoadTotal,50);
   openM('m-load');
 }
 function confirmLoaded(){
@@ -2153,6 +2312,7 @@ function openCompleteRecModal(id){
   const drvSel=document.getElementById('crec-driver');
   drvSel.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}"${j.driverId===d.id?' selected':''}>${d.firstName} ${d.lastName}</option>`).join('');
   document.getElementById('crec-lines').innerHTML='';(j.pallets||[]).forEach(p=>addPltLine('crec-lines',p.cls,p.qty));
+  setTimeout(updateCrecTotal,50);
   openM('m-crec');
 }
 function confirmReceived(){
@@ -3631,7 +3791,9 @@ function addPltLine(cid,cls,qty){
   // Filter classes based on context
   let skuList=getSKUS();
   if(cid==='srt-lines') skuList=getSKUS().filter(s=>s!=='Unsorted'&&!s.toLowerCase().includes('new'));
-  d.innerHTML=`<select class="inp"><option value="">— Class —</option>${skuList.map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800"/><button type="button" class="rm-btn" onclick="this.closest('.plt-line').remove();${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}">−</button>`;
+  const rmCb=`this.closest('.plt-line').remove();${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}`;
+  const inpCb=`${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}`;
+  d.innerHTML=`<select class="inp"><option value="">— Class —</option>${skuList.map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="${inpCb}"/><button type="button" class="rm-btn" onclick="${rmCb}">−</button>`;
   c.appendChild(d);
   if(cid==='srt-lines'){
     d.querySelector('select').addEventListener('change',onSrtLinesChange);
@@ -4378,7 +4540,310 @@ function plannerDrop(toCol,orderId,fromCol){
 }
 
 
-// ── RECYCLE BIN ──
+// ── FLEET & HR ──
+function fleetTab(name,btn){const page=document.getElementById('page-fleet');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`fleet-${name}`).classList.add('on');renderFleetTab(name);}
+
+function renderFleet(){renderFleetTab('overview');}
+
+function renderFleetTab(name){
+  if(name==='overview')renderFleetOverview();
+  else if(name==='vehicles')renderFleetVehicles();
+  else if(name==='employees')renderFleetEmployees();
+}
+
+function fleetDaysDiff(dateStr){
+  if(!dateStr)return null;
+  const d=new Date(dateStr);const now=new Date();
+  return Math.floor((d-now)/(1000*60*60*24));
+}
+
+function docStatus(dateStr,warnDays){
+  const diff=fleetDaysDiff(dateStr);
+  if(diff===null)return{color:'var(--ink3)',label:'Not set',icon:'—'};
+  if(diff<0)return{color:'var(--red)',label:`Expired ${Math.abs(diff)}d ago`,icon:'🔴'};
+  if(diff===0)return{color:'var(--red)',label:'Expires TODAY',icon:'🔴'};
+  if(diff<=warnDays)return{color:'var(--amber)',label:`Expires in ${diff}d`,icon:'🟡'};
+  return{color:'var(--brand)',label:`Valid — ${diff}d left`,icon:'🟢'};
+}
+
+function nextServiceDate(lastDate,months){
+  if(!lastDate||!months)return null;
+  const d=new Date(lastDate);d.setMonth(d.getMonth()+parseInt(months));
+  return localIso(d);
+}
+
+function nextServiceKm(lastKm,interval){
+  if(!lastKm||!interval)return null;
+  return parseInt(lastKm)+parseInt(interval);
+}
+
+function serviceStatus(v){
+  const byDate=v.svcMonths&&v.svcDate?nextServiceDate(v.svcDate,v.svcMonths):null;
+  const byKm=v.svcKm&&v.svcKmInt?nextServiceKm(v.svcKm,v.svcKmInt):null;
+  const curKm=v.curKm||0;
+  let next=null,label='';
+  if(byDate&&byKm){
+    const dateNext=new Date(byDate);const now=new Date();
+    const kmDue=byKm-curKm;
+    if(kmDue<=0||(dateNext<now)){label='Service overdue';return{color:'var(--red)',label,icon:'🔴',next:byDate};}
+    // whichever is sooner
+    const daysTillDate=Math.floor((dateNext-now)/(1000*60*60*24));
+    if(kmDue<daysTillDate*50){label=`Next service in ${kmDue} km`;next=byDate;}
+    else{label=`Next service ${fd(byDate)} (${daysTillDate}d)`;next=byDate;}
+    const warn=30;
+    if(daysTillDate<=warn||kmDue<=2000)return{color:'var(--amber)',label,icon:'🟡',next};
+    return{color:'var(--brand)',label,icon:'🟢',next};
+  }
+  if(byDate){
+    const diff=fleetDaysDiff(byDate);
+    if(diff<0)return{color:'var(--red)',label:'Service overdue',icon:'🔴',next:byDate};
+    if(diff<=30)return{color:'var(--amber)',label:`Service in ${diff}d`,icon:'🟡',next:byDate};
+    return{color:'var(--brand)',label:`Next service ${fd(byDate)}`,icon:'🟢',next:byDate};
+  }
+  if(byKm){
+    const rem=byKm-curKm;
+    if(rem<=0)return{color:'var(--red)',label:'Service overdue by km',icon:'🔴',next:null};
+    if(rem<=2000)return{color:'var(--amber)',label:`Service in ${rem} km`,icon:'🟡',next:null};
+    return{color:'var(--brand)',label:`Next service in ${rem} km`,icon:'🟢',next:null};
+  }
+  return{color:'var(--ink3)',label:'No service schedule',icon:'—',next:null};
+}
+
+function renderFleetOverview(){
+  const pane=document.getElementById('fleet-overview');
+  if(!S.fleet)S.fleet={vehicles:[],employees:[]};
+  const vehicles=S.fleet.vehicles||[];
+  const employees=S.fleet.employees||[];
+  const allAlerts=[];
+
+  vehicles.forEach(v=>{
+    if(v.reg)allAlerts.push({name:v.plate,doc:'Registration',status:docStatus(v.reg,v.regWarn||30)});
+    if(v.ins)allAlerts.push({name:v.plate,doc:'Insurance',status:docStatus(v.ins,v.insWarn||45)});
+    if(v.mot)allAlerts.push({name:v.plate,doc:'MOT',status:docStatus(v.mot,v.motWarn||30)});
+    const ss=serviceStatus(v);
+    if(ss.icon!=='🟢'&&ss.icon!=='—')allAlerts.push({name:v.plate,doc:'Service',status:ss});
+  });
+  employees.forEach(e=>{
+    const name=`${e.fn} ${e.ln}`;
+    if(e.licExp)allAlerts.push({name,doc:'Driving Licence',status:docStatus(e.licExp,e.licWarn||45)});
+    if(e.passExp)allAlerts.push({name,doc:'Passport',status:docStatus(e.passExp,e.passWarn||90)});
+    if(e.wpExp)allAlerts.push({name,doc:'Work Permit',status:docStatus(e.wpExp,e.wpWarn||60)});
+  });
+
+  const red=allAlerts.filter(a=>a.status.icon==='🔴');
+  const amber=allAlerts.filter(a=>a.status.icon==='🟡');
+
+  pane.innerHTML=`
+    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="stat-box" style="border-color:${red.length?'var(--red)':'var(--line)'}">
+        <div class="stat-num" style="color:${red.length?'var(--red)':'var(--ink3)'}">${red.length}</div>
+        <div class="stat-lbl">Expired / Overdue</div>
+      </div>
+      <div class="stat-box" style="border-color:${amber.length?'var(--amber)':'var(--line)'}">
+        <div class="stat-num" style="color:${amber.length?'var(--amber)':'var(--ink3)'}">${amber.length}</div>
+        <div class="stat-lbl">Expiring Soon</div>
+      </div>
+      <div class="stat-box"><div class="stat-num">${vehicles.length}</div><div class="stat-lbl">Vehicles</div></div>
+      <div class="stat-box"><div class="stat-num">${employees.length}</div><div class="stat-lbl">Employees</div></div>
+    </div>
+    ${[...red,...amber].length?`
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:700;margin-bottom:8px">⚠ Alerts</div>
+    ${[...red,...amber].map(a=>`
+      <div style="background:var(--panel);border:1.5px solid ${a.status.icon==='🔴'?'rgba(245,107,107,.3)':'rgba(245,200,66,.3)'};border-radius:var(--r);padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:12px">
+        <span style="font-size:18px">${a.status.icon}</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:13px">${esc(a.name)} — ${esc(a.doc)}</div>
+          <div style="font-size:12px;color:${a.status.color}">${esc(a.status.label)}</div>
+        </div>
+      </div>`).join('')}`:'<div class="empty">✓ All documents valid — no alerts</div>'}
+  `;
+}
+
+function renderFleetVehicles(){
+  const pane=document.getElementById('fleet-vehicles');
+  if(!S.fleet)S.fleet={vehicles:[],employees:[]};
+  const vehicles=S.fleet.vehicles||[];
+  pane.innerHTML=`
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn btn-primary" onclick="openVehicleModal()">+ Add Vehicle</button>
+    </div>
+    ${vehicles.length?vehicles.map(v=>{
+      const ss=serviceStatus(v);
+      const docs=[
+        v.reg?{label:'Reg',s:docStatus(v.reg,v.regWarn||30)}:null,
+        v.ins?{label:'Ins',s:docStatus(v.ins,v.insWarn||45)}:null,
+        v.mot?{label:'MOT',s:docStatus(v.mot,v.motWarn||30)}:null,
+      ].filter(Boolean);
+      return`<div class="card" style="margin-bottom:10px">
+        <div class="card-body">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px">${esc(v.plate)}</span>
+                <span class="chip chip-gray" style="font-size:10px">${esc(v.type)}</span>
+              </div>
+              <div style="font-size:13px;color:var(--ink2)">${esc(v.model||'')}${v.year?' · '+v.year:''}</div>
+              <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+                ${docs.map(d=>`<span style="font-size:11px;color:${d.s.color}">${d.s.icon} ${d.label}: ${d.s.label}</span>`).join('')}
+              </div>
+              <div style="margin-top:4px;font-size:11px;color:${ss.color}">${ss.icon} ${ss.label}</div>
+              ${v.curKm?`<div style="font-size:11px;color:var(--ink3)">Current KM: ${parseInt(v.curKm).toLocaleString()}</div>`:''}
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-ghost btn-sm" onclick="openServiceModal('${v.id}')">🔧 Service</button>
+              <button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${v.id}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteVehicle('${v.id}')">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>`;}).join(''):'<div class="empty">No vehicles yet — click + Add Vehicle</div>'}
+  `;
+}
+
+function renderFleetEmployees(){
+  const pane=document.getElementById('fleet-employees');
+  if(!S.fleet)S.fleet={vehicles:[],employees:[]};
+  const employees=S.fleet.employees||[];
+  pane.innerHTML=`
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn btn-primary" onclick="openEmployeeModal()">+ Add Employee</button>
+    </div>
+    ${employees.length?employees.map(e=>{
+      const docs=[
+        e.licExp?{label:'Licence',s:docStatus(e.licExp,e.licWarn||45)}:null,
+        e.passExp?{label:'Passport',s:docStatus(e.passExp,e.passWarn||90)}:null,
+        e.wpExp?{label:'Work Permit',s:docStatus(e.wpExp,e.wpWarn||60)}:null,
+      ].filter(Boolean);
+      return`<div class="card" style="margin-bottom:10px">
+        <div class="card-body">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+            <div>
+              <div style="font-weight:700;font-size:15px">${esc(e.fn)} ${esc(e.ln)}</div>
+              <div style="font-size:12px;color:var(--ink3)">${esc(e.role||'')}${e.phone?' · '+e.phone:''}</div>
+              ${e.licNo?`<div style="font-size:11px;color:var(--ink3);margin-top:4px">Licence: ${esc(e.licNo)}</div>`:''}
+              <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
+                ${docs.map(d=>`<span style="font-size:11px;color:${d.s.color}">${d.s.icon} ${d.label}: ${d.s.label}</span>`).join('')}
+              </div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" onclick="openEmployeeModal('${e.id}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${e.id}')">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>`;}).join(''):'<div class="empty">No employees yet — click + Add Employee</div>'}
+  `;
+}
+
+function openVehicleModal(id){
+  if(!S.fleet)S.fleet={vehicles:[],employees:[]};
+  const v=id?(S.fleet.vehicles||[]).find(x=>x.id===id):null;
+  document.getElementById('veh-id').value=id||'';
+  document.getElementById('veh-modal-title').textContent=v?'Edit Vehicle':'Add Vehicle';
+  document.getElementById('veh-plate').value=v?.plate||'';
+  document.getElementById('veh-type').value=v?.type||'Truck';
+  document.getElementById('veh-model').value=v?.model||'';
+  document.getElementById('veh-year').value=v?.year||'';
+  document.getElementById('veh-reg').value=v?.reg||'';document.getElementById('veh-reg-warn').value=v?.regWarn||30;
+  document.getElementById('veh-ins').value=v?.ins||'';document.getElementById('veh-ins-warn').value=v?.insWarn||45;
+  document.getElementById('veh-mot').value=v?.mot||'';document.getElementById('veh-mot-warn').value=v?.motWarn||30;
+  document.getElementById('veh-svc-date').value=v?.svcDate||'';document.getElementById('veh-svc-km').value=v?.svcKm||'';
+  document.getElementById('veh-svc-months').value=v?.svcMonths||'';document.getElementById('veh-svc-kmint').value=v?.svcKmInt||'';
+  document.getElementById('veh-cur-km').value=v?.curKm||'';
+  document.getElementById('veh-notes').value=v?.notes||'';
+  document.getElementById('veh-err').textContent='';
+  openM('m-vehicle');
+}
+
+function saveVehicle(){
+  const plate=document.getElementById('veh-plate').value.trim();
+  if(!plate){document.getElementById('veh-err').textContent='Plate is required.';return;}
+  if(!S.fleet)S.fleet={vehicles:[],employees:[]};
+  const id=document.getElementById('veh-id').value||mkId();
+  const v={id,plate,type:document.getElementById('veh-type').value,model:document.getElementById('veh-model').value.trim(),year:document.getElementById('veh-year').value,
+    reg:document.getElementById('veh-reg').value,regWarn:parseInt(document.getElementById('veh-reg-warn').value)||30,
+    ins:document.getElementById('veh-ins').value,insWarn:parseInt(document.getElementById('veh-ins-warn').value)||45,
+    mot:document.getElementById('veh-mot').value,motWarn:parseInt(document.getElementById('veh-mot-warn').value)||30,
+    svcDate:document.getElementById('veh-svc-date').value,svcKm:parseInt(document.getElementById('veh-svc-km').value)||0,
+    svcMonths:parseInt(document.getElementById('veh-svc-months').value)||0,svcKmInt:parseInt(document.getElementById('veh-svc-kmint').value)||0,
+    curKm:parseInt(document.getElementById('veh-cur-km').value)||0,notes:document.getElementById('veh-notes').value.trim()
+  };
+  const idx=(S.fleet.vehicles||[]).findIndex(x=>x.id===id);
+  if(idx>=0)S.fleet.vehicles[idx]=v;else{if(!S.fleet.vehicles)S.fleet.vehicles=[];S.fleet.vehicles.push(v);}
+  persist();closeM('m-vehicle');renderFleetVehicles();toast('Vehicle saved');
+}
+
+function deleteVehicle(id){
+  if(!S.fleet?.vehicles)return;
+  S.fleet.vehicles=S.fleet.vehicles.filter(x=>x.id!==id);
+  persist();renderFleetVehicles();toast('Vehicle deleted');
+}
+
+function openServiceModal(vehId){
+  const v=(S.fleet?.vehicles||[]).find(x=>x.id===vehId);if(!v)return;
+  document.getElementById('svc-veh-id').value=vehId;
+  document.getElementById('svc-veh-info').textContent=`${v.plate} — ${v.model||v.type}`;
+  document.getElementById('svc-date').value=localIso(new Date());
+  document.getElementById('svc-km').value=v.curKm||'';
+  document.getElementById('svc-notes').value='';
+  document.getElementById('svc-err').textContent='';
+  openM('m-service');
+}
+
+function saveService(){
+  const vehId=document.getElementById('svc-veh-id').value;
+  const date=document.getElementById('svc-date').value;
+  const km=parseInt(document.getElementById('svc-km').value)||0;
+  if(!date||!km){document.getElementById('svc-err').textContent='Date and KM required.';return;}
+  const v=(S.fleet?.vehicles||[]).find(x=>x.id===vehId);if(!v)return;
+  v.svcDate=date;v.svcKm=km;v.curKm=km;
+  const notes=document.getElementById('svc-notes').value.trim();
+  if(!v.svcHistory)v.svcHistory=[];
+  v.svcHistory.unshift({date,km,notes,loggedAt:new Date().toISOString()});
+  persist();closeM('m-service');renderFleetVehicles();
+  const next=nextServiceDate(date,v.svcMonths);
+  toast(`Service logged ✓${next?' · Next: '+fd(next):''}`);
+}
+
+function openEmployeeModal(id){
+  if(!S.fleet)S.fleet={vehicles:[],employees:[]};
+  const e=id?(S.fleet.employees||[]).find(x=>x.id===id):null;
+  document.getElementById('emp-id').value=id||'';
+  document.getElementById('emp-modal-title').textContent=e?'Edit Employee':'Add Employee';
+  document.getElementById('emp-fn').value=e?.fn||'';document.getElementById('emp-ln').value=e?.ln||'';
+  document.getElementById('emp-role').value=e?.role||'';document.getElementById('emp-phone').value=e?.phone||'';
+  document.getElementById('emp-lic-no').value=e?.licNo||'';document.getElementById('emp-lic-exp').value=e?.licExp||'';
+  document.getElementById('emp-lic-warn').value=e?.licWarn||45;
+  document.getElementById('emp-pass-exp').value=e?.passExp||'';document.getElementById('emp-pass-warn').value=e?.passWarn||90;
+  document.getElementById('emp-wp-exp').value=e?.wpExp||'';document.getElementById('emp-wp-warn').value=e?.wpWarn||60;
+  document.getElementById('emp-notes').value=e?.notes||'';
+  document.getElementById('emp-err').textContent='';
+  openM('m-employee');
+}
+
+function saveEmployee(){
+  const fn=document.getElementById('emp-fn').value.trim(),ln=document.getElementById('emp-ln').value.trim();
+  if(!fn||!ln){document.getElementById('emp-err').textContent='First and last name required.';return;}
+  if(!S.fleet)S.fleet={vehicles:[],employees:[]};
+  const id=document.getElementById('emp-id').value||mkId();
+  const e={id,fn,ln,role:document.getElementById('emp-role').value.trim(),phone:document.getElementById('emp-phone').value.trim(),
+    licNo:document.getElementById('emp-lic-no').value.trim(),licExp:document.getElementById('emp-lic-exp').value,licWarn:parseInt(document.getElementById('emp-lic-warn').value)||45,
+    passExp:document.getElementById('emp-pass-exp').value,passWarn:parseInt(document.getElementById('emp-pass-warn').value)||90,
+    wpExp:document.getElementById('emp-wp-exp').value,wpWarn:parseInt(document.getElementById('emp-wp-warn').value)||60,
+    notes:document.getElementById('emp-notes').value.trim()
+  };
+  const idx=(S.fleet.employees||[]).findIndex(x=>x.id===id);
+  if(idx>=0)S.fleet.employees[idx]=e;else{if(!S.fleet.employees)S.fleet.employees=[];S.fleet.employees.push(e);}
+  persist();closeM('m-employee');renderFleetEmployees();toast('Employee saved');
+}
+
+function deleteEmployee(id){
+  if(!S.fleet?.employees)return;
+  S.fleet.employees=S.fleet.employees.filter(x=>x.id!==id);
+  persist();renderFleetEmployees();toast('Employee deleted');
+}
+
+
 function sendToBin(type,id,name,data){
   const entry={id:mkId(),type,originalId:id,name,data,deletedBy:ME?`${ME.firstName} ${ME.lastName}`.trim():'',deletedAt:new Date().toISOString()};
   if(!S.bin)S.bin=[];
