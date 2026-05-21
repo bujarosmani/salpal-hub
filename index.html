@@ -267,6 +267,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 }
 @media(max-width:480px){.frow.c3{grid-template-columns:1fr}.pick-grid.c3{grid-template-columns:1fr 1fr}}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
 </head>
 <body>
 
@@ -761,8 +762,17 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="ferr" id="of-err"></div>
       <input type="hidden" id="of-edit-id"/>
     </div>
+    <div id="of-del-confirm" style="display:none;padding:10px 18px 0">
+      <div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px">
+        <div style="color:var(--red);font-weight:700;margin-bottom:8px">⚠ Delete this order? Cannot be undone.</div>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteOrderNow()">✓ Yes, delete</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('of-del-confirm').style.display='none'">✕ Cancel</button>
+        </div>
+      </div>
+    </div>
     <div class="mfoot">
-      <button class="btn btn-danger btn-sm" id="of-del-btn" style="display:none;margin-right:auto" onclick="deleteOrder()">Delete</button>
+      <button class="btn btn-danger btn-sm" id="of-del-btn" style="display:none;margin-right:auto" onclick="document.getElementById('of-del-confirm').style.display='block'">Delete</button>
       <button class="btn btn-ghost" onclick="closeOrderModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveOrder()">Save Order ✓</button>
     </div>
@@ -1574,13 +1584,28 @@ function openCompanyModalInline(prefill,cb){
   openM('m-company');
 }
 
+/* ── PASSWORD HELPERS ── */
+const BCRYPT_ROUNDS = 10;
+function isHashed(pw){ return typeof pw==='string' && pw.startsWith('$2'); }
+async function hashPassword(plain){ return dcodeIO.bcrypt.hash(plain, BCRYPT_ROUNDS); }
+async function checkPassword(plain, stored){
+  if(isHashed(stored)) return dcodeIO.bcrypt.compare(plain, stored);
+  return plain === stored; // plain-text fallback during migration
+}
+
 /* ── AUTH ── */
-function doLogin(){
+async function doLogin(){
   try{
     const u=document.getElementById('li-user').value.trim().toLowerCase();
     const p=document.getElementById('li-pass').value;
-    const user=(S.users||[]).find(x=>x&&x.username&&x.username.toLowerCase()===u&&x.password===p);
+    const btn=document.getElementById('li-btn');
+    const user=(S.users||[]).find(x=>x&&x.username&&x.username.toLowerCase()===u);
     if(!user){document.getElementById('li-err').textContent='Invalid username or password.';return;}
+    if(btn)btn.disabled=true;
+    const ok=await checkPassword(p,user.password);
+    if(btn)btn.disabled=false;
+    if(!ok){document.getElementById('li-err').textContent='Invalid username or password.';return;}
+    if(!isHashed(user.password)){user.password=await hashPassword(p);persist();}
     ME=user;
     try{sessionStorage.setItem('salpal-me',user.id);}catch(e){}
     document.getElementById('li-err').textContent='';
@@ -1589,12 +1614,12 @@ function doLogin(){
     setupNav();
     updateNavBadges();
     startRealtime();
-    // Poll every 30s as fallback
-    setInterval(()=>loadCloud().catch(()=>{}),30000);
+    if(window._pollInterval)clearInterval(window._pollInterval);
+    window._pollInterval=setInterval(()=>loadCloud().catch(()=>{}),30000);
     if(ME.role==='Driver')goTo('driver');
     else if(ME.role==='Supervisor')goTo('dispatch');
     else goTo('dashboard');
-  }catch(err){document.getElementById('li-err').textContent='Error: '+err.message;}
+  }catch(err){if(document.getElementById('li-btn'))document.getElementById('li-btn').disabled=false;document.getElementById('li-err').textContent='Error: '+err.message;}
 }
 function doLogout(){
   ME=null;
@@ -1617,7 +1642,8 @@ function tryRestoreSession(){
     setupNav();
     updateNavBadges();
     startRealtime();
-    setInterval(()=>loadCloud().catch(()=>{}),30000);
+    if(window._pollInterval)clearInterval(window._pollInterval);
+    window._pollInterval=setInterval(()=>loadCloud().catch(()=>{}),30000);
     if(ME.role==='Driver')goTo('driver');
     else if(ME.role==='Supervisor')goTo('dispatch');
     else goTo('dashboard');
@@ -2187,29 +2213,31 @@ function confirmDelete(errElId,label,onConfirm){
   el.innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px"><div style="color:var(--red);font-weight:700;margin-bottom:8px">&#9888; Delete ${label}? This cannot be undone.</div><div style="display:flex;gap:8px"><button type="button" class="btn btn-danger btn-sm" id="del-yes-btn">&#10003; Yes, delete</button><button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('${errElId}').innerHTML=''">&#10005; Cancel</button></div></div>`;
   document.getElementById('del-yes-btn').onclick=()=>{el.innerHTML='';onConfirm();};
 }
+function confirmDeleteOrderNow(){
+  document.getElementById('of-del-confirm').style.display='none';
+  deleteOrder();
+}
 function deleteOrder(){
   const id=document.getElementById('of-edit-id').value;
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
-  confirmDelete('of-err',j.awb,()=>{
-    sendToBin('order',id,j.awb,j);
-    S.orders=(S.orders||[]).filter(x=>x.id!==id);
-    persist();
-    fetch(`${SB_URL}/rest/v1/sp_orders?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
-    toast('Order moved to recycle bin');closeM('m-order');
-    renderOrders();renderDash();
-    // Re-render dispatch and receiving to remove deleted order
-    const disTodo=document.getElementById('dis-pane-todo');if(disTodo)renderDisTodo();
-    const disPaneAll=document.getElementById('dis-pane-all');if(disPaneAll?.classList.contains('on'))renderDispatch();
-    const recTodo=document.getElementById('rec-pane-todo');if(recTodo)renderRecTodo();
-    const recPaneAll=document.getElementById('rec-pane-all');if(recPaneAll?.classList.contains('on'))renderReceiving();
-    renderPlanner();
-  });
+  sendToBin('order',id,j.awb,j);
+  S.orders=(S.orders||[]).filter(x=>x.id!==id);
+  persist();
+  fetch(`${SB_URL}/rest/v1/sp_orders?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+  toast('Order moved to recycle bin');closeM('m-order');
+  renderOrders();renderDash();
+  const disTodo=document.getElementById('dis-pane-todo');if(disTodo)renderDisTodo();
+  const disPaneAll=document.getElementById('dis-pane-all');if(disPaneAll?.classList.contains('on'))renderDispatch();
+  const recTodo=document.getElementById('rec-pane-todo');if(recTodo)renderRecTodo();
+  const recPaneAll=document.getElementById('rec-pane-all');if(recPaneAll?.classList.contains('on'))renderReceiving();
+  renderPlanner();
 }
 
 function closeOrderModal(){
   // Release lock
   const id=document.getElementById('of-edit-id')?.value;
   if(id&&S.orderLocks){delete S.orderLocks[id];persist();}
+  const dc=document.getElementById('of-del-confirm');if(dc)dc.style.display='none';
   closeM('m-order');
 }
 function viewOrder(id){
@@ -3277,7 +3305,30 @@ function clearCanvas(id){const cv=document.getElementById(id);if(!cv)return;cv.g
 function renderUsers(){const rC={'Admin':'chip-blue','Manager':'chip-purple','Viewer':'chip-gray','Supervisor':'chip-amber','Driver':'chip-green'};document.getElementById('users-tbody').innerHTML=(S.users||[]).map(u=>`<tr><td><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:var(--brand-dark);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:var(--brand);flex-shrink:0">${u.firstName[0]}${u.lastName[0]}</div><div><div style="font-weight:700">${esc(u.firstName)} ${esc(u.lastName)}</div></div></div></td><td style="font-family:'DM Mono',monospace;font-size:12px">${esc(u.username)}</td><td><span class="chip ${rC[u.role]||'chip-gray'}" style="font-size:10px">${u.role}</span></td><td class="right"><button class="btn btn-ghost btn-sm" onclick="editUser('${u.id}')">Edit</button> <button class="btn btn-danger btn-sm" onclick="delUser('${u.id}')">Delete</button></td></tr>`).join('');}
 function openUserModal(){['uf-first','uf-last','uf-user','uf-pw','uf-pw2'].forEach(id=>document.getElementById(id).value='');document.getElementById('uf-role').value='Driver';document.getElementById('uf-id').value='';document.getElementById('uf-err').textContent='';document.getElementById('uf-del').style.display='none';document.getElementById('user-modal-title').textContent='Add User';document.getElementById('uf-pw-lbl').textContent='Password *';openM('m-user');}
 function editUser(id){const u=(S.users||[]).find(x=>x.id===id);if(!u)return;document.getElementById('uf-first').value=u.firstName;document.getElementById('uf-last').value=u.lastName;document.getElementById('uf-user').value=u.username;document.getElementById('uf-role').value=u.role;document.getElementById('uf-pw').value='';document.getElementById('uf-pw2').value='';document.getElementById('uf-id').value=u.id;document.getElementById('uf-err').textContent='';document.getElementById('uf-del').style.display=canDelete()?'':'none';document.getElementById('user-modal-title').textContent='Edit User';document.getElementById('uf-pw-lbl').textContent='New Password (blank = keep)';openM('m-user');}
-function saveUser(){const id=document.getElementById('uf-id').value;const first=document.getElementById('uf-first').value.trim();const last=document.getElementById('uf-last').value.trim();const username=document.getElementById('uf-user').value.trim();const role=document.getElementById('uf-role').value;const pw=document.getElementById('uf-pw').value;const pw2=document.getElementById('uf-pw2').value;const err=document.getElementById('uf-err');if(!first||!last||!username||!role){err.textContent='All fields required.';return;}if(!id&&!pw){err.textContent='Password required for new users.';return;}if(pw&&pw.length<6){err.textContent='Password min 6 chars.';return;}if(pw&&pw!==pw2){err.textContent='Passwords do not match.';return;}if((S.users||[]).some(u=>u.username.toLowerCase()===username.toLowerCase()&&u.id!==id)){err.textContent='Username taken.';return;}if(id){const i=(S.users||[]).findIndex(x=>x.id===id);S.users[i]={...S.users[i],firstName:first,lastName:last,username,role,...(pw?{password:pw}:{})}}else{if(!S.users)S.users=[];S.users.push({id:mkId(),firstName:first,lastName:last,username,role,password:pw});}persist();toast(id?'User updated':'User added');closeM('m-user');renderUsers();}
+async function saveUser(){
+  const id=document.getElementById('uf-id').value;
+  const first=document.getElementById('uf-first').value.trim();
+  const last=document.getElementById('uf-last').value.trim();
+  const username=document.getElementById('uf-user').value.trim();
+  const role=document.getElementById('uf-role').value;
+  const pw=document.getElementById('uf-pw').value;
+  const pw2=document.getElementById('uf-pw2').value;
+  const err=document.getElementById('uf-err');
+  if(!first||!last||!username||!role){err.textContent='All fields required.';return;}
+  if(!id&&!pw){err.textContent='Password required for new users.';return;}
+  if(pw&&pw.length<6){err.textContent='Password min 6 chars.';return;}
+  if(pw&&pw!==pw2){err.textContent='Passwords do not match.';return;}
+  if((S.users||[]).some(u=>u.username.toLowerCase()===username.toLowerCase()&&u.id!==id)){err.textContent='Username taken.';return;}
+  const hashedPw=pw?await hashPassword(pw):null;
+  if(id){
+    const i=(S.users||[]).findIndex(x=>x.id===id);
+    S.users[i]={...S.users[i],firstName:first,lastName:last,username,role,...(hashedPw?{password:hashedPw}:{})};
+  }else{
+    if(!S.users)S.users=[];
+    S.users.push({id:mkId(),firstName:first,lastName:last,username,role,password:hashedPw});
+  }
+  persist();toast(id?'User updated':'User added');closeM('m-user');renderUsers();
+}
 function deleteUser(){delUser(document.getElementById('uf-id').value);}
 function delUser(id){
   const u=(S.users||[]).find(x=>x.id===id);if(!u)return;
@@ -5444,7 +5495,7 @@ function checkDuplicateOrders(){
         <div style="font-size:11px;color:var(--ink3);margin-bottom:4px">${esc(g[0].companyName)} · ${fd(g[0].deliveryDate)} · ${esc(g[0].type)} · ${esc(palletStr(g[0].pallets))}</div>
         ${g.map(o=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:3px 0">
           <span><strong>${esc(o.awb)}</strong> <span class="chip ${o.status==='Completed'?'chip-green':'chip-amber'}" style="font-size:9px">${o.status}</span></span>
-          <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="navTo('orders')">View in Orders</button>
+          <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="goTo('orders')">View in Orders</button>
         </div>`).join('')}
       </div>`).join('')}
     </div>`;
