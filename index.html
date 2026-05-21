@@ -914,6 +914,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div id="qk-condition-row" class="fwrap" style="display:none">
         <label class="flabel">Condition</label>
         <select class="inp" id="qk-condition">
+          <option value="">— Select —</option>
           <option value="Good">Good</option>
           <option value="Damaged">Damaged</option>
           <option value="Mixed">Mixed</option>
@@ -1191,16 +1192,24 @@ const REPAIRERS=null; // replaced by getWorkers()
 function getWorkers(){return(S.workers&&S.workers.length)?S.workers:[...DEFAULT_WORKERS];}
 const SHEETS_URL='https://script.google.com/macros/s/AKfycbwwEJC1ewE-VlgK1aMZwJmLmNhR-Fu7TxFWam2uJ84ohS--Y4S96ogJPDEcnp6e998CnA/exec';
 const SHEETS_ENABLED=false; // temporarily disabled
-const SB_URL='https://mierymdbtsuwgwihtyiu.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pZXJ5bWRidHN1d2d3aWh0eWl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMjg1NTYsImV4cCI6MjA5NDYwNDU1Nn0.SZ1ivbb5gOF1-A6FnhJcJHWfXOptOa_O_k9RLbFJk5A';
+const API_URL='https://salpal-api-production.up.railway.app';
 const SKEY='salpal-hub-v6';
-const SB_HEADERS={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'};
+let API_TOKEN=null; // set after login
 
+function apiHeaders(){
+  const h={'Content-Type':'application/json'};
+  if(API_TOKEN)h['Authorization']='Bearer '+API_TOKEN;
+  return h;
+}
 function sbUpsert(table,id,data){
-  return fetch(`${SB_URL}/rest/v1/${table}`,{method:'POST',headers:SB_HEADERS,body:JSON.stringify({id,data,updated_at:new Date().toISOString()})});
+  return fetch(API_URL+'/api/upsert',{method:'POST',headers:apiHeaders(),body:JSON.stringify({table,id,data})});
 }
 async function sbGet(table){
-  try{const r=await fetch(`${SB_URL}/rest/v1/${table}?select=id,data`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});if(!r.ok)return null;return await r.json();}catch(e){return null;}
+  // Not used directly anymore — data comes via /api/data
+  return [];
+}
+async function apiDelete(table,id){
+  return fetch(API_URL+'/api/delete',{method:'DELETE',headers:apiHeaders(),body:JSON.stringify({table,id})});
 }
 let S=null, ME=null, sigCtxs={}, _inlineCoCb=null;
 
@@ -1323,13 +1332,21 @@ function syncCloud(){
 async function loadCloud(){
   try{
     setSS('syncing');
-    const safe=p=>p.catch(()=>null);
-    const [orders,repairs,sortings,users,companies,ledger,stock,products,deleted,stocktakes]=await Promise.all([
-      safe(sbGet('sp_orders')),safe(sbGet('sp_repairs')),safe(sbGet('sp_sortings')),
-      safe(sbGet('sp_users')),safe(sbGet('sp_companies')),safe(sbGet('sp_ledger')),
-      safe(sbGet('sp_stock')),safe(sbGet('sp_products')),safe(sbGet('sp_deleted')),
-      safe(sbGet('sp_stocktakes'))
-    ]);
+    if(!API_TOKEN){setSS('error');return;}
+    const r=await fetch(API_URL+'/api/data',{headers:apiHeaders()});
+    if(!r.ok){setSS('error');return;}
+    const d=await r.json();
+    const orders=d.orders?d.orders.map(o=>({id:o.id,data:o})):[];
+    const repairs=d.repairs?d.repairs.map(o=>({id:o.id,data:o})):[];
+    const sortings=d.sortings?d.sortings.map(o=>({id:o.id,data:o})):[];
+    const users=d.users?d.users.map(o=>({id:o.id,data:o})):[];
+    const companies=d.companies?d.companies.map(o=>({id:o.id,data:o})):[];
+    const ledger=d.ledger?d.ledger.map(o=>({id:o.id,data:o})):[];
+    const stock=d.stock||[];
+    const products=d.products||[];
+    const deleted=d.deleted||[];
+    const stocktakes=d.stocktakes?d.stocktakes.map(o=>({id:o.id,data:o})):[];
+    {
     if(users&&users.length>0)S.users=users.map(r=>r.data).filter(Boolean);
     // Load deleted list FIRST so we can filter orders
     if(deleted&&deleted.length){
@@ -1363,7 +1380,9 @@ async function loadCloud(){
     if(sortings&&sortings.length)S.sortings=sortings.map(r=>r.data).filter(Boolean);
     if(companies&&companies.length)S.companies=companies.map(r=>r.data).filter(Boolean);
     if(ledger&&ledger.length)S.ledger=ledger.map(r=>r.data).filter(Boolean);
-    if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;const wr=stock.find(r=>r.id==='__workers');if(wr&&wr.data)S.workers=wr.data;const pr=stock.find(r=>r.id==='__plans');if(pr&&pr.data)S.plans=pr.data;const fr=stock.find(r=>r.id==='__fleet');if(fr&&fr.data)S.fleet=fr.data;
+    if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;
+      // Merge individual per-product rows (safe concurrent writes)
+      stock.filter(r=>r.id&&r.id.startsWith('stock__')&&r.data).forEach(r=>{if(!S.stock)S.stock={};S.stock[r.data.cls]=r.data.qty;});const wr=stock.find(r=>r.id==='__workers');if(wr&&wr.data)S.workers=wr.data;const pr=stock.find(r=>r.id==='__plans');if(pr&&pr.data)S.plans=pr.data;const fr=stock.find(r=>r.id==='__fleet');if(fr&&fr.data)S.fleet=fr.data;
     const lkr=stock.find(r=>r.id==='__locks');if(lkr&&lkr.data)S.orderLocks=lkr.data;
     const adjr=stock.find(r=>r.id==='__adjustments');if(adjr&&adjr.data)S.adjustments=adjr.data;
     const ddr=stock.find(r=>r.id==='__dismissedDups');if(ddr&&ddr.data)S.dismissedDups=ddr.data;}
@@ -1390,7 +1409,7 @@ async function loadCloud(){
       renderPage(ap);
       updateNavBadges();
     }
-  }catch(e){console.error('loadCloud error',e);setSS('error');}
+  }}catch(e){console.error('loadCloud error',e);setSS('error');}
 }
 function setSS(s){
   const row=document.getElementById('sync-row'),txt=document.getElementById('sync-txt');
@@ -1644,49 +1663,53 @@ async function doLogin(){
     const u=document.getElementById('li-user').value.trim().toLowerCase();
     const p=document.getElementById('li-pass').value;
     const btn=document.getElementById('li-btn');
-    const user=(S.users||[]).find(x=>x&&x.username&&x.username.toLowerCase()===u);
-    if(!user){document.getElementById('li-err').textContent='Invalid username or password.';return;}
     if(btn)btn.disabled=true;
-    const ok=await checkPassword(p,user.password);
+    document.getElementById('li-err').textContent='Signing in...';
+    const r=await fetch(API_URL+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
     if(btn)btn.disabled=false;
-    if(!ok){document.getElementById('li-err').textContent='Invalid username or password.';return;}
-    if(!isHashed(user.password)){user.password=await hashPassword(p);persist();}
-    ME=user;
-    try{sessionStorage.setItem('salpal-me',user.id);}catch(e){}
+    if(!r.ok){
+      const e=await r.json().catch(()=>({}));
+      document.getElementById('li-err').textContent=e.error||'Invalid username or password.';
+      return;
+    }
+    const {token,user}=await r.json();
+    API_TOKEN=token;
+    try{sessionStorage.setItem('salpal-token',token);sessionStorage.setItem('salpal-me-data',JSON.stringify(user));}catch(e){}
+    ME=user;if(!S)S={};
     document.getElementById('li-err').textContent='';
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='block';
-    setupNav();
-    updateNavBadges();
-    startRealtime();
+    setupNav();updateNavBadges();startRealtime();
     if(window._pollInterval)clearInterval(window._pollInterval);
     window._pollInterval=setInterval(()=>loadCloud().catch(()=>{}),30000);
+    await loadCloud();
     if(ME.role==='Driver')goTo('driver');
     else if(ME.role==='Supervisor')goTo('dispatch');
     else goTo('dashboard');
   }catch(err){if(document.getElementById('li-btn'))document.getElementById('li-btn').disabled=false;document.getElementById('li-err').textContent='Error: '+err.message;}
 }
 function doLogout(){
-  ME=null;
-  try{sessionStorage.removeItem('salpal-me');}catch(e){}
+  ME=null;API_TOKEN=null;
+  try{sessionStorage.removeItem('salpal-token');sessionStorage.removeItem('salpal-me-data');}catch(e){}
   document.getElementById('app').style.display='none';
   document.getElementById('login-screen').style.display='flex';
-  document.getElementById('li-loading').style.display='';
-  document.getElementById('li-form').style.display='none';
-  loadCloud().then(()=>showLoginForm()).catch(()=>showLoginForm());
+  document.getElementById('li-loading').style.display='none';
+  document.getElementById('li-form').style.display='';
+  document.getElementById('li-user').value='';
+  document.getElementById('li-pass').value='';
 }
 function tryRestoreSession(){
   try{
-    const id=sessionStorage.getItem('salpal-me');
-    if(!id)return false;
-    const user=(S.users||[]).find(x=>x.id===id);
+    const token=sessionStorage.getItem('salpal-token');
+    const userData=sessionStorage.getItem('salpal-me-data');
+    if(!token||!userData)return false;
+    const user=JSON.parse(userData);
     if(!user)return false;
-    ME=user;
+    API_TOKEN=token;
+    ME=user;if(!S)S={};
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='block';
-    setupNav();
-    updateNavBadges();
-    startRealtime();
+    setupNav();updateNavBadges();startRealtime();
     if(window._pollInterval)clearInterval(window._pollInterval);
     window._pollInterval=setInterval(()=>loadCloud().catch(()=>{}),30000);
     if(ME.role==='Driver')goTo('driver');
@@ -2295,16 +2318,18 @@ function deleteOrder(){
       if(j.type==='Delivery'){
         S.stock[p.cls]+=p.qty;
         addLedger('Order Reversal',j.awb,p.cls,'in',p.qty,`Deleted order — reversed delivery to ${j.companyName||''}`);
+        pushStock(p.cls);
       } else if(j.type==='Collection'){
         S.stock[p.cls]-=p.qty;
         addLedger('Order Reversal',j.awb,p.cls,'out',p.qty,`Deleted order — reversed collection from ${j.companyName||''}`);
+        pushStock(p.cls);
       }
     });
   }
   sendToBin('order',id,j.awb,j);
   S.orders=(S.orders||[]).filter(x=>x.id!==id);
   persist();
-  fetch(`${SB_URL}/rest/v1/sp_orders?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+  apiDelete('sp_orders',id).catch(()=>{});
   toast('Order deleted — stock reversed');closeM('m-order');
   renderOrders();renderDash();renderStock();
   const disTodo=document.getElementById('dis-pane-todo');if(disTodo)renderDisTodo();
@@ -2718,6 +2743,7 @@ function setQuickType(type){
   document.getElementById('qt-delivery').classList.toggle('sel',type==='Delivery');
   document.getElementById('qt-collection').classList.toggle('sel',type==='Collection');
   document.getElementById('qk-condition-row').style.display=type==='Collection'?'':'none';
+  const qkCond=document.getElementById('qk-condition');if(qkCond)qkCond.value='';
   const btn=document.getElementById('qk-save-btn');
   btn.textContent=type==='Delivery'?'⚡ Create & Load':'⚡ Create & Receive';
   document.getElementById('quick-title').textContent=type==='Delivery'?'⚡ Quick Dispatch':'📥 Quick Receive';
@@ -2772,10 +2798,10 @@ function saveQuickEntry(createOnly){
     if(!S.stock)S.stock={};
     if(type==='Delivery'){
       status='Loaded';
-      pallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;addLedger('Order Out',awb,p.cls,'out',p.qty,`Quick dispatch to ${QK.companyName||co}`);});
+      pallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;addLedger('Order Out',awb,p.cls,'out',p.qty,`Quick dispatch to ${QK.companyName||co}`);pushStock(p.cls);});
     } else {
       status=hasUnsorted?'Pending Sort':'Completed';
-      pallets.forEach(p=>{if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]+=p.qty;addLedger('Order In',awb,p.cls,'in',p.qty,`Quick receive from ${QK.companyName||co}`);});
+      pallets.forEach(p=>{if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]+=p.qty;addLedger('Order In',awb,p.cls,'in',p.qty,`Quick receive from ${QK.companyName||co}`);pushStock(p.cls);});
     }
   }
   if(!S.orders)S.orders=[];
@@ -2974,7 +3000,7 @@ function confirmDeleteRepair(id){
   }
   S.repairs=(S.repairs||[]).filter(x=>x.id!==id);
   // Remove from Supabase
-  fetch(`${SB_URL}/rest/v1/sp_repairs?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+  apiDelete('sp_repairs',id).catch(()=>{});
   persist();toast('Repair entry deleted');renderRepairs();
 }
 
@@ -3086,9 +3112,11 @@ function saveRepair(force){
     if(!S.stock[p.cls])S.stock[p.cls]=0;
     S.stock[p.cls]+=p.qty;
     addLedger('Repair',rec.id,p.cls,'in',p.qty,`Repaired by ${RF.rep} from ${RF.src}`);
+    pushStock(p.cls);
   });
   if(!S.stock[RF.src])S.stock[RF.src]=0;
   S.stock[RF.src]-=totalQty;
+  pushStock(RF.src);
   addLedger('Repair','batch',RF.src,'out',totalQty,`Repaired \u2192 ${lines.map(p=>`${p.qty}\u00d7${p.cls}`).join(', ')}`);
   persist();
   clearDirty('m-repair');
@@ -3432,7 +3460,7 @@ function delUser(id){
     sendToBin('user',id,`${u.firstName} ${u.lastName}`,u);
     S.users=(S.users||[]).filter(x=>x.id!==id);
     persist();
-    fetch(`${SB_URL}/rest/v1/sp_users?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+    apiDelete('sp_users',id).catch(()=>{});
     toast('User moved to recycle bin');closeM('m-user');renderUsers();
   });
 }
@@ -3556,7 +3584,7 @@ function doMergeCompany(){
       if(j.companyId===d.id){j.companyId=masterId;j.companyName=master.name;j.companyAddress=master.address;j.city=master.city;j.postcode=master.postcode;moved++;}
     });
     // Delete duplicate from Supabase
-    fetch(`${SB_URL}/rest/v1/sp_companies?id=eq.${encodeURIComponent(d.id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+    apiDelete('sp_companies',d.id).catch(()=>{});
   });
   // Remove duplicates from state
   S.companies=(S.companies||[]).filter(x=>x.id===masterId||(!dupes.find(d=>d.id===x.id)));
@@ -3570,7 +3598,7 @@ function delCo(id){
     sendToBin('company',id,c.name,c);
     S.companies=(S.companies||[]).filter(x=>x.id!==id);
     persist();
-    fetch(`${SB_URL}/rest/v1/sp_companies?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+    apiDelete('sp_companies',id).catch(()=>{});
     toast('Company moved to recycle bin');closeM('m-company');renderCompanies();
   });
 }
@@ -3704,7 +3732,7 @@ function confirmDeleteSorting(id){
   });
   addLedger('Sorting Reversed',r.id,'Unsorted','in',r.totalQty||0,'Sorting entry deleted');
   S.sortings=(S.sortings||[]).filter(x=>x.id!==id);
-  fetch(`${SB_URL}/rest/v1/sp_sortings?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+  apiDelete('sp_sortings',id).catch(()=>{});
   persist();toast('Sorting entry deleted — stock reversed');renderSorting();renderDash();
 }
 
@@ -3917,9 +3945,11 @@ function saveSorting(force){
     if(!S.stock[p.cls])S.stock[p.cls]=0;
     S.stock[p.cls]+=p.qty;
     addLedger('Sorting',ledgerRef,p.cls,'in',p.qty,`Sorted by ${SF.sorters.join(', ')}${orderRef?' · Order '+orderRef:''}`);
+    pushStock(p.cls);
     if(!S.stock['Unsorted'])S.stock['Unsorted']=0;
     S.stock['Unsorted']-=p.qty;
     addLedger('Sorting',ledgerRef,'Unsorted','out',p.qty,`Sorted \u2192 ${p.cls}${orderRef?' · Order '+orderRef:''}`);
+    pushStock('Unsorted');
   });
   // Check if linked order is fully sorted — auto-complete if so
   if(orderRef){
@@ -4050,7 +4080,7 @@ function addLedger(type, ref, cls, dir, qty, notes){
   if(!S.ledger)S.ledger=[];
   if(!S.stock)S.stock={};
   const balance=S.stock[cls]||0;
-  S.ledger.unshift({
+  const entry={
     id:mkId(),
     date:new Date().toISOString(),
     type,
@@ -4061,7 +4091,18 @@ function addLedger(type, ref, cls, dir, qty, notes){
     balance,
     notes:notes||'',
     by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():''
-  });
+  };
+  S.ledger.unshift(entry);
+  // Push immediately to Supabase as individual row — append only, never overwrites others
+  sbUpsert('sp_ledger', entry.id, entry).catch(e=>console.warn('ledger push failed', e));
+}
+
+// Save a single stock product to Supabase immediately
+function pushStock(cls){
+  if(!cls||!S.stock)return;
+  const val=S.stock[cls]||0;
+  sbUpsert('sp_stock','stock__'+cls.replace(/[^a-zA-Z0-9]/g,'_'), {cls, qty: val, updatedAt: new Date().toISOString()})
+    .catch(e=>console.warn('stock push failed', cls, e));
 }
 
 function stkTab(name,btn){
@@ -4092,6 +4133,7 @@ function saveStockAdjTab(){
   if(!S.stock)S.stock={};
   if(!S.stock[cls])S.stock[cls]=0;
   S.stock[cls]+=qty;
+  pushStock(cls);
   const dir=qty>0?'in':'out';
   const adjRef=ref||('ADJ-'+mkId().slice(0,6).toUpperCase());
   addLedger('Manual Adjustment',adjRef,cls,dir,Math.abs(qty),note||(qty>0?`Manual addition to ${cls}`:`Manual reduction of ${cls}`));
@@ -4436,6 +4478,7 @@ function saveStockAdj(){
     if(diff!==0){
       S.stock[cls]=newQty;
       addLedger('Manual','ADJ',cls,diff>0?'in':'out',Math.abs(diff),`Manual adjustment by ${ME?ME.firstName:''}`);
+      pushStock(cls);
     }
   });
   persist();toast('Stock updated');closeM('m-stock-adj');renderStock();
@@ -4454,6 +4497,7 @@ function adjustStockOnComplete(order){
       S.stock[p.cls]+=p.qty;
       addLedger('Order In',order.awb,p.cls,'in',p.qty,`Received from ${order.companyName||''}`);
     }
+    pushStock(p.cls); // push each product immediately — safe against simultaneous updates
   });
 }
 
@@ -5279,7 +5323,7 @@ function approveStocktake(id){
   t.counts.filter(c=>c.counted!==null).forEach(c=>{
     const diff=c.counted-(c.systemQty||0);
     S.stock[c.cls]=(S.stock[c.cls]||0)+diff;
-    if(diff!==0)addLedger('Stocktake',t.adjRef,c.cls,diff>0?'in':'out',Math.abs(diff),`${t.adjRef} — Stocktake by ${t.userName}`);
+    if(diff!==0){addLedger('Stocktake',t.adjRef,c.cls,diff>0?'in':'out',Math.abs(diff),`${t.adjRef} — Stocktake by ${t.userName}`);pushStock(c.cls);}
   });
   t.status='approved';t.approvedAt=new Date().toISOString();t.approvedBy=ME?`${ME.firstName} ${ME.lastName}`.trim():'';
   persist();renderStocktake();renderDash();toast(`${t.adjRef} approved — ${t.counts.filter(c=>c.counted!==null).length} products adjusted`);
@@ -5766,7 +5810,7 @@ function restoreFromBin(binId){
   else if(entry.type==='user'){if(!S.users)S.users=[];S.users.push(entry.data);sbUpsert('sp_users',entry.data.id,entry.data).catch(()=>{});toast(`User ${entry.name} restored`);}
   else if(entry.type==='company'){if(!S.companies)S.companies=[];S.companies.push(entry.data);sbUpsert('sp_companies',entry.data.id,entry.data).catch(()=>{});toast(`Company ${entry.name} restored`);}
   S.bin=S.bin.filter(e=>e.id!==binId);
-  fetch(`${SB_URL}/rest/v1/sp_deleted?id=eq.${encodeURIComponent(binId)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+  apiDelete('sp_deleted',binId).catch(()=>{});
   persist();renderBin();
 }
 
@@ -5787,7 +5831,7 @@ function permanentDelete(binId){
 
 function confirmPermanentDelete(binId){
   S.bin=(S.bin||[]).filter(e=>e.id!==binId);
-  fetch(`${SB_URL}/rest/v1/sp_deleted?id=eq.${encodeURIComponent(binId)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
+  apiDelete('sp_deleted',binId).catch(()=>{});
   persist();toast('Permanently deleted');renderBin();
 }
 
@@ -5803,13 +5847,12 @@ try{
   oldKeys.forEach(k=>localStorage.removeItem(k));
 }catch(e){}
 loadState();
-setSS('syncing');
-loadCloud().then(()=>{
-  if(!tryRestoreSession()) showLoginForm();
-}).catch(()=>{
-  tryRestoreSession();
+// Try to restore session from stored token, then load data
+if(!tryRestoreSession()){
   showLoginForm();
-});
+} else {
+  loadCloud().catch(()=>{});
+}
 </script>
 </body>
 </html>
