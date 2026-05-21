@@ -1304,8 +1304,9 @@ async function loadCloud(){
     localStorage.setItem(SKEY,JSON.stringify(S));
     setSS('ok');
     // Re-render active page so deletions/updates show immediately
-    if(activePage&&!document.querySelector('.mbackdrop.open')){
-      renderPage(activePage);
+    const ap=typeof activePage!=='undefined'?activePage:null;
+    if(ap&&!document.querySelector('.mbackdrop.open')){
+      renderPage(ap);
       updateNavBadges();
     }
   }catch(e){console.error('loadCloud error',e);setSS('error');}
