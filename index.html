@@ -2221,12 +2221,27 @@ function confirmDeleteOrderNow(){
 function deleteOrder(){
   const id=document.getElementById('of-edit-id').value;
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
+  // Reverse stock if order was completed
+  if(j.status==='Completed'||j.status==='Pending Sort'){
+    if(!S.stock)S.stock={};
+    (j.pallets||[]).forEach(p=>{
+      if(!p.cls||!p.qty)return;
+      if(!S.stock[p.cls])S.stock[p.cls]=0;
+      if(j.type==='Delivery'){
+        S.stock[p.cls]+=p.qty;
+        addLedger('Order Reversal',j.awb,p.cls,'in',p.qty,`Deleted order — reversed delivery to ${j.companyName||''}`);
+      } else if(j.type==='Collection'){
+        S.stock[p.cls]-=p.qty;
+        addLedger('Order Reversal',j.awb,p.cls,'out',p.qty,`Deleted order — reversed collection from ${j.companyName||''}`);
+      }
+    });
+  }
   sendToBin('order',id,j.awb,j);
   S.orders=(S.orders||[]).filter(x=>x.id!==id);
   persist();
   fetch(`${SB_URL}/rest/v1/sp_orders?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
-  toast('Order moved to recycle bin');closeM('m-order');
-  renderOrders();renderDash();
+  toast('Order deleted — stock reversed');closeM('m-order');
+  renderOrders();renderDash();renderStock();
   const disTodo=document.getElementById('dis-pane-todo');if(disTodo)renderDisTodo();
   const disPaneAll=document.getElementById('dis-pane-all');if(disPaneAll?.classList.contains('on'))renderDispatch();
   const recTodo=document.getElementById('rec-pane-todo');if(recTodo)renderRecTodo();
