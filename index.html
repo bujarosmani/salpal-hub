@@ -533,7 +533,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
           <input class="inp" id="adj-note" type="text" placeholder="e.g. Counted 200 less during physical check"/>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
-          <button class="btn btn-primary" onclick="saveStockAdj()">Save Adjustment ✓</button>
+          <button class="btn btn-primary" onclick="saveStockAdjTab()">Save Adjustment ✓</button>
           <div id="adj-err" style="color:var(--red);font-size:12px;font-weight:600"></div>
         </div>
       </div>
@@ -4079,7 +4079,7 @@ function populateAdjProducts(){
   const skus=getSKUS();
   sel.innerHTML='<option value="">— Select product —</option>'+skus.map(s=>`<option value="${s}">${s}</option>`).join('');
 }
-function saveStockAdj(){
+function saveStockAdjTab(){
   const cls=document.getElementById('adj-cls').value;
   const qtyRaw=document.getElementById('adj-qty').value;
   const ref=document.getElementById('adj-ref').value.trim();
