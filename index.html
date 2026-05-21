@@ -1256,10 +1256,15 @@ async function loadCloud(){
       safe(sbGet('sp_stock')),safe(sbGet('sp_products')),safe(sbGet('sp_deleted'))
     ]);
     if(users&&users.length>0)S.users=users.map(r=>r.data).filter(Boolean);
+    // Load deleted list FIRST so we can filter orders
+    if(deleted&&deleted.length){
+      S.bin=deleted.map(r=>r.data).filter(Boolean);
+    }
     if(orders&&orders.length){
       const remote=orders.map(r=>r.data).filter(Boolean);
-      // Merge: keep whichever version of each order is newer
       const local=S.orders||[];
+      // Build set of deleted order IDs first
+      const deletedOrderIds=new Set((S.bin||[]).filter(e=>e.type==='order').map(e=>e.originalId));
       const merged=remote.map(ro=>{
         const lo=local.find(x=>x.id===ro.id);
         if(!lo)return ro;
@@ -1267,9 +1272,10 @@ async function loadCloud(){
         const localTime=new Date(lo.updatedAt||lo.createdAt||0).getTime();
         return localTime>remoteTime?lo:ro;
       });
-      // Add any local-only orders not yet synced
-      local.forEach(lo=>{if(!merged.find(x=>x.id===lo.id))merged.unshift(lo);});
-      S.orders=merged;
+      // Add local-only orders NOT in deleted list
+      local.forEach(lo=>{if(!merged.find(x=>x.id===lo.id)&&!deletedOrderIds.has(lo.id))merged.unshift(lo);});
+      // Remove any deleted orders
+      S.orders=merged.filter(o=>!deletedOrderIds.has(o.id));
     }
     if(repairs&&repairs.length)S.repairs=repairs.map(r=>r.data).filter(Boolean);
     if(sortings&&sortings.length)S.sortings=sortings.map(r=>r.data).filter(Boolean);
@@ -1277,12 +1283,6 @@ async function loadCloud(){
     if(ledger&&ledger.length)S.ledger=ledger.map(r=>r.data).filter(Boolean);
     if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;const wr=stock.find(r=>r.id==='__workers');if(wr&&wr.data)S.workers=wr.data;const pr=stock.find(r=>r.id==='__plans');if(pr&&pr.data)S.plans=pr.data;const fr=stock.find(r=>r.id==='__fleet');if(fr&&fr.data)S.fleet=fr.data;}
     if(products&&products.length){const pr=products.find(r=>r.id==='__products');if(pr)S.products=pr.data;}
-    if(deleted&&deleted.length){
-      S.bin=deleted.map(r=>r.data).filter(Boolean);
-      // Remove any orders that have been deleted by another user
-      const deletedOrderIds=new Set(S.bin.filter(e=>e.type==='order').map(e=>e.originalId));
-      if(deletedOrderIds.size>0)S.orders=(S.orders||[]).filter(o=>!deletedOrderIds.has(o.id));
-    }
     localStorage.setItem(SKEY,JSON.stringify(S));
     setSS('ok');
   }catch(e){console.error('loadCloud error',e);setSS('error');}
