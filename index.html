@@ -342,6 +342,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
   <div class="phdr"><div><div class="ptitle">Dashboard</div><div class="psub" id="dash-date"></div></div></div>
   <div class="card" id="dash-fleet-card" style="display:none;margin-bottom:14px;background:rgba(245,107,107,.06);border:1.5px solid rgba(245,107,107,.4)"><div class="card-hdr" style="border-bottom:1px solid rgba(245,107,107,.2)"><span class="card-hdr-title" style="color:var(--red)">⚠ Fleet & HR Alerts</span><button class="btn btn-ghost btn-sm" onclick="navTo('fleet')">View All</button></div><div class="card-body" id="dash-fleet"></div></div>
   <div id="dash-recon-warn" style="display:none"></div>
+  <div id="dash-dup-warn" style="display:none"></div>
   <div class="stats" id="dash-stats"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
     <div class="card"><div class="card-hdr"><span class="card-hdr-title">🔧 Today's Repairs</span></div><div class="card-body" id="dash-repairs"></div></div>
@@ -1246,7 +1247,16 @@ function syncCloud(){
       ];
       for(const[table,rows] of Object.entries(tables)){
         for(const row of rows){
-          if(row&&row.id)promises.push(sbUpsert(table,row.id,row).catch(e=>console.warn(table,'sync',e)));
+          if(row&&row.id){
+            const p=sbUpsert(table,row.id,row).then(()=>{
+              // Clear pending flag immediately on success for orders
+              if(table==='sp_orders'){
+                const o=(S.orders||[]).find(x=>x.id===row.id);
+                if(o)delete o._pendingSync;
+              }
+            }).catch(e=>console.warn(table,'sync',e));
+            promises.push(p);
+          }
         }
       }
       await Promise.all(promises);
@@ -1286,27 +1296,13 @@ async function loadCloud(){
         const localTime=new Date(lo.updatedAt||lo.createdAt||0).getTime();
         return localTime>remoteTime?lo:ro;
       });
-      // Keep local orders not yet on remote ONLY if flagged as pending sync
+      // Only add local orders not yet on remote if flagged as pending sync
       local.forEach(lo=>{
         if(!remoteIds.has(lo.id)&&!deletedOrderIds.has(lo.id)&&lo._pendingSync){
           merged.unshift(lo);
         }
       });
       S.orders=merged.filter(o=>!deletedOrderIds.has(o.id));
-      // Fix duplicate AWBs — rename duplicates with -B suffix
-      const awbSeen={};
-      S.orders.forEach(o=>{
-        if(!o.awb)return;
-        if(awbSeen[o.awb]){
-          // This is a duplicate — give it a new unique AWB
-          const ns=S.orders.map(t=>{const m=(t.awb||'').match(/WMS-(\d+)/);return m?+m[1]:0}).filter(n=>n>0);
-          const newN=Math.max(...ns)+1;
-          console.warn(`Duplicate AWB ${o.awb} renamed to WMS-${newN}`);
-          o.awb=`WMS-${newN}`;
-          o.updatedAt=new Date().toISOString();
-        }
-        awbSeen[o.awb]=true;
-      });
     } else if(deletedOrderIds.size>0){
       S.orders=(S.orders||[]).filter(o=>!deletedOrderIds.has(o.id));
     }
@@ -1385,17 +1381,11 @@ function supSelectHtml(){
 }
 const uname=id=>{const u=(S.users||[]).find(x=>x.id===id);return u?`${u.firstName} ${u.lastName}`:'—';};
 const makeAWB=()=>{
-  // Use current max + 1 but add user-unique salt to avoid collisions
   const ns=(S.orders||[]).map(t=>{const m=(t.awb||'').match(/WMS-(\d+)/);return m?+m[1]:0}).filter(n=>n>0);
   const maxN=ns.length?Math.max(...ns):1000;
-  // Salt: last 2 digits of seconds + random 0-9 to make simultaneous creates unique
-  const salt=Math.floor(Date.now()/100)%100;
-  const candidate=maxN+1+salt;
-  // If candidate already exists locally (edge case), add more
-  const existing=new Set(ns);
-  let n=candidate;
-  while(existing.has(n))n++;
-  return`WMS-${n}`;
+  // User initials suffix — guarantees no two users can ever create same AWB
+  const initials=ME?(ME.firstName.charAt(0)+(ME.lastName?ME.lastName.charAt(0):'')).toUpperCase():'XX';
+  return`WMS-${maxN+1}-${initials}`;
 };
 const skuBadge=(cls,lg)=>{const c=SKU_C[cls]||{bg:'var(--panel2)',c:'var(--ink3)'};return`<span class="sku" style="background:${c.bg};color:${c.c};font-size:${lg?13:11}px;padding:${lg?'4px 10px':'3px 7px'}">${esc(cls)}</span>`;};
 const palletStr=p=>{const total=(p||[]).filter(x=>x.qty>0).reduce((s,x)=>s+(x.qty||0),0);return total?`${total} Pallets`:'—';};
@@ -1800,6 +1790,8 @@ function renderDash(){
         </div>`;}).join(''):'';
     }
     checkReconciliation();
+    // Check for suspected duplicates
+    checkDuplicateOrders();
   }
   const recent=ords.slice().sort((a,b)=>(b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')).slice(0,5);
   document.getElementById('dash-activity').innerHTML=recent.length?recent.map(j=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><div><div style="font-weight:700;font-size:13px;font-family:'DM Mono',monospace">${esc(j.awb)} \u2014 ${esc(j.companyName||'')}</div><div style="font-size:11px;color:var(--ink3)">${fdt(j.updatedAt||j.createdAt)} \u00b7 ${typeChip(j.type)}</div></div>${stChip(j.status)}</div>`).join(''):'<div class="empty" style="padding:16px">No activity</div>';
@@ -5420,6 +5412,41 @@ function sendToBin(type,id,name,data){
   if(!S.bin)S.bin=[];
   S.bin.unshift(entry);
   sbUpsert('sp_deleted',entry.id,entry).catch(()=>{});
+}
+
+function checkDuplicateOrders(){
+  if(!isAdmin()&&ME?.role!=='Manager')return;
+  const groups={};
+  (S.orders||[]).forEach(o=>{
+    if(o.status==='Completed'||o.status==='Pending Sort'||o.status==='Open'||o.status==='Loaded'){
+      const key=`${o.companyName}__${o.deliveryDate}__${o.type}__${palletStr(o.pallets)}`;
+      if(!groups[key])groups[key]=[];
+      groups[key].push(o);
+    }
+  });
+  const dupGroups=Object.values(groups).filter(g=>{
+    if(g.length<2)return false;
+    // Only flag if created within 5 minutes of each other
+    const times=g.map(o=>new Date(o.createdAt||0).getTime()).sort();
+    return(times[times.length-1]-times[0])<300000;
+  });
+  const warn=document.getElementById('dash-dup-warn');
+  if(!warn)return;
+  if(dupGroups.length){
+    warn.style.display='';
+    warn.innerHTML=`<div style="background:rgba(245,200,66,.08);border:1.5px solid rgba(245,200,66,.3);border-radius:var(--r);padding:12px 14px;margin-bottom:14px">
+      <div style="font-weight:700;color:var(--amber);margin-bottom:8px">⚠ Possible Duplicate Orders — please review and delete the extra ones</div>
+      ${dupGroups.map(g=>`<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(245,200,66,.2)">
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:4px">${esc(g[0].companyName)} · ${fd(g[0].deliveryDate)} · ${esc(g[0].type)} · ${esc(palletStr(g[0].pallets))}</div>
+        ${g.map(o=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:3px 0">
+          <span><strong>${esc(o.awb)}</strong> <span class="chip ${o.status==='Completed'?'chip-green':'chip-amber'}" style="font-size:9px">${o.status}</span></span>
+          <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="navTo('orders')">View in Orders</button>
+        </div>`).join('')}
+      </div>`).join('')}
+    </div>`;
+  } else {
+    warn.style.display='none';
+  }
 }
 
 function fixMissingStock(orderId){
