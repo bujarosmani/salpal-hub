@@ -4081,7 +4081,7 @@ function renderLedger(){
 }
 
 function renderLedgerTable(){
-  let list=(S.ledger||[]);
+  let list=[...(S.ledger||[])].sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
   if(ledgerFilter.cls)list=list.filter(e=>ledgerFilter.cls.includes(e.cls));
   if(ledgerFilter.type)list=list.filter(e=>ledgerFilter.type.includes(e.type));
   if(ledgerFilter.dateFrom)list=list.filter(e=>e.date.slice(0,10)>=ledgerFilter.dateFrom);
