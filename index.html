@@ -239,7 +239,8 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 .vt-btn{padding:5px 12px;border-radius:7px;font-size:11px;font-weight:800;color:var(--ink3);cursor:pointer;border:none;background:none;transition:all .15s}
 .vt-btn.on{background:var(--brand-dark);color:#fff}
 /* ── DRAG REORDER ── */
-.reorder-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:9px;margin-bottom:6px;cursor:grab;user-select:none;transition:border-color .15s}
+.st-row input[type=number]::-webkit-outer-spin-button,.st-row input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:9px;margin-bottom:6px;cursor:grab;user-select:none;transition:border-color .15s}
 .reorder-item:active{cursor:grabbing}
 .reorder-item.drag-over{border-color:var(--brand);background:rgba(61,214,104,.05)}
 .reorder-item.dragging{opacity:.35}
@@ -300,6 +301,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <button class="sb-btn" data-p="repairs" id="snav-repairs"><span class="ic">🔧</span>Pallet Repairs<span id="nav-badge-repairs" style="display:none;margin-left:auto;background:rgba(245,107,107,.25);color:var(--red);font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0;min-width:20px;text-align:center"></span></button>
     <button class="sb-btn" data-p="sorting" id="snav-sorting"><span class="ic">📦</span>Sorting<span id="nav-badge-sorting" style="display:none;margin-left:auto;background:rgba(180,120,0,.25);color:var(--amber);font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0;min-width:20px;text-align:center"></span></button>
     <button class="sb-btn" data-p="stock" id="snav-stock"><span class="ic">📊</span>Stock</button>
+    <button class="sb-btn" data-p="stocktake" id="snav-stocktake"><span class="ic">📋</span>Stock Take</button>
     <button class="sb-btn" data-p="calendar" id="snav-calendar"><span class="ic">📅</span>Calendar</button>
     <button class="sb-btn" data-p="planner" id="snav-planner"><span class="ic">🗺</span>Planner</button>
   </div>
@@ -307,7 +309,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     <div class="sb-sec-lbl">Admin</div>
     <button class="sb-btn" data-p="users"><span class="ic">👥</span>Users</button>
     <button class="sb-btn" data-p="companies"><span class="ic">🏢</span>Companies</button>
-    <button class="sb-btn" data-p="fleet"><span class="ic">🚛</span>Fleet & HR</button>
+    <button class="sb-btn" data-p="fleet"><span class="ic">🚛</span>Fleet & HR<span class="nav-badge" id="nav-badge-fleet" style="display:none"></span></button>
     <button class="sb-btn" data-p="bin"><span class="ic">🗑</span>Recycle Bin</button>
   </div>
   <div class="sb-sec" id="nav-driver" style="display:none">
@@ -333,6 +335,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 
 <div class="page" id="page-dashboard">
   <div class="phdr"><div><div class="ptitle">Dashboard</div><div class="psub" id="dash-date"></div></div></div>
+  <div class="card" id="dash-fleet-card" style="display:none;margin-bottom:14px;background:rgba(245,107,107,.06);border:1.5px solid rgba(245,107,107,.4)"><div class="card-hdr" style="border-bottom:1px solid rgba(245,107,107,.2)"><span class="card-hdr-title" style="color:var(--red)">⚠ Fleet & HR Alerts</span><button class="btn btn-ghost btn-sm" onclick="navTo('fleet')">View All</button></div><div class="card-body" id="dash-fleet"></div></div>
   <div class="stats" id="dash-stats"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
     <div class="card"><div class="card-hdr"><span class="card-hdr-title">🔧 Today's Repairs</span></div><div class="card-body" id="dash-repairs"></div></div>
@@ -524,6 +527,14 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
     </div>
   </div>
   <div id="planner-body"></div>
+</div>
+
+<div class="page" id="page-stocktake">
+  <div class="phdr">
+    <div><div class="ptitle">Stock Take</div><div class="psub">Count stock — submit for admin approval</div></div>
+    <div id="st-actions"></div>
+  </div>
+  <div id="stocktake-body"></div>
 </div>
 
 <div class="page" id="page-fleet">
@@ -1151,6 +1162,33 @@ function seed(){return{
 };}
 
 function loadState(){try{const r=localStorage.getItem(SKEY);if(r){S=JSON.parse(r);return;}}catch(e){}S=seed();persist();}
+function getFleetAlerts(){
+  if(!S.fleet)return{red:[],amber:[]};
+  const vehicles=S.fleet.vehicles||[];
+  const employees=S.fleet.employees||[];
+  const red=[],amber=[];
+  const check=(name,doc,dateStr,warnDays)=>{
+    const s=docStatus(dateStr,warnDays);
+    if(s.icon==='🔴')red.push({name,doc,label:s.label});
+    else if(s.icon==='🟡')amber.push({name,doc,label:s.label});
+  };
+  vehicles.forEach(v=>{
+    if(v.reg)check(v.plate,'Registration',v.reg,v.regWarn||30);
+    if(v.ins)check(v.plate,'Insurance',v.ins,v.insWarn||45);
+    if(v.mot)check(v.plate,'MOT',v.mot,v.motWarn||30);
+    const ss=serviceStatus(v);
+    if(ss.icon==='🔴')red.push({name:v.plate,doc:'Service',label:ss.label});
+    else if(ss.icon==='🟡')amber.push({name:v.plate,doc:'Service',label:ss.label});
+  });
+  employees.forEach(e=>{
+    const name=`${e.fn} ${e.ln}`;
+    if(e.licExp)check(name,'Driving Licence',e.licExp,e.licWarn||45);
+    if(e.passExp)check(name,'Passport',e.passExp,e.passWarn||90);
+    if(e.wpExp)check(name,'Work Permit',e.wpExp,e.wpWarn||60);
+  });
+  return{red,amber};
+}
+
 function updateNavBadges(){
   const defEuro=(S.stock&&S.stock['Defected Euro'])||0;
   const defK=(S.stock&&S.stock['Defected K'])||0;
@@ -1165,6 +1203,14 @@ function updateNavBadges(){
   if(sb){
     if(unsorted>0){sb.textContent=unsorted;sb.style.display='';}
     else sb.style.display='none';
+  }
+  // Fleet badge
+  const {red,amber}=getFleetAlerts();
+  const total=red.length+amber.length;
+  const fb=document.getElementById('nav-badge-fleet');
+  if(fb){
+    if(total>0){fb.textContent=total;fb.style.display='';fb.style.background=red.length?'var(--red)':'var(--amber)';}
+    else fb.style.display='none';
   }
 }
 
@@ -1182,7 +1228,8 @@ function syncCloud(){
         sp_users:S.users||[],
         sp_companies:S.companies||[],
         sp_ledger:S.ledger||[],
-        sp_deleted:(S.bin||[]).map(e=>({id:e.id,data:e}))
+        sp_deleted:(S.bin||[]).map(e=>({id:e.id,data:e})),
+        sp_stocktakes:(S.stocktakes||[]).map(t=>({id:t.id,data:t}))
       };
       const promises=[
         sbUpsert('sp_stock','__stock',S.stock||{}).catch(e=>console.warn('stock sync',e)),
@@ -1508,7 +1555,7 @@ function setupNav(){
   const r=ME.role;
   document.getElementById('nav-admin').style.display=(r==='Admin'||r==='Manager'||r==='Viewer')?'':'none';
   document.getElementById('nav-driver').style.display=r==='Driver'?'':'none';
-  const vis={Admin:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','planner','fleet'],Manager:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','planner','fleet'],Viewer:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'],Supervisor:['dispatch','receiving','repairs','sorting'],Driver:[]};
+  const vis={Admin:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','planner','fleet','stocktake'],Manager:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','planner','fleet','stocktake'],Viewer:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','stocktake'],Supervisor:['dispatch','receiving','repairs','sorting','stocktake'],Driver:[]};
   const allowed=vis[r]||[];
   ['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'].forEach(p=>{const el=document.getElementById(`snav-${p}`);if(el)el.style.display=allowed.includes(p)?'':'none';});
   document.getElementById('btn-new-order').style.display=(r==='Admin'||r==='Manager')?'':'none';
@@ -1547,7 +1594,7 @@ function goTo(page){
   document.querySelectorAll(`.sb-btn[data-p="${page}"]`).forEach(b=>b.classList.add('on'));
   closeMob();renderPage(page);
 }
-function renderPage(p){if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='fleet')renderFleet();else if(p==='driver')renderDriver();}
+function renderPage(p){if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='fleet')renderFleet();else if(p==='stocktake')renderStocktake();else if(p==='driver')renderDriver();}
 document.querySelectorAll('.sb-btn[data-p]').forEach(btn=>{btn.onclick=()=>goTo(btn.dataset.p);});
 document.getElementById('ham-btn').onclick=()=>{document.getElementById('sidebar').classList.add('open');document.getElementById('mob-overlay').classList.add('open');};
 document.getElementById('mob-overlay').onclick=closeMob;
@@ -1637,6 +1684,34 @@ function renderDash(){
   document.getElementById('dash-sorting').innerHTML=sbyw.length?sbyw.map(r=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--blue)">${r.t}</span></div>`).join(''):'<div class="empty" style="padding:16px">No sorting today</div>';
   const active=ords.filter(j=>j.status!=='Completed').slice(0,5);
   document.getElementById('dash-orders').innerHTML=active.length?active.map(j=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><div><div style="font-weight:700;font-size:13px;font-family:'DM Mono',monospace">${esc(j.awb)}</div><div style="font-size:11px;color:var(--ink3)">${esc(j.companyName||'')} \u00b7 ${fd(j.deliveryDate)}</div></div>${stChip(j.status)}</div>`).join(''):'<div class="empty" style="padding:16px">No active orders</div>';
+
+  // Fleet alerts
+  if(isAdmin()||ME?.role==='Manager'){
+    const {red,amber}=getFleetAlerts();
+    const allAlerts=[...red,...amber];
+    const fleetCard=document.getElementById('dash-fleet-card');
+    const fleetBody=document.getElementById('dash-fleet');
+    if(fleetCard)fleetCard.style.display=allAlerts.length?'':'none';
+    if(fleetBody){
+      if(!S.fleetAlertStatus)S.fleetAlertStatus={};
+      const visibleAlerts=allAlerts.filter(a=>{
+        const key=`${a.name}__${a.doc}`;
+        return (S.fleetAlertStatus||{})[key]!=='completed';
+      });
+      fleetBody.innerHTML=visibleAlerts.length?visibleAlerts.map(a=>{
+        const isRed=red.some(r=>r.name===a.name&&r.doc===a.doc);
+        const key=`${a.name}__${a.doc}`;
+        const st=(S.fleetAlertStatus||{})[key]||'open';
+        return`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:4px;border-radius:8px;background:${isRed?'rgba(245,107,107,.12)':'rgba(245,200,66,.08)'};border:1px solid ${isRed?'rgba(245,107,107,.3)':'rgba(245,200,66,.3)'}">
+          <span style="font-size:16px">${isRed?'🔴':'🟡'}</span>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:13px">${esc(a.name)} — ${esc(a.doc)}</div>
+            <div style="font-size:11px;color:${isRed?'var(--red)':'var(--amber)'}">${esc(a.label)}</div>
+          </div>
+          <span style="font-size:10px;font-weight:600;color:${st==='inprocess'?'var(--blue)':'var(--ink3)'};">${st==='inprocess'?'⏳ In Process':'— Open'}</span>
+        </div>`;}).join(''):'';
+    }
+  }
   const recent=ords.slice().sort((a,b)=>(b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')).slice(0,5);
   document.getElementById('dash-activity').innerHTML=recent.length?recent.map(j=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><div><div style="font-weight:700;font-size:13px;font-family:'DM Mono',monospace">${esc(j.awb)} \u2014 ${esc(j.companyName||'')}</div><div style="font-size:11px;color:var(--ink3)">${fdt(j.updatedAt||j.createdAt)} \u00b7 ${typeChip(j.type)}</div></div>${stChip(j.status)}</div>`).join(''):'<div class="empty" style="padding:16px">No activity</div>';
 }
@@ -1848,9 +1923,10 @@ function editOrder(id){
     :'<span style="font-size:11px;color:var(--ink3)">No forward steps available</span>';
   document.getElementById('of-status').innerHTML=bwdStatuses.map(s=>`<option value="${s}">${currentStatus} → ${s}</option>`).join('')||`<option value="${currentStatus}">${currentStatus}</option>`;
   // Lock fields based on status
-  const locked=['Loaded','In Transit','Collected','Delivered','Completed'].includes(currentStatus);
-  const fullyLocked=['Completed'].includes(currentStatus);
-  const lockedMsg=locked?`<div style="background:rgba(245,200,66,.1);border:1.5px solid rgba(245,200,66,.3);border-radius:9px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--amber);font-weight:600">⚠ Status is <strong>${currentStatus}</strong> — ${fullyLocked?'only Notes and Order Ref can be changed':'Pallets and Company cannot be changed'}</div>`:''
+  const adminOverride=isAdmin();
+  const locked=!adminOverride&&['Loaded','In Transit','Collected','Delivered','Completed'].includes(currentStatus);
+  const fullyLocked=!adminOverride&&['Completed'].includes(currentStatus);
+  const lockedMsg=locked&&!adminOverride?`<div style="background:rgba(245,200,66,.1);border:1.5px solid rgba(245,200,66,.3);border-radius:9px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--amber);font-weight:600">⚠ Status is <strong>${currentStatus}</strong> — ${fullyLocked?'only Notes and Order Ref can be changed':'Pallets and Company cannot be changed'}</div>`:''
   const existingMsg=document.getElementById('of-lock-msg');
   if(existingMsg)existingMsg.remove();
   if(locked){
@@ -1975,6 +2051,24 @@ function saveOrder(force){
     if(ex.deliveryDate!==ddate)changes.push(`Date: ${fd(ex.deliveryDate)} \u2192 ${fd(ddate)}`);
     if(ex.driverId!==driverId)changes.push(`Driver: ${uname(ex.driverId)} \u2192 ${uname(driverId)}`);
     const op=palletStr(ex.pallets),np=palletStr(pallets);if(op!==np)changes.push(`Pallets: ${op} \u2192 ${np}`);
+    // Admin editing pallets on completed order — adjust stock for the difference
+    if(isAdmin()&&op!==np&&['Completed','Pending Sort'].includes(ex.status)){
+      if(!S.stock)S.stock={};
+      const oldPallets=ex.pallets||[];
+      const newPallets=pallets;
+      // Reverse old stock effect then apply new
+      if(ex.type==='Delivery'){
+        // Delivery: old pallets were deducted, new pallets should be deducted
+        oldPallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]+=p.qty;}); // reverse
+        newPallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;   // reapply
+          addLedger('Order Edit',awb,p.cls,'out',p.qty,`Admin edit — pallet adjustment`);});
+      } else {
+        // Collection: old pallets were added, new pallets should be added
+        oldPallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;}); // reverse
+        newPallets.forEach(p=>{if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]+=p.qty; // reapply
+          addLedger('Order Edit',awb,p.cls,'in',p.qty,`Admin edit — pallet adjustment`);});
+      }
+    }
     if(ex.status!==newStatus){
       const wasForced=document.getElementById('of-status-value').dataset.forced==='1';
       changes.push(`Status: ${ex.status} \u2192 ${newStatus}${wasForced?' (\u26a0 forced \u2014 no stock update)':''}`);
@@ -4540,6 +4634,318 @@ function plannerDrop(toCol,orderId,fromCol){
 }
 
 
+// ── STOCKTAKE ──
+function renderStocktake(){
+  if(!S.stocktakes)S.stocktakes=[];
+  const body=document.getElementById('stocktake-body');
+  const actions=document.getElementById('st-actions');
+  const isAdm=isAdmin()||ME?.role==='Manager';
+
+  // Check for pending stocktake by current user
+  const myDraft=S.stocktakes.find(t=>t.status==='draft'&&t.userId===ME?.id);
+  // Check for pending approval (admin view)
+  const pending=S.stocktakes.filter(t=>t.status==='pending');
+
+  if(isAdm){
+    // Full list view for admin - pending at top
+    const all=[...S.stocktakes].sort((a,b)=>{
+      const order={pending:0,draft:1,approved:2,rejected:3};
+      return (order[a.status]??4)-(order[b.status]??4)||(b.createdAt||'').localeCompare(a.createdAt||'');
+    });
+    actions.innerHTML=`
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ghost btn-sm" id="st-export-btn" style="display:none" onclick="exportSelectedStocktakes()">⬇ Export Selected</button>
+        <button class="btn btn-primary" onclick="startStocktake()">+ New Stock Take</button>
+      </div>`;
+    body.innerHTML=all.length?`
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:700;margin-bottom:10px">All Adjustments</div>
+      ${all.map(t=>`
+        <div style="background:var(--panel);border:1.5px solid ${t.status==='pending'?'rgba(245,200,66,.4)':t.status==='draft'?'var(--line)':t.status==='approved'?'rgba(61,214,104,.2)':'rgba(245,107,107,.2)'};border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="checkbox" class="st-chk" data-id="${t.id}" style="width:16px;height:16px;cursor:pointer;accent-color:var(--brand)" onchange="updateStExportBtn()"/>
+              <div>
+              ${t.adjRef?`<div style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px;color:var(--brand)">${esc(t.adjRef)}</div>`:''}
+              <div style="font-weight:600;font-size:13px">${esc(t.userName)} · ${fd(t.createdAt?.slice(0,10))}</div>
+              <div style="font-size:11px;color:var(--ink3)">${t.counts?.filter(c=>c.counted!==null).length||0} products counted${t.approvedBy?' · Approved by '+esc(t.approvedBy):''}</div>
+            </div></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span class="chip ${t.status==='pending'?'chip-amber':t.status==='approved'?'chip-green':t.status==='draft'?'chip-gray':'chip-red'}">
+                ${t.status==='pending'?'⏳ Pending':t.status==='approved'?'✓ Approved':t.status==='draft'?'✏ Draft':'✕ Rejected'}
+              </span>
+              ${t.status==='pending'?`
+                <button class="btn btn-danger btn-sm" onclick="rejectStocktake('${t.id}')">✕ Reject</button>
+                <button class="btn btn-primary btn-sm" onclick="approveStocktake('${t.id}')">✓ Approve</button>`:''}
+              ${t.status==='approved'?`<button class="btn btn-ghost btn-sm" onclick="viewStocktake('${t.id}')">View</button>`:''}
+            </div>
+          </div>
+          ${t.status==='pending'?`
+            <div style="margin-top:10px;overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead><tr style="border-bottom:1px solid var(--line)">
+                  <th style="text-align:left;padding:5px 8px;color:var(--ink3)">Product</th>
+                  <th style="text-align:right;padding:5px 8px;color:var(--ink3)">System</th>
+                  <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Counted · Diff</th>
+                </tr></thead>
+                <tbody>
+                  ${(t.counts||[]).filter(c=>c.counted!==null).map(c=>{
+                    const sys=c.systemQty||0;const diff=c.counted-sys;
+                    return`<tr style="border-bottom:1px solid var(--line2)">
+                      <td style="padding:5px 8px;font-weight:600">${esc(c.cls)}</td>
+                      <td style="padding:5px 8px;text-align:right">${sys}</td>
+                      <td style="padding:4px 8px;text-align:right">
+                        <input type="number" value="${c.counted}" min="0" class="no-spin"
+                          style="width:70px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;background:var(--panel2);border:1px solid var(--line2);border-radius:6px;color:var(--ink);padding:2px 4px;-moz-appearance:textfield;appearance:textfield"
+                          oninput="editPendingCount('${t.id}','${esc(c.cls)}',this.value,${sys},this.nextElementSibling)"
+                        /><span style="display:inline-block;width:46px;text-align:right;font-weight:700;color:${diff===0?'var(--brand)':diff>0?'var(--blue)':'var(--red)'}">${diff>0?'+':''}${diff}</span>
+                      </td>
+                    </tr>`;}).join('')}
+                </tbody>
+              </table>
+            </div>`:''}
+        </div>`).join('')}
+    `:'<div class="empty">No stock takes yet</div>';
+    return;
+  }
+
+  if(!isAdm){
+    // Non-admin: only show active draft or start button
+    if(myDraft){renderStocktakeForm(myDraft);return;}
+    actions.innerHTML=`<button class="btn btn-primary" onclick="startStocktake()">+ New Stock Take</button>`;
+    body.innerHTML='<div class="empty">Submit a stock count for admin approval.</div>';
+    return;
+  }
+}
+
+function startStocktake(){
+  if(!S.stocktakes)S.stocktakes=[];
+  const skus=getSKUS();
+  const counts=skus.map(cls=>({cls,systemQty:(S.stock&&S.stock[cls])||0,counted:null}));
+  const t={id:mkId(),userId:ME?.id,userName:ME?`${ME.firstName} ${ME.lastName}`.trim():'',status:'draft',createdAt:new Date().toISOString(),counts};
+  S.stocktakes.unshift(t);
+  persist();renderStocktake();
+}
+
+function renderStocktakeForm(t){
+  const body=document.getElementById('stocktake-body');
+  const actions=document.getElementById('st-actions');
+  actions.innerHTML=`
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-ghost btn-sm" onclick="discardStocktake('${t.id}')">✕ Discard</button>
+      <button class="btn btn-primary" onclick="submitStocktake('${t.id}')">📤 Submit for Approval</button>
+    </div>`;
+
+  const q=(document.getElementById('st-search')?.value||'').toLowerCase();
+  const sort=window.stSort||'name';
+  let counts=[...t.counts];
+  if(q)counts=counts.filter(c=>c.cls.toLowerCase().includes(q));
+  if(sort==='name')counts.sort((a,b)=>a.cls.localeCompare(b.cls));
+  else if(sort==='counted')counts.sort((a,b)=>(b.counted||0)-(a.counted||0));
+
+  const countedNum=t.counts.filter(c=>c.counted!==null).length;
+
+  body.innerHTML=`
+    <div style="background:rgba(245,200,66,.08);border:1.5px solid rgba(245,200,66,.3);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--amber)" class="st-banner">
+      📋 Count in progress by <strong>${esc(t.userName)}</strong> · <strong>${countedNum}</strong> of ${t.counts.length} products counted · Uncounted products will not be changed
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+      <input class="inp" id="st-search" placeholder="🔍 Search product..." style="flex:1;font-size:13px" value="${esc(q)}" oninput="renderStocktakeForm(getCurrentStocktakeDraft())"/>
+      <select class="inp" style="width:auto;padding:7px 10px;font-size:13px" onchange="window.stSort=this.value;renderStocktakeForm(getCurrentStocktakeDraft())">
+        <option value="name" ${sort==='name'?'selected':''}>Sort: Name</option>
+        <option value="counted" ${sort==='counted'?'selected':''}>Sort: Counted</option>
+      </select>
+    </div>
+    ${counts.map(c=>`
+      <div class="st-row" data-cls="${esc(c.cls)}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel);border:1.5px solid ${c.counted!==null?'var(--brand-dim)':'var(--line)'};border-radius:8px;margin-bottom:6px">
+        <div style="flex:1;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.cls)}</div>
+        <input class="inp" type="number" min="0" placeholder="—" value="${c.counted!==null?c.counted:''}"
+          style="width:90px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;-moz-appearance:textfield"
+          oninput="updateStocktakeCount('${t.id}','${esc(c.cls)}',this.value);this.style.fontSize=this.value?'24px':'12px'"/>
+        <button style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:13px;padding:0 4px;visibility:${c.counted!==null?'visible':'hidden'}" onclick="clearStocktakeCount('${t.id}','${esc(c.cls)}')">✕</button>
+      </div>`).join('')}
+  `;
+}
+
+function clearStocktakeCount(id,cls){
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  const c=t.counts.find(x=>x.cls===cls);if(!c)return;
+  c.counted=null;
+  persist();renderStocktakeForm(t);
+}
+
+function getCurrentStocktakeDraft(){
+}
+
+function updateStocktakeCount(id,cls,val){
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  const c=t.counts.find(x=>x.cls===cls);if(!c)return;
+  c.counted=val===null||val===''?null:parseInt(val);
+  persist();
+  // Update progress label
+  const countedNum=t.counts.filter(x=>x.counted!==null).length;
+  const banner=document.querySelector('#stocktake-body .st-banner');
+  if(banner)banner.innerHTML=`📋 Count in progress by <strong>${esc(t.userName)}</strong> · <strong>${countedNum}</strong> of ${t.counts.length} products counted · Uncounted products will not be changed`;
+  // Update row border and X visibility
+  const rows=document.querySelectorAll('#stocktake-body .st-row');
+  rows.forEach(row=>{
+    const rc=t.counts.find(x=>x.cls===row.dataset.cls);if(!rc)return;
+    row.style.borderColor=rc.counted!==null?'var(--brand-dim)':'var(--line)';
+    const btn=row.querySelector('button');if(btn)btn.style.visibility=rc.counted!==null?'visible':'hidden';
+  });
+}
+
+function submitStocktake(id){
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  const counted=t.counts.filter(c=>c.counted!==null).length;
+  if(!counted){toast('Count at least one product before submitting','err');return;}
+  t.status='pending';t.submittedAt=new Date().toISOString();
+  persist();toast('Submitted for admin approval ✓');renderStocktake();
+}
+
+function discardStocktake(id){
+  S.stocktakes=(S.stocktakes||[]).filter(x=>x.id!==id);
+  persist();renderStocktake();toast('Stock take discarded');
+}
+
+function exportStocktakeExcel(id){
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  const rows=[['Product','System Stock','Counted','Difference']];
+  t.counts.filter(c=>c.counted!==null).forEach(c=>{
+    const diff=c.counted-(c.systemQty||0);
+    rows.push([c.cls,c.systemQty||0,c.counted,diff]);
+  });
+  let csv=`${t.adjRef||'Stocktake'}\nBy: ${t.userName}\nDate: ${fd(t.createdAt?.slice(0,10))}\nApproved by: ${t.approvedBy||'—'}\n\n`;
+  csv+=rows.map(r=>r.join('\t')).join('\n');
+  const blob=new Blob([csv],{type:'application/vnd.ms-excel'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`${t.adjRef||'stocktake'}.xls`;a.click();
+}
+
+function updateStExportBtn(){
+  const checked=document.querySelectorAll('.st-chk:checked').length;
+  const btn=document.getElementById('st-export-btn');
+  if(btn)btn.style.display=checked?'':'none';
+  if(btn)btn.textContent=`⬇ Export Selected (${checked})`;
+}
+
+function exportSelectedStocktakes(){
+  const ids=[...document.querySelectorAll('.st-chk:checked')].map(c=>c.dataset.id);
+  if(!ids.length){toast('Select at least one adjustment','err');return;}
+  const selected=(S.stocktakes||[]).filter(t=>ids.some(id=>id===t.id));
+  if(!selected.length){toast('No matching adjustments found','err');return;}
+
+  // Build CSV with BOM for Excel
+  const header=['Ref','Counted Date','Counted Time','By','Approved Date','Approved Time','Approved By','Status','Product','System Stock','Counted','Difference'];
+  const csvRows=[header];
+  const fmtDT=iso=>{if(!iso)return['—','—'];const d=new Date(new Date(iso).getTime()+TZ_OFFSET*3600000);return[d.toISOString().slice(0,10),d.toISOString().slice(11,16)];};
+  selected.forEach(t=>{
+    const counted=(t.counts||[]).filter(c=>c.counted!==null);
+    const [cDate,cTime]=fmtDT(t.createdAt);
+    const [aDate,aTime]=fmtDT(t.approvedAt);
+    if(!counted.length){
+      csvRows.push([t.adjRef||'—',cDate,cTime,t.userName||'',aDate,aTime,t.approvedBy||'—',t.status,'—','','','']);
+    } else {
+      counted.forEach((c,i)=>{
+        const diff=c.counted-(c.systemQty||0);
+        csvRows.push([
+          t.adjRef||'—',
+          cDate,cTime,
+          t.userName||'',
+          aDate,aTime,
+          t.approvedBy||'—',
+          t.status,
+          c.cls,c.systemQty||0,c.counted,diff
+        ]);
+      });
+      csvRows.push(['','','','','','','','','','','','']);
+    }
+  });
+
+  const csv='\uFEFF'+csvRows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`stocktake-export-${tod()}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  toast(`Exported ${selected.length} adjustment${selected.length>1?'s':''}`);
+}
+
+function editPendingCount(id,cls,val,sys,diffSpan){
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  const c=t.counts.find(x=>x.cls===cls);if(!c)return;
+  c.counted=val===''?null:parseInt(val)||0;
+  if(diffSpan&&c.counted!==null){
+    const diff=c.counted-(sys||0);
+    diffSpan.textContent=(diff>0?'+':'')+diff;
+    diffSpan.style.color=diff===0?'var(--brand)':diff>0?'var(--blue)':'var(--red)';
+  }
+  persist();
+}
+
+function viewStocktake(id){
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  const existing=document.getElementById('m-view-st');if(existing)existing.remove();
+  const m=document.createElement('div');m.className='mbackdrop open';m.id='m-view-st';
+  const rows=t.counts.filter(c=>c.counted!==null).map(c=>{
+    const diff=c.counted-(c.systemQty||0);
+    return`<tr style="border-bottom:1px solid var(--line2)">
+      <td style="padding:6px 8px;font-weight:600">${esc(c.cls)}</td>
+      <td style="padding:6px 8px;text-align:right">${c.systemQty||0}</td>
+      <td style="padding:6px 8px;text-align:right">${c.counted}</td>
+      <td style="padding:6px 8px;text-align:right;font-weight:700;color:${diff===0?'var(--brand)':diff>0?'var(--blue)':'var(--red)'}">${diff>0?'+':''}${diff}</td>
+    </tr>`;}).join('');
+  m.innerHTML=`<div class="mbox"><div class="mhdr">
+    <span class="mtitle" style="font-family:'DM Mono',monospace">${esc(t.adjRef||t.id)}</span>
+    <button class="mclose" onclick="document.getElementById('m-view-st').remove()">✕</button>
+  </div><div class="mbody">
+    <div style="font-size:12px;color:var(--ink3);margin-bottom:12px">
+      By ${esc(t.userName)} · ${fd(t.createdAt?.slice(0,10))} · Approved by ${esc(t.approvedBy||'—')}
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="border-bottom:1.5px solid var(--line)">
+        <th style="text-align:left;padding:6px 8px;color:var(--ink3)">Product</th>
+        <th style="text-align:right;padding:6px 8px;color:var(--ink3)">System</th>
+        <th style="text-align:right;padding:6px 8px;color:var(--ink3)">Counted</th>
+        <th style="text-align:right;padding:6px 8px;color:var(--ink3)">Difference</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div><div class="mfoot">
+    <button class="btn btn-ghost" onclick="exportStocktakeExcel('${t.id}')">⬇ Excel</button>
+    <button class="btn btn-ghost" onclick="document.getElementById('m-view-st').remove()">Close</button>
+  </div></div>`;
+  document.body.appendChild(m);
+}
+
+function approveStocktake(id){
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  if(!S.stock)S.stock={};
+  // Generate ADJ reference
+  const adjNum=String((S.stocktakes||[]).filter(x=>x.adjRef).length+1).padStart(4,'0');
+  t.adjRef=`ADJ-${adjNum}`;
+  t.counts.filter(c=>c.counted!==null).forEach(c=>{
+    const diff=c.counted-(c.systemQty||0);
+    S.stock[c.cls]=(S.stock[c.cls]||0)+diff;
+    if(diff!==0)addLedger('Stocktake',t.adjRef,c.cls,diff>0?'in':'out',Math.abs(diff),`${t.adjRef} — Stocktake by ${t.userName}`);
+  });
+  t.status='approved';t.approvedAt=new Date().toISOString();t.approvedBy=ME?`${ME.firstName} ${ME.lastName}`.trim():'';
+  persist();renderStocktake();renderDash();toast(`${t.adjRef} approved — ${t.counts.filter(c=>c.counted!==null).length} products adjusted`);
+}
+
+function rejectStocktake(id){
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  t.status='rejected';t.rejectedAt=new Date().toISOString();
+  persist();renderStocktake();toast('Stocktake rejected');
+}
+
+function setFleetAlertStatus(key,val){
+  if(!S.fleetAlertStatus)S.fleetAlertStatus={};
+  S.fleetAlertStatus[key]=val;
+  persist();
+  renderFleetOverview();
+  renderDash();
+}
+
 // ── FLEET & HR ──
 function fleetTab(name,btn){const page=document.getElementById('page-fleet');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`fleet-${name}`).classList.add('on');renderFleetTab(name);}
 
@@ -4648,14 +5054,23 @@ function renderFleetOverview(){
     </div>
     ${[...red,...amber].length?`
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);font-weight:700;margin-bottom:8px">⚠ Alerts</div>
-    ${[...red,...amber].map(a=>`
-      <div style="background:var(--panel);border:1.5px solid ${a.status.icon==='🔴'?'rgba(245,107,107,.3)':'rgba(245,200,66,.3)'};border-radius:var(--r);padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:12px">
-        <span style="font-size:18px">${a.status.icon}</span>
+    ${[...red,...amber].map(a=>{
+      const isRed=red.includes(a);
+      const key=`${a.name}__${a.doc}`;
+      const st=(S.fleetAlertStatus||{})[key]||'open';
+      return`<div style="background:var(--panel);border:1.5px solid ${isRed?'rgba(245,107,107,.3)':'rgba(245,200,66,.3)'};border-radius:var(--r);padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:12px">
+        <span style="font-size:18px">${isRed?'🔴':'🟡'}</span>
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px">${esc(a.name)} — ${esc(a.doc)}</div>
-          <div style="font-size:12px;color:${a.status.color}">${esc(a.status.label)}</div>
+          <div style="font-size:12px;color:${isRed?'var(--red)':'var(--amber)'}">${esc(a.label)}</div>
         </div>
-      </div>`).join('')}`:'<div class="empty">✓ All documents valid — no alerts</div>'}
+        <select style="background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;color:${st==='completed'?'var(--brand)':st==='inprocess'?'var(--blue)':'var(--ink3)'};font-size:12px;font-weight:600;padding:6px 10px;cursor:pointer"
+          onchange="setFleetAlertStatus('${key}',this.value)">
+          <option value="open" ${st==='open'?'selected':''}>— Open</option>
+          <option value="inprocess" ${st==='inprocess'?'selected':''}>⏳ In Process</option>
+          <option value="completed" ${st==='completed'?'selected':''}>✓ Completed</option>
+        </select>
+      </div>`;}).join('')}`:'<div class="empty">✓ All documents valid — no alerts</div>'}
   `;
 }
 
