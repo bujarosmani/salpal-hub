@@ -2013,6 +2013,7 @@ function editOrder(id){
   }
   S.orderLocks[id]={user:myName,time:new Date().toISOString()};
   persist();
+  document.getElementById('of-edit-id').value=id;
   document.getElementById('of-del-btn').style.display=canDelete()?'':'none';
   document.getElementById('of-awb').value=j.awb;
   document.getElementById('of-ref').value=j.orderRef||'';
