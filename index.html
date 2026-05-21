@@ -650,6 +650,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
         <div style="font-size:12px;color:var(--ink3);margin-top:4px" id="load-pallets-orig">—</div>
       </div>
       <div class="fwrap"><label class="flabel">Loaded By *</label><select class="inp" id="load-by"></select></div>
+      <div class="fwrap"><label class="flabel">Driver</label><select class="inp" id="load-driver"><option value="">— Select driver —</option></select></div>
       <div class="frow">
         <div class="fwrap"><label class="flabel">Truck Plate</label><input class="inp" id="load-truck" placeholder="BL-123-AA"/></div>
         <div class="fwrap"><label class="flabel">Trailer Plate</label><input class="inp" id="load-trailer" placeholder="BL-456-BB"/></div>
@@ -673,8 +674,15 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
         <div style="font-size:13px;color:var(--ink2);margin-top:2px" id="crec-co">—</div>
       </div>
       <div class="fwrap"><label class="flabel">Checked By *</label><select class="inp" id="crec-by"></select></div>
-      <div class="fwrap"><label class="flabel">Condition</label>
-        <select class="inp" id="crec-cond"><option value="">— Select —</option><option>Good</option><option>Damaged</option><option>Mixed</option></select>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Driver</label><select class="inp" id="crec-driver"><option value="">— Select driver —</option></select></div>
+        <div class="fwrap"><label class="flabel">Condition</label>
+          <select class="inp" id="crec-cond"><option value="">— Select —</option><option>Good</option><option>Damaged</option><option>Mixed</option></select>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fwrap"><label class="flabel">Truck Plate</label><input class="inp" id="crec-truck" placeholder="AB 1234..."/></div>
+        <div class="fwrap"><label class="flabel">Trailer Plate</label><input class="inp" id="crec-trailer" placeholder="LÖ QK 3003..."/></div>
       </div>
       <div class="sec-row"><div class="sec-title">Confirm / Edit Pallets</div><button class="btn btn-ghost btn-sm" type="button" onclick="addPltLine('crec-lines')">+ Add</button></div>
       <div id="crec-lines"></div>
@@ -1936,6 +1944,8 @@ function openLoadModal(id){
   document.getElementById('load-notes').value='';
   document.getElementById('load-err').textContent='';
   const supSel=document.getElementById('load-by');supSel.innerHTML=supSelectHtml();supSel.disabled=ME&&ME.role==='Supervisor';
+  const drvSel=document.getElementById('load-driver');
+  drvSel.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}"${j.driverId===d.id?' selected':''}>${d.firstName} ${d.lastName}</option>`).join('');
   document.getElementById('load-lines').innerHTML='';
   (j.pallets||[]).forEach(p=>addPltLine('load-lines',p.cls,p.qty));
   openM('m-load');
@@ -1949,7 +1959,10 @@ function confirmLoaded(){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   const oldPs=palletStr(j.pallets),newPs=palletStr(newPallets),newTotal=newPallets.reduce((s,p)=>s+(p.qty||0),0);
   const changes=[];if(oldPs!==newPs)changes.push(`Pallets: ${oldPs} \u2192 ${newPs}`);
-  j.status='Loaded';j.whBy=sup;j.truckPlate=document.getElementById('load-truck').value.trim();j.trailerPlate=document.getElementById('load-trailer').value.trim();j.loadNotes=document.getElementById('load-notes').value.trim();j.loadedAt=new Date().toISOString();j.updatedAt=j.loadedAt;
+  const driverId=document.getElementById('load-driver').value;
+  j.status='Loaded';j.whBy=sup;
+  if(driverId)j.driverId=driverId;
+  j.truckPlate=document.getElementById('load-truck').value.trim();j.trailerPlate=document.getElementById('load-trailer').value.trim();j.loadNotes=document.getElementById('load-notes').value.trim();j.loadedAt=new Date().toISOString();j.updatedAt=j.loadedAt;
   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Load check',value:`Ordered: ${oldPs} \u00b7 Actual: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
   addTL(j,`Marked Loaded by ${sup}`,'status',[...changes,...(j.loadNotes?[`Notes: ${j.loadNotes}`]:[])]);
   persist();toast(`${j.awb} Loaded by ${sup}`);closeM('m-load');
@@ -1961,7 +1974,6 @@ function confirmLoaded(){
     persist();toast(`${j.awb} completed — 3rd party collected`);
   }
   renderDispatch();renderOrders();renderDash();
-  // Show WhatsApp dispatch form
   sendWhatsAppDispatch(j);
 }
 
@@ -2135,7 +2147,11 @@ function openCompleteRecModal(id){
   document.getElementById('crec-ref').textContent=j.awb;
   document.getElementById('crec-co').textContent=j.companyName||'\u2014';
   document.getElementById('crec-err').textContent='';document.getElementById('crec-notes').value='';document.getElementById('crec-cond').value='';
+  document.getElementById('crec-truck').value=j.truckPlate||'';
+  document.getElementById('crec-trailer').value=j.trailerPlate||'';
   const supSel=document.getElementById('crec-by');supSel.innerHTML=supSelectHtml();supSel.disabled=ME&&ME.role==='Supervisor';
+  const drvSel=document.getElementById('crec-driver');
+  drvSel.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}"${j.driverId===d.id?' selected':''}>${d.firstName} ${d.lastName}</option>`).join('');
   document.getElementById('crec-lines').innerHTML='';(j.pallets||[]).forEach(p=>addPltLine('crec-lines',p.cls,p.qty));
   openM('m-crec');
 }
@@ -2148,11 +2164,17 @@ function confirmReceived(){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   const oldPs=palletStr(j.pallets),newPs=palletStr(newPallets),newTotal=newPallets.reduce((s,p)=>s+(p.qty||0),0);
   const cond=document.getElementById('crec-cond').value,notes=document.getElementById('crec-notes').value.trim();
+  const driverId=document.getElementById('crec-driver').value;
+  const truck=document.getElementById('crec-truck').value.trim();
+  const trailer=document.getElementById('crec-trailer').value.trim();
   const changes=[];if(oldPs!==newPs)changes.push(`Pallets: ${oldPs} \u2192 ${newPs}`);if(cond)changes.push(`Condition: ${cond}`);
-  const hasUnsortedPallets=(j.pallets||[]).some(p=>p.cls==='Unsorted');
+  const hasUnsortedPallets=newPallets.some(p=>p.cls==='Unsorted');
   const _now=new Date().toISOString();
   j.status=hasUnsortedPallets?'Pending Sort':'Completed';
   j.whBy=sup;j.condition=cond;if(notes)j.whNotes=notes;j.updatedAt=_now;
+  if(driverId)j.driverId=driverId;
+  if(truck)j.truckPlate=truck;
+  if(trailer)j.trailerPlate=trailer;
   if(!hasUnsortedPallets){j.completedAt=_now;}
   adjustStockOnComplete(j);
   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Receive check',value:`Ordered: ${oldPs} \u00b7 Received: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
