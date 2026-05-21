@@ -1260,11 +1260,11 @@ async function loadCloud(){
     if(deleted&&deleted.length){
       S.bin=deleted.map(r=>r.data).filter(Boolean);
     }
+    // Always build deleted set even if bin is empty
+    const deletedOrderIds=new Set((S.bin||[]).filter(e=>e.type==='order').map(e=>e.originalId));
     if(orders&&orders.length){
       const remote=orders.map(r=>r.data).filter(Boolean);
       const local=S.orders||[];
-      // Build set of deleted order IDs first
-      const deletedOrderIds=new Set((S.bin||[]).filter(e=>e.type==='order').map(e=>e.originalId));
       const merged=remote.map(ro=>{
         const lo=local.find(x=>x.id===ro.id);
         if(!lo)return ro;
@@ -1274,8 +1274,11 @@ async function loadCloud(){
       });
       // Add local-only orders NOT in deleted list
       local.forEach(lo=>{if(!merged.find(x=>x.id===lo.id)&&!deletedOrderIds.has(lo.id))merged.unshift(lo);});
-      // Remove any deleted orders
+      // Always filter out deleted orders
       S.orders=merged.filter(o=>!deletedOrderIds.has(o.id));
+    } else if(deletedOrderIds.size>0){
+      // No remote orders but we have deletions — still filter local
+      S.orders=(S.orders||[]).filter(o=>!deletedOrderIds.has(o.id));
     }
     if(repairs&&repairs.length)S.repairs=repairs.map(r=>r.data).filter(Boolean);
     if(sortings&&sortings.length)S.sortings=sortings.map(r=>r.data).filter(Boolean);
@@ -1285,6 +1288,11 @@ async function loadCloud(){
     if(products&&products.length){const pr=products.find(r=>r.id==='__products');if(pr)S.products=pr.data;}
     localStorage.setItem(SKEY,JSON.stringify(S));
     setSS('ok');
+    // Re-render active page so deletions/updates show immediately
+    if(activePage&&!document.querySelector('.mbackdrop.open')){
+      renderPage(activePage);
+      updateNavBadges();
+    }
   }catch(e){console.error('loadCloud error',e);setSS('error');}
 }
 function setSS(s){const row=document.getElementById('sync-row'),txt=document.getElementById('sync-txt');if(!row)return;row.className='sync-row '+s;txt.textContent=s==='ok'?'Synced':s==='syncing'?'Saving...':'Sync error';}
