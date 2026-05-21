@@ -477,6 +477,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <button class="tab-btn on" onclick="stkTab('inventory',this)">Inventory</button>
     <button class="tab-btn" onclick="stkTab('ledger',this)">Stock Ledger</button>
     <button class="tab-btn" onclick="stkTab('reorder',this)">⇅ Reorder</button>
+    <button class="tab-btn" id="stk-adj-tab-btn" onclick="stkTab('adj',this)">± Adjustments</button>
   </div>
   <div class="tpane on" id="stk-inventory-pane">
     <div class="card">
@@ -506,6 +507,46 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
         <table><thead><tr>
           <th>Date</th><th>Type</th><th>Reference</th><th>Product</th><th class="right">In</th><th class="right">Out</th><th class="right">Balance After</th><th>By</th><th>Notes</th>
         </tr></thead><tbody id="ledger-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+  <div class="tpane" id="stk-adj-pane">
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-hdr"><span class="card-hdr-title">➕ New Adjustment</span></div>
+      <div class="card-body">
+        <div class="frow c3" style="margin-bottom:12px">
+          <div class="fwrap">
+            <label class="flabel">Product *</label>
+            <select class="inp" id="adj-cls"><option value="">— Select product —</option></select>
+          </div>
+          <div class="fwrap">
+            <label class="flabel">Quantity * (use − for reduction)</label>
+            <input class="inp qty-big" id="adj-qty" type="number" placeholder="e.g. −200 or +150" style="font-size:22px;padding:10px 12px"/>
+          </div>
+          <div class="fwrap">
+            <label class="flabel">Reference</label>
+            <input class="inp" id="adj-ref" type="text" placeholder="e.g. INV-001, Stocktake, Damage"/>
+          </div>
+        </div>
+        <div class="fwrap fspan" style="margin-bottom:12px">
+          <label class="flabel">Comment</label>
+          <input class="inp" id="adj-note" type="text" placeholder="e.g. Counted 200 less during physical check"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="btn btn-primary" onclick="saveStockAdj()">Save Adjustment ✓</button>
+          <div id="adj-err" style="color:var(--red);font-size:12px;font-weight:600"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-hdr-title">Adjustment History</span>
+        <button class="btn btn-ghost btn-sm" onclick="exportAdjExcel()">⬇ Excel</button>
+      </div>
+      <div class="tbl-wrap">
+        <table><thead><tr>
+          <th>Date</th><th>Product</th><th class="right">Qty</th><th>Reference</th><th>Comment</th><th>By</th>
+        </tr></thead><tbody id="adj-tbody"></tbody></table>
       </div>
     </div>
   </div>
@@ -1254,6 +1295,7 @@ function syncCloud(){
         sbUpsert('sp_stock','__stock',S.stock||{}).catch(e=>console.warn('stock sync',e)),
         sbUpsert('sp_products','__products',S.products||[]).catch(e=>console.warn('products sync',e)),
         sbUpsert('sp_stock','__workers',S.workers||DEFAULT_WORKERS).catch(e=>console.warn('workers sync',e)),
+        sbUpsert('sp_stock','__adjustments',S.adjustments||[]).catch(e=>console.warn('adjustments sync',e)),
       ];
       for(const[table,rows] of Object.entries(tables)){
         for(const row of rows){
@@ -1321,7 +1363,8 @@ async function loadCloud(){
     if(companies&&companies.length)S.companies=companies.map(r=>r.data).filter(Boolean);
     if(ledger&&ledger.length)S.ledger=ledger.map(r=>r.data).filter(Boolean);
     if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;const wr=stock.find(r=>r.id==='__workers');if(wr&&wr.data)S.workers=wr.data;const pr=stock.find(r=>r.id==='__plans');if(pr&&pr.data)S.plans=pr.data;const fr=stock.find(r=>r.id==='__fleet');if(fr&&fr.data)S.fleet=fr.data;
-    const lkr=stock.find(r=>r.id==='__locks');if(lkr&&lkr.data)S.orderLocks=lkr.data;}
+    const lkr=stock.find(r=>r.id==='__locks');if(lkr&&lkr.data)S.orderLocks=lkr.data;
+    const adjr=stock.find(r=>r.id==='__adjustments');if(adjr&&adjr.data)S.adjustments=adjr.data;}
     if(products&&products.length){const pr=products.find(r=>r.id==='__products');if(pr)S.products=pr.data;}
     if(stocktakes&&stocktakes.length){
       const remote=stocktakes.map(r=>r.data).filter(Boolean);
@@ -2173,23 +2216,43 @@ function saveOrder(force){
     const changes=[];
     if(ex.deliveryDate!==ddate)changes.push(`Date: ${fd(ex.deliveryDate)} \u2192 ${fd(ddate)}`);
     if(ex.driverId!==driverId)changes.push(`Driver: ${uname(ex.driverId)} \u2192 ${uname(driverId)}`);
-    const op=palletStr(ex.pallets),np=palletStr(pallets);if(op!==np)changes.push(`Pallets: ${op} \u2192 ${np}`);
+    const op=palletStr(ex.pallets),np=palletStr(pallets);if(op!==np)changes.push(`Pallets changed: ${op} → ${np}`);
     // Admin editing pallets on completed order — adjust stock for the difference
     if(isAdmin()&&op!==np&&['Completed','Pending Sort'].includes(ex.status)){
       if(!S.stock)S.stock={};
       const oldPallets=ex.pallets||[];
       const newPallets=pallets;
-      // Reverse old stock effect then apply new
+      const editNote=`Admin edit on ${awb}`;
       if(ex.type==='Delivery'){
-        // Delivery: old pallets were deducted, new pallets should be deducted
-        oldPallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]+=p.qty;}); // reverse
-        newPallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;   // reapply
-          addLedger('Order Edit',awb,p.cls,'out',p.qty,`Admin edit — pallet adjustment`);});
+        // Delivery: old pallets were deducted — reverse them back in
+        oldPallets.forEach(p=>{
+          if(!p.cls||!p.qty)return;
+          if(!S.stock[p.cls])S.stock[p.cls]=0;
+          S.stock[p.cls]+=p.qty;
+          addLedger('Order Edit',awb,p.cls,'in',p.qty,`Reversed old delivery pallet — ${editNote}`);
+        });
+        // Deduct new pallets
+        newPallets.forEach(p=>{
+          if(!p.cls||!p.qty)return;
+          if(!S.stock[p.cls])S.stock[p.cls]=0;
+          S.stock[p.cls]-=p.qty;
+          addLedger('Order Edit',awb,p.cls,'out',p.qty,`New delivery pallet — ${editNote}`);
+        });
       } else {
-        // Collection: old pallets were added, new pallets should be added
-        oldPallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;}); // reverse
-        newPallets.forEach(p=>{if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]+=p.qty; // reapply
-          addLedger('Order Edit',awb,p.cls,'in',p.qty,`Admin edit — pallet adjustment`);});
+        // Collection: old pallets were added — reverse them out
+        oldPallets.forEach(p=>{
+          if(!p.cls||!p.qty)return;
+          if(!S.stock[p.cls])S.stock[p.cls]=0;
+          S.stock[p.cls]-=p.qty;
+          addLedger('Order Edit',awb,p.cls,'out',p.qty,`Reversed old collection pallet — ${editNote}`);
+        });
+        // Add new pallets
+        newPallets.forEach(p=>{
+          if(!p.cls||!p.qty)return;
+          if(!S.stock[p.cls])S.stock[p.cls]=0;
+          S.stock[p.cls]+=p.qty;
+          addLedger('Order Edit',awb,p.cls,'in',p.qty,`New collection pallet — ${editNote}`);
+        });
       }
     }
     if(ex.status!==newStatus){
@@ -4007,6 +4070,61 @@ function stkTab(name,btn){
   document.getElementById(`stk-${name}-pane`).classList.add('on');
   if(name==='ledger')renderLedger();
   else if(name==='reorder')renderReorder();
+  else if(name==='adj'){renderAdjTab();populateAdjProducts();}
+}
+function populateAdjProducts(){
+  const sel=document.getElementById('adj-cls');if(!sel)return;
+  const skus=getSKUS();
+  sel.innerHTML='<option value="">— Select product —</option>'+skus.map(s=>`<option value="${s}">${s}</option>`).join('');
+}
+function saveStockAdj(){
+  const cls=document.getElementById('adj-cls').value;
+  const qtyRaw=document.getElementById('adj-qty').value;
+  const ref=document.getElementById('adj-ref').value.trim();
+  const note=document.getElementById('adj-note').value.trim();
+  const err=document.getElementById('adj-err');
+  if(!cls){err.textContent='Select a product.';return;}
+  const qty=parseInt(qtyRaw,10);
+  if(isNaN(qty)||qty===0){err.textContent='Enter a non-zero quantity.';return;}
+  err.textContent='';
+  if(!S.stock)S.stock={};
+  if(!S.stock[cls])S.stock[cls]=0;
+  S.stock[cls]+=qty;
+  const dir=qty>0?'in':'out';
+  const adjRef=ref||('ADJ-'+mkId().slice(0,6).toUpperCase());
+  addLedger('Manual Adjustment',adjRef,cls,dir,Math.abs(qty),note||(qty>0?`Manual addition to ${cls}`:`Manual reduction of ${cls}`));
+  // Save adjustment record
+  if(!S.adjustments)S.adjustments=[];
+  S.adjustments.unshift({id:mkId(),date:new Date().toISOString(),cls,qty,ref:adjRef,note,by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():''});
+  persist();
+  // Clear form
+  document.getElementById('adj-cls').value='';
+  document.getElementById('adj-qty').value='';
+  document.getElementById('adj-ref').value='';
+  document.getElementById('adj-note').value='';
+  toast(`Adjustment saved — ${cls} ${qty>0?'+'+qty:qty}`);
+  renderAdjTab();renderStock();
+}
+function renderAdjTab(){
+  const tb=document.getElementById('adj-tbody');if(!tb)return;
+  const adjs=S.adjustments||[];
+  if(!adjs.length){tb.innerHTML='<tr><td colspan="6" class="empty">No adjustments yet</td></tr>';return;}
+  tb.innerHTML=adjs.map(a=>`<tr>
+    <td style="font-size:12px;color:var(--ink3);white-space:nowrap">${fdt(a.date)}</td>
+    <td>${skuBadge(a.cls,true)}</td>
+    <td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:${a.qty>0?'var(--brand)':'var(--red)'}">${a.qty>0?'+'+a.qty:a.qty}</td>
+    <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--blue)">${esc(a.ref||'—')}</td>
+    <td style="font-size:12px;color:var(--ink2)">${esc(a.note||'—')}</td>
+    <td style="font-size:12px;color:var(--ink3)">${esc(a.by||'—')}</td>
+  </tr>`).join('');
+}
+function exportAdjExcel(){
+  const adjs=S.adjustments||[];
+  if(!adjs.length){toast('No adjustments to export','err');return;}
+  const rows=[['Date','Product','Qty','Reference','Comment','By'],...adjs.map(a=>[fdt(a.date),a.cls,a.qty,a.ref||'',a.note||'',a.by||''])];
+  let csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='adjustments.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);
+  toast('Exported');
 }
 
 function renderReorder(){
