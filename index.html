@@ -1655,11 +1655,11 @@ function setView(v){
 }
 function resetPageFilters(page){
   if(page==='orders'){ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('ord-search');if(s)s.value='';tableSort['ord-table']=null;}
-  if(page==='dispatch'){disF={statuses:null,drivers:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('dis-search');if(s)s.value='';tableSort['dis-table']=null;disTodoSort='date';const tp=document.getElementById('dis-pane-todo');if(tp)tp.innerHTML='';}
+  if(page==='dispatch'){disF={statuses:null,drivers:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('dis-search');if(s)s.value='';tableSort['dis-table']={col:'awb',asc:false};disTodoSort='date';const tp=document.getElementById('dis-pane-todo');if(tp)tp.innerHTML='';}
   if(page==='receiving'){recF={statuses:null,drivers:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('rec-search');if(s)s.value='';tableSort['rec-table']=null;tableSort['rec-table']=null;}
   if(page==='repairs'){const s=document.getElementById('rep-search');if(s)s.value='';window.rmfDateFrom='';window.rmfDateTo='';window.rhfDateFrom='';window.rhfDateTo='';}
-  if(page==='sorting'){const s=document.getElementById('srt-search');if(s)s.value='';}
-  if(page==='companies'){coSortAsc=true;const s=document.getElementById('co-search');if(s)s.value='';tableSort['co-table']=null;}
+  if(page==='sorting'){const s=document.getElementById('srt-search');if(s)s.value='';srtSortAsc=false;const sb=document.getElementById('srt-sort-btn');if(sb)sb.textContent='Oldest First';}
+  if(page==='companies'){coSortAsc=false;const s=document.getElementById('co-search');if(s)s.value='';tableSort['co-table']={col:'name',asc:false};}
   if(page==='planner'){window.plannerDate=localIso(new Date());}
 }
 let currentPage=null;
@@ -2722,6 +2722,12 @@ function renderRepTab(name){
   const adminEdit=isAdmin()?true:false;
   const isSupervisor=ME&&ME.role==='Supervisor';
   const today=localIso(new Date());
+  // Reset history filters when switching to history tab
+  if(name==='history'){
+    const hw=document.getElementById('rhf-worker');if(hw)hw.value='';
+    const hc=document.getElementById('rhf-cls');if(hc)hc.value='';
+    window.rhfDateFrom='';window.rhfDateTo='';
+  }
   const repQ=(document.getElementById('rep-search')?.value||'').toLowerCase();
   const filterRep=r=>!repQ||(r.repairer||'').toLowerCase().includes(repQ)||(r.pallet_class||'').toLowerCase().includes(repQ)||(r.supervisor||'').toLowerCase().includes(repQ)||(r.src||'').toLowerCase().includes(repQ);
   const filterRepHistory=r=>{
@@ -3109,8 +3115,7 @@ function sendWhatsAppDispatch(j){
   const dateStr=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const driver=j.driverId?uname(j.driverId):j.driver||'—';
   const pallets=(j.pallets||[]).map(p=>`  • ${p.cls} x ${p.qty}`).join('\n');
-  const ref=`DSF-${String(Math.floor(Math.random()*900000)+100000)}`;
-  _waMsg=`📤 DISPATCH FORM\n\nRef: ${ref}\nDate: ${dateStr}\nForeman: ${esc(j.whBy||ME?.firstName||'')}\nDriver: ${esc(driver)}\nTrailer: ${esc(j.trailerPlate||j.truckPlate||'—')}\nCustomer: ${esc(j.companyName||'')}\n\n◆ PALLETS:\n${pallets}\nTOTAL: ${j.totalQty||0} pallets\n${j.loadNotes?`\n◆ Notes: ${esc(j.loadNotes)}\n`:''}\nSalPal Warehouse App`;
+  _waMsg=`📤 DISPATCH FORM\n\nRef: ${esc(j.awb)}\nDate: ${dateStr}\nForeman: ${esc(j.whBy||ME?.firstName||'')}\nDriver: ${esc(driver)}\nTrailer: ${esc(j.trailerPlate||j.truckPlate||'—')}\nCustomer: ${esc(j.companyName||'')}\n\n◆ PALLETS:\n${pallets}\nTOTAL: ${j.totalQty||0} pallets\n${j.loadNotes?`\n◆ Notes: ${esc(j.loadNotes)}\n`:''}\nSalPal Warehouse App`;
   openWhatsApp();
 }
 function sendWhatsAppReceiving(j){
@@ -3118,10 +3123,9 @@ function sendWhatsAppReceiving(j){
   const dateStr=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const driver=j.driverId?uname(j.driverId):j.driver||'—';
   const pallets=(j.pallets||[]).map(p=>`  • ${p.cls.toUpperCase()} x ${p.qty}`).join('\n');
-  const ref=`GRF-${String(Math.floor(Math.random()*900000)+100000)}`;
   const changesLine=j.whChanges&&j.whChanges.length?`\n◆ WH Changes:\n${j.whChanges.map(c=>`  • ${c.label}: ${c.value}`).join('\n').replace(/Actual:/g,'Received:')}`:'';
   const notesLine=j.whNotes?`\n◆ Notes: ${esc(j.whNotes)}`:'';
-  _waMsg=`📥 GOODS RECEIVING FORM\n\nRef: ${ref}\nDate: ${dateStr}\nForeman: ${esc(j.whBy||ME?.firstName||'')}\nDriver: ${esc(driver)}\nSupplier: ${esc(j.companyName||'')}\nCondition: ${esc(j.condition||'—')}\n\n◆ PALLETS:\n${pallets}\nTOTAL: ${j.totalQty||0} pallets${changesLine}${notesLine}\n\nSalPal Warehouse App`;
+  _waMsg=`📥 GOODS RECEIVING FORM\n\nRef: ${esc(j.awb)}\nDate: ${dateStr}\nForeman: ${esc(j.whBy||ME?.firstName||'')}\nDriver: ${esc(driver)}\nSupplier: ${esc(j.companyName||'')}\nCondition: ${esc(j.condition||'—')}\n\n◆ PALLETS:\n${pallets}\nTOTAL: ${j.totalQty||0} pallets${changesLine}${notesLine}\n\nSalPal Warehouse App`;
   openWhatsApp();
 }
 function copyWaMsg(){
