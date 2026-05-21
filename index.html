@@ -2099,7 +2099,14 @@ function deleteOrder(){
     S.orders=(S.orders||[]).filter(x=>x.id!==id);
     persist();
     fetch(`${SB_URL}/rest/v1/sp_orders?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:SB_HEADERS}).catch(()=>{});
-    toast('Order moved to recycle bin');closeM('m-order');renderOrders();
+    toast('Order moved to recycle bin');closeM('m-order');
+    renderOrders();renderDash();
+    // Re-render dispatch and receiving to remove deleted order
+    const disTodo=document.getElementById('dis-pane-todo');if(disTodo)renderDisTodo();
+    const disPaneAll=document.getElementById('dis-pane-all');if(disPaneAll?.classList.contains('on'))renderDispatch();
+    const recTodo=document.getElementById('rec-pane-todo');if(recTodo)renderRecTodo();
+    const recPaneAll=document.getElementById('rec-pane-all');if(recPaneAll?.classList.contains('on'))renderReceiving();
+    renderPlanner();
   });
 }
 
