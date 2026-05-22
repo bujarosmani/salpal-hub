@@ -3186,12 +3186,12 @@ function renderRepTab(name){
         <option value="">All Classes</option>
         ${getSKUS().filter(c=>!c.toLowerCase().includes('defect')&&!c.toLowerCase().includes('new')&&c!=='Unsorted').map(c=>`<option value="${c}"${rhF.cls===c?' selected':''}>${c}</option>`).join('')}
       </select>
-      <button class="dp-btn${rhF.dateFrom?' active':''}" id="rhf-dp-btn">📅 ${esc(dlabel)}</button>
+      <button class="dp-btn${rhF.dateFrom?' active':''}" onclick="openDatePicker(window.rhfDateFrom||''  ,window.rhfDateTo||'',(f,t)=>{window.rhfDateFrom=f;window.rhfDateTo=t;renderRepTab('history')})">📅 ${esc(dlabel)}</button>
       ${rhF.dateFrom?`<button class="dp-clear" onclick="window.rhfDateFrom='';window.rhfDateTo='';renderRepTab('history')">✕</button>`:''}
       ${rhF.worker||rhF.cls||rhF.dateFrom?`<button class="btn btn-ghost btn-sm" onclick="window.rhfDateFrom='';window.rhfDateTo='';document.getElementById('rhf-worker').value='';document.getElementById('rhf-cls').value='';renderRepTab('history')">Clear all</button>`:''}
     </div>`;
     document.getElementById('rep-history').innerHTML=filtersHtml+(Object.keys(grp).length?Object.keys(grp).sort(repSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{const rs=grp[day],dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right;display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteRepairEntry('${r.id}')">Delete</button>`:''}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>');
-    setTimeout(()=>{const dpb=document.getElementById('rhf-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(window.rhfDateFrom||'',window.rhfDateTo||'',(f,t)=>{window.rhfDateFrom=f;window.rhfDateTo=t;renderRepTab('history');});},0);
+
   }
   if(name==='manager'){
     const repMF={
@@ -3224,7 +3224,7 @@ function renderRepTab(name){
         ${repMF.worker||repMF.cls||repMF.dateFrom?`<button class="btn btn-ghost btn-sm" onclick="window.rmfDateFrom='';window.rmfDateTo='';document.getElementById('rmf-worker').value='';document.getElementById('rmf-cls').value='';renderRepTab('manager')">Clear all</button>`:''}
       </div>`;
     // Bind date picker
-    setTimeout(()=>{const dpb=document.getElementById('rmf-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(window.rmfDateFrom||'',window.rmfDateTo||'',(f,t)=>{window.rmfDateFrom=f;window.rmfDateTo=t;renderRepTab('manager');});},0);
+
     document.getElementById('rep-manager').innerHTML+=`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
         <div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Total Repaired</div></div>
