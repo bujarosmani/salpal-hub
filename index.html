@@ -3305,8 +3305,11 @@ function saveRepairEdit(id,force){
   const editRepDate=document.getElementById('rep-date').value;
   r.supervisor=RF.sup;r.repairer=RF.rep;r.pallet_class=cls;r.src=RF.src;r.qty=qty;
   if(editRepDate){const existingTime=r.date?new Date(r.date).toTimeString().slice(0,8):new Date().toTimeString().slice(0,8);r.date=new Date(editRepDate+'T'+existingTime).toISOString();}
-  addLedger('Repair',r.id,cls,'in',qty,`Edited repair by ${RF.rep}`);
-  addLedger('Repair',r.id,RF.src,'out',qty,`Edited repair \u2192 ${cls}`);
+  // Only add ledger if class or qty actually changed
+  if(r.pallet_class!==cls||r.qty!==qty){
+    addLedger('Repair Edit',r.id,cls,'in',qty,`Edited repair by ${RF.rep}`);
+    addLedger('Repair Edit',r.id,RF.src,'out',qty,`Edited repair → ${cls}`);
+  }
   syncRepair(r);
   persist();toast('Repair updated');closeM('m-repair');renderRepairs();
 }
