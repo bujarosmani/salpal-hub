@@ -1625,11 +1625,40 @@ const stChip=s=>{const m={Open:'chip-amber',Loaded:'chip-blue','In Transit':'chi
 const typeChip=t=>`<span class="chip ${t==='Delivery'?'chip-green':'chip-blue'}" style="font-size:10px">${esc(t||'')}</span>`;
 function toast(msg,type='ok'){const t=document.getElementById('toast');t.textContent=msg;t.className=`show toast-${type}`;clearTimeout(t._t);t._t=setTimeout(()=>t.className='',3200);}
 const FORM_MODALS=['m-order','m-repair','m-sort','m-dropoff','m-user','m-company','m-product','m-stock-adj'];
-function openM(id){const modal=document.getElementById(id);if(!modal)return;modal.classList.add('open');}
-function markModalNew(id){}
-function closeM(id){const modal=document.getElementById(id);if(!modal)return;modal.classList.remove('open');const warn=modal.querySelector('.unsaved-warn');if(warn)warn.remove();}
-function forceCloseM(id){closeM(id);}
-function clearDirty(id){}
+function openM(id){
+  const modal=document.getElementById(id);if(!modal)return;
+  modal.classList.add('open');
+  // Snapshot form state for dirty detection on key forms
+  if(['m-order','m-repair','m-sort'].includes(id)){
+    setTimeout(()=>{
+      const inputs=modal.querySelectorAll('input,select,textarea');
+      modal._snapshot=Array.from(inputs).map(el=>el.value).join('|');
+      modal._dirty=false;
+    },100);
+  }
+}
+function isModalDirty(id){
+  const modal=document.getElementById(id);if(!modal)return false;
+  if(!modal._snapshot)return false;
+  const inputs=modal.querySelectorAll('input,select,textarea');
+  const current=Array.from(inputs).map(el=>el.value).join('|');
+  return current!==modal._snapshot;
+}
+function closeM(id){
+  const modal=document.getElementById(id);if(!modal)return;
+  // Warn if dirty — only for key forms, only if not already saved
+  if(['m-order','m-repair','m-sort'].includes(id)&&!modal._saved&&isModalDirty(id)){
+    if(!confirm('You have unsaved changes. Close without saving?'))return;
+  }
+  modal.classList.remove('open');
+  modal._dirty=false;modal._saved=false;modal._snapshot=null;
+}
+function forceCloseM(id){
+  const modal=document.getElementById(id);if(!modal)return;
+  modal.classList.remove('open');
+  modal._dirty=false;modal._saved=false;modal._snapshot=null;
+}
+function clearDirty(id){const m=document.getElementById(id);if(m){m._dirty=false;m._saved=true;m._snapshot=null;}}
 
 /* ── TIMELINE ── */
 function addTL(order,action,type,changes){
@@ -1679,7 +1708,7 @@ function renderChangesBox(order){
 }
 
 /* ── PALLET LINES ── */
-function clearDirty(id){const m=document.getElementById(id);if(m){m._dirty=false;m._saved=true;}}
+
 function highlightRequired(fields){
   // fields: array of element IDs to check
   let missing=[];
@@ -2147,15 +2176,14 @@ function renderOrders(){
     buildCbDropdown('ordType',typeOpts,ordF.types,'All Types')+' '+
     buildCbDropdown('ordStat',statOpts,ordF.statuses,'All Statuses')+' '+
     buildCbDropdown('ordSrc',sourceOpts,ordF.source,'All Sources')+' '+
-    `<button class="dp-btn${ordF.dateFrom?' active':''}" id="ord-dp-btn">📅 ${esc(dlabel)}</button>`+
+    `<button class="dp-btn${ordF.dateFrom?' active':''}" onclick="openDatePicker(ordF.dateFrom,ordF.dateTo,(f,t)=>{ordF.dateFrom=f;ordF.dateTo=t;renderOrders()})">📅 ${esc(dlabel)}</button>`+
     (ordF.dateFrom?`<button class="dp-clear" onclick="ordF.dateFrom='';ordF.dateTo='';renderOrders()">✕</button>`:'')+
     (drvOpts.length?' '+buildCbDropdown('ordDrv',drvOpts,ordF.drivers,'All Drivers'):'');
   bindCbDropdown('ordType',typeOpts,v=>{ordF.types=v;renderOrdTable();});
   bindCbDropdown('ordStat',statOpts,v=>{ordF.statuses=v;renderOrdTable();});
   bindCbDropdown('ordSrc',sourceOpts,v=>{ordF.source=v;renderOrdTable();});
   if(drvOpts.length)bindCbDropdown('ordDrv',drvOpts,v=>{ordF.drivers=v;renderOrdTable();});
-  const odp=document.getElementById('ord-dp-btn');
-  if(odp)odp.onclick=()=>openDatePicker(ordF.dateFrom,ordF.dateTo,(f,t)=>{ordF.dateFrom=f;ordF.dateTo=t;renderOrders();});
+
   renderOrdTable();
   const srch=document.getElementById('ord-search');if(srch)srch.value=ordF.search||'';
 }
@@ -2621,13 +2649,13 @@ function renderDispatch(){
   if(disQ)list=list.filter(j=>(j.awb||'').toLowerCase().includes(disQ)||(j.companyName||'').toLowerCase().includes(disQ)||(j.driverId?(''+j.driverId).toLowerCase():'').includes(disQ)||(j.orderRef||'').toLowerCase().includes(disQ)||(j.driverNotes||'').toLowerCase().includes(disQ));
   list=list.slice().sort((a,b)=>b.awb.localeCompare(a.awb));
   const disDrvOpts=[...new Set((S.orders||[]).filter(j=>j.type==='Delivery').map(j=>j.driverId?uname(j.driverId):j.driver||'').filter(Boolean))].sort().map(d=>({value:d,label:d}));
-  const fb=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px" id="dis-fb">${buildCbDropdown('disStat',statOpts,disF.statuses,'All Statuses')} ${buildCbDropdown('disDrv',disDrvOpts,disF.drivers,'All Drivers')} <button class="dp-btn${disF.dateFrom?' active':''}" id="dis-dp-btn">📅 ${esc(dl)}</button>${disF.dateFrom?`<button class="dp-clear" onclick="disF.dateFrom='';disF.dateTo='';renderDispatch()">\u2715</button>`:''} <button class="btn btn-ghost btn-sm" id="dis-sort-btn" onclick="toggleDisSort()">Z → A</button></div>`;
+  const fb=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px" id="dis-fb">${buildCbDropdown('disStat',statOpts,disF.statuses,'All Statuses')} ${buildCbDropdown('disDrv',disDrvOpts,disF.drivers,'All Drivers')} <button class="dp-btn${disF.dateFrom?' active':''}" onclick="openDatePicker(disF.dateFrom,disF.dateTo,(f,t)=>{disF.dateFrom=f;disF.dateTo=t;renderDispatch()})">📅 ${esc(dl)}</button>${disF.dateFrom?`<button class="dp-clear" onclick="disF.dateFrom='';disF.dateTo='';renderDispatch()">\u2715</button>`:''} <button class="btn btn-ghost btn-sm" id="dis-sort-btn" onclick="toggleDisSort()">Z → A</button></div>`;
   const body=document.getElementById('dis-body');
   if(isMob){body.innerHTML=fb+(list.length?list.map(j=>{const canLoad=j.status==='Open'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<div class="mob-card" onclick="viewOrder('${j.id}')"><div class="mob-card-hdr"><span class="mob-card-ref">${esc(j.awb)}</span>${stChip(j.status)}</div><div class="mob-card-body">${esc(j.companyName||'\u2014')}</div><div class="mob-card-sub">${fd(j.deliveryDate)} \u00b7 ${esc(palletStr(j.pallets))}</div><div class="mob-card-foot"><span style="font-size:12px;color:${j.whBy?'var(--brand)':'var(--ink3)'}">WH: ${esc(j.whBy||'\u2014')}</span>${canLoad?`<button class="btn btn-amber btn-sm" onclick="event.stopPropagation();openLoadModal('${j.id}')">📦 Mark Loaded</button>`:''}</div></div>`;}).join(''):'<div class="empty">No dispatch orders</div>');}
   else{body.innerHTML=fb+`<div class="card"><div class="tbl-wrap"><table id="dis-table"><thead><tr><th data-col="awb" onclick="thClick('dis-table','awb',renderDispatch)" style="cursor:pointer">REF</th><th data-col="deliveryDate" onclick="thClick('dis-table','deliveryDate',renderDispatch)" style="cursor:pointer">Date</th><th data-col="companyName" onclick="thClick('dis-table','companyName',renderDispatch)" style="cursor:pointer">Customer</th><th data-col="totalQty" onclick="thClick('dis-table','totalQty',renderDispatch)" style="cursor:pointer">Pallets</th><th data-col="driverId" onclick="thClick('dis-table','driverId',renderDispatch)" style="cursor:pointer">Driver</th><th data-col="whBy" onclick="thClick('dis-table','whBy',renderDispatch)" style="cursor:pointer">Loaded By</th><th>Truck</th><th data-col="status" onclick="thClick('dis-table','status',renderDispatch)" style="cursor:pointer">Status</th><th class="right">Actions</th></tr></thead><tbody id="dis-tb"></tbody></table></div></div>`;document.getElementById('dis-tb').innerHTML=list.length?list.map(j=>{const canLoad=j.status==='Open'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap">${esc(j.awb)}<br><span style="font-size:10px;color:var(--ink3);font-weight:400">${esc(j.orderRef||"")}</span></td><td style="white-space:nowrap">${fd(j.deliveryDate)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div></td><td style="font-size:12px;font-family:'DM Mono',monospace;white-space:nowrap">${esc(palletStr(j.pallets))}</td><td style="font-size:12px">${j.driverId?uname(j.driverId):'<span style="color:var(--ink3)">TBD</span>'}</td><td style="font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td style="font-size:12px;color:var(--ink3)">${esc(j.truckPlate||'\u2014')}</td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap">${canLoad?`<button class="btn btn-amber btn-sm" onclick="openLoadModal('${j.id}')">📦 Load</button> `:''}<button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No dispatch orders</td></tr>';}
   bindCbDropdown('disStat',statOpts,v=>{disF.statuses=v;renderDispatch();});
   bindCbDropdown('disDrv',disDrvOpts,v=>{disF.drivers=v;renderDispatch();});
-  const dpb=document.getElementById('dis-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(disF.dateFrom,disF.dateTo,(f,t)=>{disF.dateFrom=f;disF.dateTo=t;renderDispatch();});
+
 }
 function updateCrecTotal(){const t=getLines('crec-lines').reduce((s,p)=>s+p.qty,0);const el=document.getElementById('crec-total');if(el)el.textContent=t;}
 function updateLoadTotal(){const t=getLines('load-lines').reduce((s,p)=>s+p.qty,0);const el=document.getElementById('load-total');if(el)el.textContent=t;}
@@ -2911,13 +2939,13 @@ function renderReceiving(){
   if(recQ)list=list.filter(j=>(j.awb||'').toLowerCase().includes(recQ)||(j.companyName||'').toLowerCase().includes(recQ)||(j.driverId?uname(j.driverId).toLowerCase():'').includes(recQ)||(j.orderRef||'').toLowerCase().includes(recQ)||(j.driverNotes||'').toLowerCase().includes(recQ));
   list=list.slice().sort((a,b)=>b.awb.localeCompare(a.awb));
   const recDrvOpts=[...new Set((S.orders||[]).filter(j=>j.type==='Collection'||j.type==='Drop-off').map(j=>j.driverId?uname(j.driverId):j.driver||'').filter(Boolean))].sort().map(d=>({value:d,label:d}));
-  const fb=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px" id="rec-fb">${buildCbDropdown('recStat',statOpts,recF.statuses,'All Statuses')} ${buildCbDropdown('recDrv',recDrvOpts,recF.drivers,'All Drivers')} <button class="dp-btn${recF.dateFrom?' active':''}" id="rec-dp-btn">📅 ${esc(dl)}</button>${recF.dateFrom?`<button class="dp-clear" onclick="recF.dateFrom='';recF.dateTo='';renderReceiving()">\u2715</button>`:''} <button class="btn btn-ghost btn-sm" id="rec-sort-btn" onclick="toggleRecSort()">Z → A</button></div>`;
+  const fb=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px" id="rec-fb">${buildCbDropdown('recStat',statOpts,recF.statuses,'All Statuses')} ${buildCbDropdown('recDrv',recDrvOpts,recF.drivers,'All Drivers')} <button class="dp-btn${recF.dateFrom?' active':''}" onclick="openDatePicker(recF.dateFrom,recF.dateTo,(f,t)=>{recF.dateFrom=f;recF.dateTo=t;renderReceiving()})">📅 ${esc(dl)}</button>${recF.dateFrom?`<button class="dp-clear" onclick="recF.dateFrom='';recF.dateTo='';renderReceiving()">\u2715</button>`:''} <button class="btn btn-ghost btn-sm" id="rec-sort-btn" onclick="toggleRecSort()">Z → A</button></div>`;
   const body=document.getElementById('rec-body');
   if(isMob){body.innerHTML=fb+(list.length?list.map(j=>{const canAW=j.status==='Collected'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const canC=j.status==='Delivered'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');return`<div class="mob-card" onclick="viewOrder('${j.id}')"><div class="mob-card-hdr"><span class="mob-card-ref">${esc(j.awb)}</span>${stChip(j.status)}</div><div class="mob-card-body">${esc(j.companyName||'\u2014')}</div><div class="mob-card-sub">${fd(j.deliveryDate)} \u00b7 ${esc(palletStr(j.pallets))} \u00b7 ${j.driver==='Customer Drop Off'?'Drop-off':j.driverId?uname(j.driverId):'\u2014'}</div><div class="mob-card-foot"><span style="font-size:12px;color:${j.whBy?'var(--brand)':'var(--ink3)'}">WH: ${esc(j.whBy||'\u2014')}</span><div style="display:flex;gap:6px">${canAW?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();setOrdStatus('${j.id}','Delivered')">At WH</button>`:''}${canC?`<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openCompleteRecModal('${j.id}')">✓ Complete</button>`:''}</div></div></div>`;}).join(''):'<div class="empty">No collection orders</div>');}
   else{body.innerHTML=fb+`<div class="card"><div class="tbl-wrap"><table id="rec-table"><thead><tr><th data-col="awb" onclick="thClick('rec-table','awb',renderReceiving)" style="cursor:pointer">REF</th><th data-col="deliveryDate" onclick="thClick('rec-table','deliveryDate',renderReceiving)" style="cursor:pointer">Date</th><th data-col="companyName" onclick="thClick('rec-table','companyName',renderReceiving)" style="cursor:pointer">Supplier</th><th data-col="totalQty" onclick="thClick('rec-table','totalQty',renderReceiving)" style="cursor:pointer">Pallets</th><th>Driver/Source</th><th data-col="whBy" onclick="thClick('rec-table','whBy',renderReceiving)" style="cursor:pointer">WH By</th><th data-col="condition" onclick="thClick('rec-table','condition',renderReceiving)" style="cursor:pointer">Condition</th><th data-col="status" onclick="thClick('rec-table','status',renderReceiving)" style="cursor:pointer">Status</th><th class="right">Actions</th></tr></thead><tbody id="rec-tb"></tbody></table></div></div>`;document.getElementById('rec-tb').innerHTML=list.length?list.map(j=>{const canAW=j.status==='Collected'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const canC=j.status==='Delivered'&&ME&&(ME.role==='Admin'||ME.role==='Supervisor');const src=j.driver==='Customer Drop Off'?`<span class="chip chip-blue" style="font-size:10px">Drop-off</span>`:(j.driverId?uname(j.driverId):'\u2014');return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap">${esc(j.awb)}<br><span style="font-size:10px;color:var(--ink3);font-weight:400">${esc(j.orderRef||"")}</span></td><td style="white-space:nowrap">${fd(j.deliveryDate)}</td><td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div></td><td style="font-size:12px;font-family:'DM Mono',monospace;white-space:nowrap">${esc(palletStr(j.pallets))}</td><td style="font-size:12px">${src}</td><td style="font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td><td><span class="chip ${j.condition==='Good'?'chip-green':j.condition==='Damaged'?'chip-red':'chip-gray'}" style="font-size:10px">${esc(j.condition||'\u2014')}</span></td><td>${stChip(j.status)}</td><td class="right" style="white-space:nowrap">${canAW?`<button class="btn btn-ghost btn-sm" onclick="setOrdStatus('${j.id}','Delivered')">At WH</button> `:''}${canC?`<button class="btn btn-primary btn-sm" onclick="openCompleteRecModal('${j.id}')">✓ Complete</button> `:''}<button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No collection orders</td></tr>';}
   bindCbDropdown('recStat',statOpts,v=>{recF.statuses=v;renderReceiving();});
   bindCbDropdown('recDrv',recDrvOpts,v=>{recF.drivers=v;renderReceiving();});
-  const dpb=document.getElementById('rec-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(recF.dateFrom,recF.dateTo,(f,t)=>{recF.dateFrom=f;recF.dateTo=t;renderReceiving();});
+
 }
 function closeLoadModal(){
   const id=document.getElementById('load-order-id')?.value;
@@ -3190,7 +3218,7 @@ function renderRepTab(name){
       ${rhF.dateFrom?`<button class="dp-clear" onclick="window.rhfDateFrom='';window.rhfDateTo='';renderRepTab('history')">✕</button>`:''}
       ${rhF.worker||rhF.cls||rhF.dateFrom?`<button class="btn btn-ghost btn-sm" onclick="window.rhfDateFrom='';window.rhfDateTo='';document.getElementById('rhf-worker').value='';document.getElementById('rhf-cls').value='';renderRepTab('history')">Clear all</button>`:''}
     </div>`;
-    document.getElementById('rep-history').innerHTML=filtersHtml+(Object.keys(grp).length?Object.keys(grp).sort(repSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{const rs=grp[day],dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right;display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteRepairEntry('${r.id}')">Delete</button>`:''}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>');
+    document.getElementById('rep-history').innerHTML=filtersHtml+(Object.keys(grp).length?Object.keys(grp).sort(repSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{const rs=grp[day].sort((a,b)=>b.date.localeCompare(a.date)),dt=rs.reduce((s,r)=>s+(r.qty||0),0);return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} repaired</span></div>`+rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="text-align:right;display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteRepairEntry('${r.id}')">Delete</button>`:''}<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--brand);margin-top:4px">${r.qty}</div></div></div></div>`).join('');}).join(''):'<div class="empty">No repairs yet</div>');
 
   }
   if(name==='manager'){
@@ -3219,7 +3247,7 @@ function renderRepTab(name){
           <option value="">All Classes</option>
           ${getSKUS().filter(c=>!c.toLowerCase().includes('defect')&&!c.toLowerCase().includes('new')&&c!=='Unsorted').map(c=>`<option value="${c}"${repMF.cls===c?' selected':''}>${c}</option>`).join('')}
         </select>
-        <button class="dp-btn${repMF.dateFrom?' active':''}" id="rmf-dp-btn">📅 ${esc(dlabel)}</button>
+        <button class="dp-btn${repMF.dateFrom?' active':''}" onclick="openDatePicker(window.rmfDateFrom||'',window.rmfDateTo||'',  (f,t)=>{window.rmfDateFrom=f;window.rmfDateTo=t;renderRepTab('manager')})">📅 ${esc(dlabel)}</button>
         ${repMF.dateFrom?`<button class="dp-clear" onclick="window.rmfDateFrom='';window.rmfDateTo='';renderRepTab('manager')">✕</button>`:''}
         ${repMF.worker||repMF.cls||repMF.dateFrom?`<button class="btn btn-ghost btn-sm" onclick="window.rmfDateFrom='';window.rmfDateTo='';document.getElementById('rmf-worker').value='';document.getElementById('rmf-cls').value='';renderRepTab('manager')">Clear all</button>`:''}
       </div>`;
@@ -3311,7 +3339,7 @@ function saveRepairEdit(id,force){
     addLedger('Repair Edit',r.id,RF.src,'out',qty,`Edited repair → ${cls}`);
   }
   syncRepair(r);
-  persist();toast('Repair updated');closeM('m-repair');renderRepairs();
+  persist();clearDirty('m-repair');toast('Repair updated');closeM('m-repair');renderRepairs();
 }
 const REP_DEFAULT_QTY_CLASSES=['A','B','C'];
 const REP_DEFAULT_QTY=15;
@@ -3415,7 +3443,7 @@ function renderCalendar(){
   const drivers=selD.filter(d=>(S.orders||[]).some(t=>t.driverId===d.id&&t.deliveryDate>=from&&t.deliveryDate<=to));
   const dl=calFrom&&calTo?`${fd(calFrom)}\u2013${fd(calTo)}`:'This month';
   const drvOpts=allD.map(d=>({value:d.id,label:`${d.firstName} ${d.lastName}`}));
-  const toolbar=`<div class="cal-toolbar"><div><div class="cal-toolbar-lbl">Date Range</div><div style="display:flex;align-items:center;gap:6px"><button class="dp-btn${calFrom?' active':''}" id="cal-dp-btn">📅 ${esc(dl)}</button>${calFrom?`<button class="dp-clear" onclick="calFrom='';calTo='';renderCalendar()">\u2715 Clear</button>`:''}</div></div><div><div class="cal-toolbar-lbl">Drivers</div>${buildCbDropdown('calDrv',drvOpts,calDrvSel,'All Drivers')}</div></div>`;
+  const toolbar=`<div class="cal-toolbar"><div><div class="cal-toolbar-lbl">Date Range</div><div style="display:flex;align-items:center;gap:6px"><button class="dp-btn${calFrom?' active':''}" onclick="openDatePicker(calFrom,calTo,(f,t)=>{calFrom=f;calTo=t;renderCalendar()})">📅 ${esc(dl)}</button>${calFrom?`<button class="dp-clear" onclick="calFrom='';calTo='';renderCalendar()">\u2715 Clear</button>`:''}</div></div><div><div class="cal-toolbar-lbl">Drivers</div>${buildCbDropdown('calDrv',drvOpts,calDrvSel,'All Drivers')}</div></div>`;
   const cont=document.getElementById('cal-container');
   if(!drivers.length){cont.innerHTML=toolbar+'<div class="empty" style="padding:32px">No drivers with orders in this period</div>';bindCalToolbar(drvOpts);return;}
   const getDates=(f,t)=>{const dates=[];const cur=new Date(f);const end=new Date(t);while(cur<=end){dates.push(localIso(cur));cur.setDate(cur.getDate()+1);}return dates;};
@@ -3442,7 +3470,7 @@ function renderCalendar(){
   bindCalToolbar(drvOpts);
 }
 function bindCalToolbar(drvOpts){
-  const dpb=document.getElementById('cal-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(calFrom,calTo,(f,t)=>{calFrom=f;calTo=t;renderCalendar();});
+
   bindCbDropdown('calDrv',drvOpts||[],sel=>{calDrvSel=sel;renderCalendar();});
 }
 
@@ -4107,7 +4135,7 @@ function saveSortingEdit(id,force){
     S.stock['Unsorted']-=p.qty;
   });
   if(r&&r.id)syncSorting(r);
-  persist();toast('Sorting updated');closeM('m-sort');renderSorting();renderDash();
+  persist();clearDirty('m-sort');toast('Sorting updated');closeM('m-sort');renderSorting();renderDash();
 }
 function openSortModal(){
   SF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',sorters:[]};
@@ -4666,14 +4694,13 @@ function renderLedger(){
       <button class="vt-btn${ledgerFilter.dir==='in'?' on':''}" onclick="ledgerFilter.dir='in';renderLedgerTable()" style="padding:4px 10px;font-size:12px;color:var(--brand)">▲ In</button>
       <button class="vt-btn${ledgerFilter.dir==='out'?' on':''}" onclick="ledgerFilter.dir='out';renderLedgerTable()" style="padding:4px 10px;font-size:12px;color:var(--red)">▼ Out</button>
     </div>
-    <button class="dp-btn${ledgerFilter.dateFrom?' active':''}" id="led-dp-btn">📅 ${esc(dlabel)}</button>
+    <button class="dp-btn${ledgerFilter.dateFrom?' active':''}" onclick="openDatePicker(ledgerFilter.dateFrom,ledgerFilter.dateTo,(f,t)=>{ledgerFilter.dateFrom=f;ledgerFilter.dateTo=t;renderLedger()})">📅 ${esc(dlabel)}</button>
     ${ledgerFilter.dateFrom?`<button class="dp-clear" onclick="ledgerFilter.dateFrom='';ledgerFilter.dateTo='';renderLedger()">\u2715</button>`:''}
     ${ledgerFilter.search||ledgerFilter.cls||ledgerFilter.type||ledgerFilter.dateFrom||ledgerFilter.dir?`<button class="btn btn-ghost btn-sm" onclick="ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null};renderLedger()">Clear all</button>`:''}
   `;
   bindCbDropdown('led-cls',prodOpts,v=>{ledgerFilter.cls=v;renderLedgerTable();});
   bindCbDropdown('led-type',typeOpts,v=>{ledgerFilter.type=v;renderLedgerTable();});
-  const dpb=document.getElementById('led-dp-btn');
-  if(dpb)dpb.onclick=()=>openDatePicker(ledgerFilter.dateFrom,ledgerFilter.dateTo,(f,t)=>{ledgerFilter.dateFrom=f;ledgerFilter.dateTo=t;renderLedger();});
+
   renderLedgerTable();
 }
 
