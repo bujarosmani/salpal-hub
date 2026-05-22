@@ -1629,6 +1629,8 @@ function toast(msg,type='ok'){const t=document.getElementById('toast');t.textCon
 const FORM_MODALS=['m-order','m-repair','m-sort','m-dropoff','m-user','m-company','m-product','m-stock-adj'];
 function openM(id){
   const modal=document.getElementById(id);if(!modal)return;
+  // Clear any stale dirty state before opening
+  modal._dirty=false;modal._saved=false;modal._snapshot=null;
   modal.classList.add('open');
   // Snapshot form state for dirty detection on key forms
   if(['m-order','m-repair','m-sort'].includes(id)){
@@ -1636,7 +1638,7 @@ function openM(id){
       const inputs=modal.querySelectorAll('input,select,textarea');
       modal._snapshot=Array.from(inputs).map(el=>el.value).join('|');
       modal._dirty=false;
-    },100);
+    },200);
   }
 }
 function isModalDirty(id){
@@ -2551,7 +2553,7 @@ function saveOrder(force){
     const i=(S.orders||[]).findIndex(x=>x.id===eid);if(i>=0)S.orders[i]=order;
     toast('Order updated');
   }
-  syncOrder(order);clearDirty('m-order');closeM('m-order');renderOrders();renderDash();
+  syncOrder(order);clearDirty('m-order');forceCloseM('m-order');renderOrders();renderDash();
 }
 function confirmDelete(errElId,label,onConfirm){
   const el=document.getElementById(errElId);if(!el)return;
@@ -3387,7 +3389,7 @@ function saveRepairEdit(id,force){
     addLedger('Repair Edit',r.id,RF.src,'out',qty,`Edited repair → ${cls}`);
   }
   syncRepair(r);
-  persist();clearDirty('m-repair');toast('Repair updated');closeM('m-repair');renderRepairs();
+  persist();clearDirty('m-repair');toast('Repair updated');forceCloseM('m-repair');renderRepairs();
 }
 const REP_DEFAULT_QTY_CLASSES=['A','B','C'];
 const REP_DEFAULT_QTY=15;
@@ -3478,7 +3480,7 @@ function saveRepair(force){
   persist();
   clearDirty('m-repair');
   toast(`${totalQty} pallets repaired across ${lines.length} class${lines.length>1?'es':''} \u2014 stock updated`);
-  closeM('m-repair');renderRepairs();renderDash();goHome();
+  forceCloseM('m-repair');renderRepairs();renderDash();goHome();
 }
 
 /* ── CALENDAR ── */
@@ -4190,7 +4192,7 @@ function saveSortingEdit(id,force){
     S.stock['Unsorted']-=p.qty;
   });
   if(r&&r.id)syncSorting(r);
-  persist();clearDirty('m-sort');toast('Sorting updated');closeM('m-sort');renderSorting();renderDash();
+  persist();clearDirty('m-sort');toast('Sorting updated');forceCloseM('m-sort');renderSorting();renderDash();
 }
 function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se.style.display='none';
   SF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',sorters:[]};
@@ -4377,7 +4379,7 @@ function saveSorting(force){
   }
   persist();
   clearDirty('m-sort');toast(`${totalQty} pallets sorted — stock updated`);
-  closeM('m-sort');renderSorting();renderDash();goHome();
+  forceCloseM('m-sort');renderSorting();renderDash();goHome();
 }
 
 function isProductInUse(cls){
