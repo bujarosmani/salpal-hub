@@ -1201,15 +1201,31 @@ function apiHeaders(){
   if(API_TOKEN)h['Authorization']='Bearer '+API_TOKEN;
   return h;
 }
-function sbUpsert(table,id,data){
-  return fetch(API_URL+'/api/upsert',{method:'POST',headers:apiHeaders(),body:JSON.stringify({table,id,data})});
+async function sbUpsert(table,id,data){
+  const r=await fetch(API_URL+'/api/upsert',{method:'POST',headers:apiHeaders(),body:JSON.stringify({table,id,data})});
+  if(r&&r.status===401){handleExpiredToken();return null;}
+  return r;
 }
 async function sbGet(table){
   // Not used directly anymore — data comes via /api/data
   return [];
 }
 async function apiDelete(table,id){
-  return fetch(API_URL+'/api/delete',{method:'DELETE',headers:apiHeaders(),body:JSON.stringify({table,id})});
+  const r=await fetch(API_URL+'/api/delete',{method:'DELETE',headers:apiHeaders(),body:JSON.stringify({table,id})});
+  if(r&&r.status===401){handleExpiredToken();return null;}
+  return r;
+}
+function handleExpiredToken(){
+  if(!API_TOKEN)return; // already logged out
+  API_TOKEN=null;
+  try{sessionStorage.removeItem('salpal-token');sessionStorage.removeItem('salpal-me-data');}catch(e){}
+  toast('Session expired — please log in again','err');
+  setTimeout(()=>{
+    document.getElementById('app').style.display='none';
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('li-loading').style.display='none';
+    document.getElementById('li-form').style.display='';
+  },1500);
 }
 let S=null, ME=null, sigCtxs={}, _inlineCoCb=null;
 
@@ -1281,59 +1297,135 @@ function updateNavBadges(){
   }
 }
 
-function persist(){try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}updateNavBadges();syncCloud();}
-let _syncT,_syncQ=[];
-function syncCloud(){
-  clearTimeout(_syncT);
-  _syncT=setTimeout(async()=>{
+// ── SYNC ENGINE ──
+// Retry queue: {table, id, data, attempts}
+const _retryQueue=[];
+let _retryTimer=null;
+let _pendingCount=0;
+
+function persist(){
+  try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}
+  updateNavBadges();
+}
+
+// Save a single record immediately — with retry on failure
+async function pushRecord(table, id, data){
+  _pendingCount++;
+  setSS('syncing');
+  try{
+    const r=await sbUpsert(table,id,data);
+    if(!r||!r.ok){throw new Error('save failed');}
+    _pendingCount=Math.max(0,_pendingCount-1);
+    if(_pendingCount===0&&_retryQueue.length===0)setSS('ok');
+  }catch(e){
+    _pendingCount=Math.max(0,_pendingCount-1);
+    console.warn('pushRecord failed, queuing retry:',table,id,e.message);
+    // Add to retry queue if not already there
+    const existing=_retryQueue.find(x=>x.table===table&&x.id===id);
+    if(existing){existing.data=data;existing.attempts=(existing.attempts||0)+1;}
+    else _retryQueue.push({table,id,data,attempts:1});
+    setSS('error');
+    scheduleRetry();
+  }
+}
+
+function scheduleRetry(){
+  if(_retryTimer)return;
+  _retryTimer=setTimeout(async()=>{
+    _retryTimer=null;
+    if(!_retryQueue.length)return;
+    console.log('Retrying',_retryQueue.length,'failed saves...');
     setSS('syncing');
-    try{
-      // Mark all local orders as pending sync
-      (S.orders||[]).forEach(o=>o._pendingSync=true);
-      const tables={
-        sp_orders:(S.orders||[]).map(o=>({...o,_pendingSync:undefined})), // don't save flag to cloud
-        sp_repairs:S.repairs||[],
-        sp_sortings:S.sortings||[],
-        sp_users:S.users||[],
-        sp_companies:S.companies||[],
-        sp_ledger:S.ledger||[],
-        sp_deleted:(S.bin||[]).map(e=>({id:e.id,data:e})),
-        sp_stocktakes:(S.stocktakes||[]).map(t=>({id:t.id,data:t}))
-      };
-      const promises=[
-        sbUpsert('sp_stock','__stock',S.stock||{}).catch(e=>console.warn('stock sync',e)),
-        sbUpsert('sp_products','__products',S.products||[]).catch(e=>console.warn('products sync',e)),
-        sbUpsert('sp_stock','__workers',S.workers||DEFAULT_WORKERS).catch(e=>console.warn('workers sync',e)),
-        sbUpsert('sp_stock','__adjustments',S.adjustments||[]).catch(e=>console.warn('adjustments sync',e)),
-        sbUpsert('sp_stock','__dismissedDups',S.dismissedDups||[]).catch(e=>console.warn('dismissedDups sync',e)),
-      ];
-      for(const[table,rows] of Object.entries(tables)){
-        for(const row of rows){
-          if(row&&row.id){
-            const p=sbUpsert(table,row.id,row).then(()=>{
-              // Clear pending flag immediately on success for orders
-              if(table==='sp_orders'){
-                const o=(S.orders||[]).find(x=>x.id===row.id);
-                if(o)delete o._pendingSync;
-              }
-            }).catch(e=>console.warn(table,'sync',e));
-            promises.push(p);
-          }
+    const batch=[..._retryQueue];
+    _retryQueue.length=0;
+    let anyFailed=false;
+    for(const item of batch){
+      try{
+        const r=await sbUpsert(item.table,item.id,item.data);
+        if(!r||!r.ok)throw new Error('retry failed');
+        console.log('Retry succeeded:',item.table,item.id);
+      }catch(e){
+        item.attempts=(item.attempts||0)+1;
+        if(item.attempts<20){// keep retrying for ~3 minutes
+          _retryQueue.push(item);
+          anyFailed=true;
+        }else{
+          console.error('Giving up on:',item.table,item.id,'after',item.attempts,'attempts');
         }
       }
-      await Promise.all(promises);
-      // Clear pending flag after successful sync
-      (S.orders||[]).forEach(o=>delete o._pendingSync);
-      localStorage.setItem(SKEY,JSON.stringify(S));
-      setSS('ok');
-    }catch(e){console.error('syncCloud',e);setSS('error');}
-  },2000);
+    }
+    if(anyFailed){setSS('error');scheduleRetry();}
+    else if(_retryQueue.length===0&&_pendingCount===0)setSS('ok');
+  },10000); // retry every 10 seconds
+}
+
+// Save an order immediately
+function syncOrder(order){
+  if(!order||!order.id)return;
+  const clean={...order};delete clean._pendingSync;
+  persist();
+  pushRecord('sp_orders',order.id,clean);
+}
+
+// Save a repair immediately  
+function syncRepair(repair){
+  if(!repair||!repair.id)return;
+  persist();
+  pushRecord('sp_repairs',repair.id,repair);
+}
+
+// Save a sorting immediately
+function syncSorting(sorting){
+  if(!sorting||!sorting.id)return;
+  persist();
+  pushRecord('sp_sortings',sorting.id,sorting);
+}
+
+// Save a user immediately
+function syncUser(user){
+  if(!user||!user.id)return;
+  persist();
+  pushRecord('sp_users',user.id,user);
+}
+
+// Save a company immediately
+function syncCompany(company){
+  if(!company||!company.id)return;
+  persist();
+  pushRecord('sp_companies',company.id,company);
+}
+
+// Save a stocktake immediately
+function syncStocktake(st){
+  if(!st||!st.id)return;
+  persist();
+  pushRecord('sp_stocktakes',st.id,st);
+}
+
+// Save blob data (stock, products, workers etc)
+function syncBlob(key,data){
+  persist();
+  pushRecord('sp_stock',key,data);
+}
+
+// Full sync — used on manual sync button and for blobs
+function syncCloud(){
+  persist();
+  // Sync blobs
+  pushRecord('sp_stock','__stock',S.stock||{});
+  pushRecord('sp_stock','__products',S.products||[]);
+  pushRecord('sp_stock','__workers',S.workers||DEFAULT_WORKERS);
+  pushRecord('sp_stock','__adjustments',S.adjustments||[]);
+  pushRecord('sp_stock','__dismissedDups',S.dismissedDups||[]);
+  // Sync any queued retries immediately
+  if(_retryQueue.length)scheduleRetry();
 }
 async function loadCloud(){
   try{
     setSS('syncing');
     if(!API_TOKEN){setSS('error');return;}
     const r=await fetch(API_URL+'/api/data',{headers:apiHeaders()});
+    if(r.status===401){handleExpiredToken();return;}
     if(!r.ok){setSS('error');return;}
     const d=await r.json();
     const orders=d.orders?d.orders.map(o=>({id:o.id,data:o})):[];
@@ -2175,7 +2267,7 @@ function setOrdStatus(id,status){
   const old=j.status;j.status=status;j.updatedAt=new Date().toISOString();if(status==='Completed')j.completedAt=new Date().toISOString();
   addTL(j,`Status: ${old} \u2192 ${status}`,'status');
   if(old!=='Completed'&&status==='Completed')adjustStockOnComplete(j);
-  persist();toast(`${j.awb} \u2192 ${status}`);
+  syncOrder(j);toast(`${j.awb} → ${status}`);
   closeM('m-detail');renderOrders();renderDash();
   if(j.type==='Delivery')renderDispatch();else renderReceiving();
 }
@@ -2236,7 +2328,7 @@ function saveOrder(force){
   const driverId=document.getElementById('of-driver').value;
   const now=new Date().toISOString();
   const order={id:ex?ex.id:mkId(),awb,orderRef:document.getElementById('of-ref').value.trim(),orderDate:document.getElementById('of-odate').value,deliveryDate:ddate,type,driverId,timeFrom:document.getElementById('of-tfrom').value,timeTo:document.getElementById('of-tto').value,companyId:document.getElementById('of-co-id').value,companyName:coSearch,companyAddress:document.getElementById('of-addr').value.trim(),city,postcode:post,pallets,totalQty,driverNotes:document.getElementById('of-notes').value.trim(),status:newStatus,whBy:ex?ex.whBy:'',whChanges:ex?ex.whChanges:[],history:ex?ex.history:[],createdAt:ex?ex.createdAt:now,updatedAt:now};
-  if(!ex){addTL(order,'Order created','create',[`Type: ${type}`,`${totalQty} pallets`,`Company: ${coSearch}`]);S.orders.unshift(order);toast(`Order ${awb} created`);}
+  if(!ex){addTL(order,'Order created','create',[`Type: ${type}`,`${totalQty} pallets`,`Company: ${coSearch}`]);S.orders.unshift(order);syncOrder(order);toast(`Order ${awb} created`);}
   else{
     const changes=[];
     if(ex.deliveryDate!==ddate)changes.push(`Date: ${fd(ex.deliveryDate)} \u2192 ${fd(ddate)}`);
@@ -2295,7 +2387,7 @@ function saveOrder(force){
     const i=(S.orders||[]).findIndex(x=>x.id===eid);if(i>=0)S.orders[i]=order;
     toast('Order updated');
   }
-  persist();clearDirty('m-order');closeM('m-order');renderOrders();renderDash();
+  syncOrder(order);clearDirty('m-order');closeM('m-order');renderOrders();renderDash();
 }
 function confirmDelete(errElId,label,onConfirm){
   const el=document.getElementById(errElId);if(!el)return;
@@ -2329,6 +2421,7 @@ function deleteOrder(){
   sendToBin('order',id,j.awb,j);
   S.orders=(S.orders||[]).filter(x=>x.id!==id);
   persist();
+  pushRecord('sp_deleted',id,{id,type:'order',originalId:id});
   apiDelete('sp_orders',id).catch(()=>{});
   toast('Order deleted — stock reversed');closeM('m-order');
   renderOrders();renderDash();renderStock();
@@ -2421,7 +2514,7 @@ function saveRecLater(){
   if(notes)j.whNotes=notes;
   if(cond)j.condition=cond;
   j.updatedAt=new Date().toISOString();
-  persist();closeM('m-crec');renderReceiving();toast('Saved — complete later from To Do');
+  syncOrder(j);closeM('m-crec');renderReceiving();toast('Saved — complete later from To Do');
 }
 
 function saveLoadLater(){
@@ -2438,7 +2531,7 @@ function saveLoadLater(){
   if(trailer)j.trailerPlate=trailer;
   if(notes)j.loadNotes=notes;
   j.updatedAt=new Date().toISOString();
-  persist();closeM('m-load');renderDispatch();toast('Saved — load when ready from To Do');
+  syncOrder(j);closeM('m-load');renderDispatch();toast('Saved — load when ready from To Do');
 }
 
 function openLoadModal(id){
@@ -2486,13 +2579,13 @@ function confirmLoaded(){
   j.truckPlate=document.getElementById('load-truck').value.trim();j.trailerPlate=document.getElementById('load-trailer').value.trim();j.loadNotes=document.getElementById('load-notes').value.trim();j.loadedAt=new Date().toISOString();j.updatedAt=j.loadedAt;
   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Load check',value:`Ordered: ${oldPs} \u00b7 Actual: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
   addTL(j,`Marked Loaded by ${sup}`,'status',[...changes,...(j.loadNotes?[`Notes: ${j.loadNotes}`]:[])]);
-  persist();setTimeout(()=>syncCloud(),100);toast(`${j.awb} Loaded by ${sup}`);closeM('m-load');
+  syncOrder(j);toast(`${j.awb} Loaded by ${sup}`);closeM('m-load');
   // Auto-complete if 3rd party driver
   const driverName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
   if(driverName.includes('3rd')||driverName.includes('third')||driverName.includes('3rd party')){
     j.status='Completed';j.completedAt=new Date().toISOString();j.updatedAt=j.completedAt;
     addTL(j,'Auto-completed — 3rd party collection','status');
-    persist();toast(`${j.awb} completed — 3rd party collected`);
+    syncOrder(j);toast(`${j.awb} completed — 3rd party collected`);
   }
   renderDispatch();renderOrders();renderDash();
   sendWhatsAppDispatch(j);
@@ -2713,7 +2806,7 @@ function confirmReceived(){
   adjustStockOnComplete(j);
   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Receive check',value:`Ordered: ${oldPs} \u00b7 Received: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
   addTL(j,`Completed by ${sup}`,'status',[...changes,...(notes?[`Notes: ${notes}`]:[])]);
-  persist();setTimeout(()=>syncCloud(),100);toast(`${j.awb} completed`);closeM('m-crec');renderReceiving();renderOrders();renderDash();
+  syncOrder(j);toast(`${j.awb} completed`);closeM('m-crec');renderReceiving();renderOrders();renderDash();
   sendWhatsAppReceiving(j);
 }
 
@@ -2806,10 +2899,7 @@ function saveQuickEntry(createOnly){
   }
   if(!S.orders)S.orders=[];
   S.orders.unshift(j);
-  j._pendingSync=true; // mark as pending until confirmed synced
-  persist();
-  // Force immediate sync regardless of modal state
-  setTimeout(()=>syncCloud(),100);
+  syncOrder(j); // immediate save — no delay
   if(createOnly){
     toast(`✓ Order ${awb} created — Open`);
     closeM('m-quick');
@@ -2850,7 +2940,7 @@ function saveDropoff(){
   addTL(order,`Drop-off received by ${by}`,'create',[`${totalQty} pallets`,`Supplier: ${coSearch}`,`Condition: ${order.condition||'\u2014'}`]);
   S.orders.unshift(order);
   adjustStockOnComplete(order);
-  persist();toast(`Drop-off received \u2014 ${awb}`);closeM('m-dropoff');renderReceiving();renderOrders();renderDash();
+  syncOrder(newOrder);toast(`Drop-off received — ${awb}`);closeM('m-dropoff');renderReceiving();renderOrders();renderDash();
 }
 
 /* ── REPAIRS ── */
@@ -3001,7 +3091,7 @@ function confirmDeleteRepair(id){
   S.repairs=(S.repairs||[]).filter(x=>x.id!==id);
   // Remove from Supabase
   apiDelete('sp_repairs',id).catch(()=>{});
-  persist();toast('Repair entry deleted');renderRepairs();
+  persist();pushRecord('sp_repairs',id,{id,_deleted:true});toast('Repair entry deleted');renderRepairs();
 }
 
 function saveRepairEdit(id,force){
@@ -3031,6 +3121,7 @@ function saveRepairEdit(id,force){
   if(editRepDate){const existingTime=r.date?new Date(r.date).toTimeString().slice(0,8):new Date().toTimeString().slice(0,8);r.date=new Date(editRepDate+'T'+existingTime).toISOString();}
   addLedger('Repair',r.id,cls,'in',qty,`Edited repair by ${RF.rep}`);
   addLedger('Repair',r.id,RF.src,'out',qty,`Edited repair \u2192 ${cls}`);
+  const updR=S.repairs.find(r=>r.id===RF.id);if(updR)syncRepair(updR);
   persist();toast('Repair updated');closeM('m-repair');renderRepairs();
 }
 const REP_DEFAULT_QTY_CLASSES=['A','B','C'];
@@ -3118,6 +3209,7 @@ function saveRepair(force){
   S.stock[RF.src]-=totalQty;
   pushStock(RF.src);
   addLedger('Repair','batch',RF.src,'out',totalQty,`Repaired \u2192 ${lines.map(p=>`${p.qty}\u00d7${p.cls}`).join(', ')}`);
+  lines.forEach((_,i)=>{const r=S.repairs[i];if(r&&r.id)syncRepair(r);});
   persist();
   clearDirty('m-repair');
   toast(`${totalQty} pallets repaired across ${lines.length} class${lines.length>1?'es':''} \u2014 stock updated`);
@@ -3248,16 +3340,16 @@ function viewDrvTask(id){
   }
   document.getElementById('det-foot').innerHTML=foot;openM('m-detail');
 }
-function startDelivery(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Started delivery','status');persist();toast('Delivery started 🚛');closeM('m-detail');renderDriver();}
-function startCollect(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Left to collect','status');persist();toast('Left to collect 🚛');closeM('m-detail');renderDriver();}
+function startDelivery(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Started delivery','status');syncOrder(j);toast('Delivery started 🚛');closeM('m-detail');renderDriver();}
+function startCollect(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Left to collect','status');syncOrder(j);toast('Left to collect 🚛');closeM('m-detail');renderDriver();}
 function markReturnArrived(id){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   j.status='Delivered';j.updatedAt=new Date().toISOString();
   addTL(j,'Driver arrived at WH with returned pallets','status');
-  persist();toast('WH notified — pallets arriving');closeM('m-detail');renderDriver();
+  syncOrder(j);toast('WH notified — pallets arriving');closeM('m-detail');renderDriver();
 }
 
-function markCollected(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Collected';j.updatedAt=new Date().toISOString();addTL(j,'Pallets collected \u2014 returning to warehouse','status');persist();toast('Pallets collected');closeM('m-detail');renderDriver();}
+function markCollected(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Collected';j.updatedAt=new Date().toISOString();addTL(j,'Pallets collected — returning to warehouse','status');syncOrder(j);toast('Pallets collected');closeM('m-detail');renderDriver();}
 
 /* ── WHATSAPP FORMS ── */
 let _waMsg='';
@@ -3407,7 +3499,7 @@ function submitProof(){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   const at=new Date().toISOString();j.status='Completed';j.updatedAt=at;j.completedAt=at;j.proof={recipientName:name,companyName:co,completedAt:at};
   addTL(j,`Delivered \u2014 signed by ${name} (${co})`,'status');
-  adjustStockOnComplete(j);persist();toast('Delivered \u2713');closeM('m-proof');renderDriver();renderDash();
+  adjustStockOnComplete(j);syncOrder(j);toast('Delivered ✓');closeM('m-proof');renderDriver();renderDash();
 }
 
 /* ── CANVAS ── */
@@ -3450,6 +3542,8 @@ async function saveUser(){
     if(!S.users)S.users=[];
     S.users.push({id:mkId(),firstName:first,lastName:last,username,role,password:hashedPw});
   }
+  const savedUser=S.users.find(u=>u.username===username);if(savedUser)syncUser(savedUser);
+  const su=S.users.find(u=>u.id===(id||S.users[0]?.id));if(su)syncUser(su);
   persist();toast(id?'User updated':'User added');closeM('m-user');renderUsers();
 }
 function deleteUser(){delUser(document.getElementById('uf-id').value);}
@@ -3546,6 +3640,7 @@ function saveCompany(){
     if(!S.companies)S.companies=[];
     S.companies.push(co);
   }
+  const savedCo=S.companies.find(c=>c.name===document.getElementById('cf-name')?.value?.trim());if(savedCo)syncCompany(savedCo);
   persist();toast(id?'Updated':'Added');
   if(_inlineCoCb){_inlineCoCb(co);_inlineCoCb=null;}
   closeM('m-company');renderCompanies();
@@ -3733,7 +3828,7 @@ function confirmDeleteSorting(id){
   addLedger('Sorting Reversed',r.id,'Unsorted','in',r.totalQty||0,'Sorting entry deleted');
   S.sortings=(S.sortings||[]).filter(x=>x.id!==id);
   apiDelete('sp_sortings',id).catch(()=>{});
-  persist();toast('Sorting entry deleted — stock reversed');renderSorting();renderDash();
+  persist();pushRecord('sp_sortings',id,{id,_deleted:true});toast('Sorting entry deleted — stock reversed');renderSorting();renderDash();
 }
 
 function editSorting(id){
@@ -3792,6 +3887,7 @@ function saveSortingEdit(id,force){
     if(!S.stock['Unsorted'])S.stock['Unsorted']=0;
     S.stock['Unsorted']-=p.qty;
   });
+  const updS=S.sortings.find(s=>s.id===SF.id);if(updS)syncSorting(updS);
   persist();toast('Sorting updated');closeM('m-sort');renderSorting();renderDash();
 }
 function openSortModal(){
@@ -3966,6 +4062,7 @@ function saveSorting(force){
       }
     }
   }
+  S.sortings.slice(0,SF.lines.length).forEach(s=>syncSorting(s));
   persist();
   clearDirty('m-sort');toast(`${totalQty} pallets sorted — stock updated`);
   closeM('m-sort');renderSorting();renderDash();
@@ -4481,6 +4578,7 @@ function saveStockAdj(){
       pushStock(cls);
     }
   });
+  syncBlob('__stock',S.stock||{});
   persist();toast('Stock updated');closeM('m-stock-adj');renderStock();
 }
 
@@ -5196,6 +5294,7 @@ function submitStocktake(id){
   const counted=t.counts.filter(c=>c.counted!==null).length;
   if(!counted){toast('Count at least one product before submitting','err');return;}
   t.status='pending';t.submittedAt=new Date().toISOString();
+  const latestSt=(S.stocktakes||[])[0];if(latestSt)syncStocktake(latestSt);
   persist();toast('Submitted for admin approval ✓');renderStocktake();
 }
 
