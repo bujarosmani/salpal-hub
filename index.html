@@ -5756,6 +5756,7 @@ function approveStocktake(id){
     if(diff!==0){addLedger('Stocktake',t.adjRef,c.cls,diff>0?'in':'out',Math.abs(diff),`${t.adjRef} — Stocktake by ${t.userName}`);pushStock(c.cls);}
   });
   t.status='approved';t.approvedAt=new Date().toISOString();t.approvedBy=ME?`${ME.firstName} ${ME.lastName}`.trim():'';
+  syncStocktake(t);
   persist();renderStocktake();renderDash();toast(`${t.adjRef} approved — ${t.counts.filter(c=>c.counted!==null).length} products adjusted`);
 }
 
