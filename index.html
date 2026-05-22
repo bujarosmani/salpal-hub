@@ -3307,7 +3307,7 @@ function saveRepairEdit(id,force){
   if(editRepDate){const existingTime=r.date?new Date(r.date).toTimeString().slice(0,8):new Date().toTimeString().slice(0,8);r.date=new Date(editRepDate+'T'+existingTime).toISOString();}
   addLedger('Repair',r.id,cls,'in',qty,`Edited repair by ${RF.rep}`);
   addLedger('Repair',r.id,RF.src,'out',qty,`Edited repair \u2192 ${cls}`);
-  const updR=S.repairs.find(r=>r.id===RF.id);if(updR)syncRepair(updR);
+  syncRepair(r);
   persist();toast('Repair updated');closeM('m-repair');renderRepairs();
 }
 const REP_DEFAULT_QTY_CLASSES=['A','B','C'];
@@ -4103,7 +4103,7 @@ function saveSortingEdit(id,force){
     if(!S.stock['Unsorted'])S.stock['Unsorted']=0;
     S.stock['Unsorted']-=p.qty;
   });
-  const updS=S.sortings.find(s=>s.id===SF.id);if(updS)syncSorting(updS);
+  if(r&&r.id)syncSorting(r);
   persist();toast('Sorting updated');closeM('m-sort');renderSorting();renderDash();
 }
 function openSortModal(){
