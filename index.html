@@ -5428,6 +5428,7 @@ function renderStocktake(){
                 <button class="btn btn-danger btn-sm" onclick="rejectStocktake('${t.id}')">✕ Reject</button>
                 <button class="btn btn-primary btn-sm" onclick="approveStocktake('${t.id}')">✓ Approve</button>`:''}
               ${t.status==='approved'?`<button class="btn btn-ghost btn-sm" onclick="viewStocktake('${t.id}')">View</button>`:''}
+              ${t.status==='rejected'?`<button class="btn btn-danger btn-sm" onclick="deleteStocktake('${t.id}')">🗑 Delete</button>`:''}
             </div>
           </div>
           ${t.status==='pending'?`
@@ -5560,9 +5561,22 @@ function submitStocktake(id){
 }
 
 function discardStocktake(id){
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  // Move to bin instead of permanent delete — preserves history
+  sendToBin('stocktake',id,t.adjRef||'Stocktake',t);
   S.stocktakes=(S.stocktakes||[]).filter(x=>x.id!==id);
-  apiDelete('sp_stocktakes',id).catch(()=>{});
+  t.status='discarded';
+  syncStocktake(t);
   persist();renderStocktake();toast('Stock take discarded');
+}
+function deleteStocktake(id){
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  confirmDelete('',`stocktake ${t.adjRef||''}`,()=>{
+    sendToBin('stocktake',id,t.adjRef||'Stocktake',t);
+    S.stocktakes=(S.stocktakes||[]).filter(x=>x.id!==id);
+    apiDelete('sp_stocktakes',id).catch(()=>{});
+    persist();renderStocktake();toast('Stocktake deleted');
+  });
 }
 
 function exportStocktakeExcel(id){
