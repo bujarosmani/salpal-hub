@@ -4240,7 +4240,7 @@ function saveProduct(){
     toast(`Product "${name}" added`);
   }
   pushRecord('sp_stock','__products',S.products||[]);
-  persist();closeM('m-product');renderStock();
+  persist();closeM('m-product');renderStock();renderReorder();
 }
 
 function deleteProduct(){deleteProductDirect(document.getElementById('prod-old-name').value);}
