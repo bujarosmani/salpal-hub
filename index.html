@@ -4278,7 +4278,10 @@ function saveSorting(force){
       }
     }
   }
-  S.sortings.slice(0,SF.lines.length).forEach(s=>syncSorting(s));
+  // Sync the newly added sorting records
+  if(S.sortings&&S.sortings.length){
+    S.sortings.slice(0,SF.lines.length).forEach(s=>{if(s&&s.id)syncSorting(s);});
+  }
   persist();
   clearDirty('m-sort');toast(`${totalQty} pallets sorted — stock updated`);
   closeM('m-sort');renderSorting();renderDash();goHome();
