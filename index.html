@@ -5425,10 +5425,19 @@ function renderStocktake(){
                 ${t.status==='pending'?'⏳ Pending':t.status==='approved'?'✓ Approved':t.status==='draft'?'✏ Draft':'✕ Rejected'}
               </span>
               ${t.status==='pending'?`
+                <button class="btn btn-ghost btn-sm" onclick="editStocktakeCounts('${t.id}')">✏ Edit Counts</button>
                 <button class="btn btn-danger btn-sm" onclick="rejectStocktake('${t.id}')">✕ Reject</button>
                 <button class="btn btn-primary btn-sm" onclick="approveStocktake('${t.id}')">✓ Approve</button>`:''}
-              ${t.status==='approved'?`<button class="btn btn-ghost btn-sm" onclick="viewStocktake('${t.id}')">View</button>`:''}
-              ${t.status==='rejected'?`<button class="btn btn-danger btn-sm" onclick="deleteStocktake('${t.id}')">🗑 Delete</button>`:''}
+              ${t.status==='approved'?`
+                <button class="btn btn-ghost btn-sm" onclick="viewStocktake('${t.id}')">View</button>`:''}
+              ${t.status==='rejected'?`
+                <button class="btn btn-ghost btn-sm" onclick="reopenStocktake('${t.id}')">↩ Reopen</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteStocktake('${t.id}')">🗑 Delete</button>`:''}
+              ${t.status==='draft'?`
+                <button class="btn btn-ghost btn-sm" onclick="continueStocktake('${t.id}')">✏ Continue</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteStocktake('${t.id}')">🗑 Delete</button>`:''}
+              ${(isAdmin()&&t.status==='approved')?`<button class="btn btn-danger btn-sm" onclick="deleteStocktake('${t.id}')">🗑 Delete</button>`:''}
+              ${(isAdmin()&&!['rejected','draft'].includes(t.status)&&(t.counts||[]).filter(c=>c.counted!==null).length===0)?`<button class="btn btn-danger btn-sm" onclick="deleteStocktake('${t.id}')">🗑 Delete</button>`:''}
             </div>
           </div>
           ${t.status==='pending'?`
@@ -5571,12 +5580,11 @@ function discardStocktake(id){
 }
 function deleteStocktake(id){
   const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
-  confirmDelete('',`stocktake ${t.adjRef||''}`,()=>{
-    sendToBin('stocktake',id,t.adjRef||'Stocktake',t);
-    S.stocktakes=(S.stocktakes||[]).filter(x=>x.id!==id);
-    apiDelete('sp_stocktakes',id).catch(()=>{});
-    persist();renderStocktake();toast('Stocktake deleted');
-  });
+  if(!confirm(`Delete this stocktake${t.adjRef?' ('+t.adjRef+')':''}? This cannot be undone.`))return;
+  sendToBin('stocktake',id,t.adjRef||'Stocktake',t);
+  S.stocktakes=(S.stocktakes||[]).filter(x=>x.id!==id);
+  apiDelete('sp_stocktakes',id).catch(()=>{});
+  persist();renderStocktake();toast('Stocktake deleted');
 }
 
 function exportStocktakeExcel(id){
@@ -5689,6 +5697,53 @@ function viewStocktake(id){
   document.body.appendChild(m);
 }
 
+function editStocktakeCounts(id){
+  // Open the stocktake form for editing counts on a pending stocktake
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  const existing=document.getElementById('m-view-st');if(existing)existing.remove();
+  const modal=document.createElement('div');modal.className='mbackdrop open';modal.id='m-view-st';
+  modal.innerHTML=`<div class="mbox"><div class="mhdr"><span class="mtitle">✏ Edit Counts — ${esc(t.adjRef||'Stocktake')}</span><button class="mclose" onclick="document.getElementById('m-view-st').remove()">✕</button></div>
+  <div class="mbody" style="max-height:70vh;overflow-y:auto">
+    <div style="font-size:12px;color:var(--ink3);margin-bottom:12px">Edit counted values then save.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="border-bottom:1px solid var(--line)">
+        <th style="text-align:left;padding:6px 8px;color:var(--ink3)">Product</th>
+        <th style="text-align:right;padding:6px 8px;color:var(--ink3)">System</th>
+        <th style="text-align:right;padding:6px 8px;color:var(--ink3)">Counted</th>
+      </tr></thead>
+      <tbody>
+        ${(t.counts||[]).map(c=>`<tr style="border-bottom:1px solid var(--line2)">
+          <td style="padding:6px 8px;font-weight:600">${esc(c.cls)}</td>
+          <td style="padding:6px 8px;text-align:right;color:var(--ink3)">${c.systemQty||0}</td>
+          <td style="padding:6px 8px;text-align:right">
+            <input type="number" class="inp" style="width:90px;text-align:center;font-size:16px;font-weight:700;padding:6px"
+              value="${c.counted!==null?c.counted:''}" placeholder="—"
+              oninput="editPendingCount('${id}','${esc(c.cls)}',this.value,${c.systemQty||0},null)"/>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+  <div class="mfoot">
+    <button class="btn btn-ghost" onclick="document.getElementById('m-view-st').remove()">Close</button>
+    <button class="btn btn-primary" onclick="document.getElementById('m-view-st').remove();renderStocktake();toast('Counts saved ✓')">Save ✓</button>
+  </div></div>`;
+  document.body.appendChild(modal);
+}
+function reopenStocktake(id){
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  t.status='pending';t.rejectedAt=null;t.updatedAt=new Date().toISOString();
+  syncStocktake(t);
+  persist();renderStocktake();toast('Stocktake reopened — pending approval');
+}
+function continueStocktake(id){
+  // Open the counting form for a draft stocktake
+  const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
+  const form=document.getElementById('st-form-wrap');
+  if(form){form.style.display='';renderStocktakeForm(t);}
+  // Scroll to form
+  form?.scrollIntoView({behavior:'smooth'});
+}
 function approveStocktake(id){
   const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
   if(!S.stock)S.stock={};
