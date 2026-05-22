@@ -3326,19 +3326,8 @@ function editRepair(id){
 
 function deleteRepairEntry(id){
   const r=(S.repairs||[]).find(x=>x.id===id);if(!r)return;
-  // Show inline confirm — find the card element
-  const cards=document.querySelectorAll('#rep-today .rep-del-confirm, #rep-history .rep-del-confirm');
-  cards.forEach(c=>c.remove());
-  // Find button and insert after its parent card
-  const btn=document.querySelector(`[onclick="deleteRepairEntry('${id}')"]`);
-  if(!btn)return;
-  const card=btn.closest('div[style*="background:var(--panel)"]');
-  if(!card)return;
-  const conf=document.createElement('div');
-  conf.className='rep-del-confirm';
-  conf.style.cssText='background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px;margin-top:6px';
-  conf.innerHTML=`<div style="color:var(--red);font-weight:700;margin-bottom:8px">⚠ Delete this repair entry? Cannot be undone.</div><div style="display:flex;gap:8px"><button class="btn btn-danger btn-sm" onclick="confirmDeleteRepair('${id}')">✓ Yes, delete</button><button class="btn btn-ghost btn-sm" onclick="this.closest('.rep-del-confirm').remove()">✕ Cancel</button></div>`;
-  card.after(conf);
+  if(!confirm('Delete this repair entry? Cannot be undone.'))return;
+  confirmDeleteRepair(id);
 }
 function confirmDeleteRepair(id){
   const r=(S.repairs||[]).find(x=>x.id===id);if(!r)return;
