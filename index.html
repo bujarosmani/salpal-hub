@@ -5565,7 +5565,7 @@ function submitStocktake(id){
   const counted=t.counts.filter(c=>c.counted!==null).length;
   if(!counted){toast('Count at least one product before submitting','err');return;}
   t.status='pending';t.submittedAt=new Date().toISOString();
-  const latestSt=(S.stocktakes||[])[0];if(latestSt)syncStocktake(latestSt);
+  syncStocktake(t);
   persist();toast('Submitted for admin approval ✓');renderStocktake();goHome();
 }
 
