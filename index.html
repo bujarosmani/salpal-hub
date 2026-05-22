@@ -849,7 +849,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="ferr" id="load-err"></div>
       <input type="hidden" id="load-order-id"/>
     </div>
-    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-load')">Cancel</button><button class="btn btn-primary" onclick="confirmLoaded()">✓ Mark Loaded</button></div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-load')">Cancel</button><button class="btn btn-ghost" onclick="saveLoadLater()">+ Save for Later</button><button class="btn btn-primary" onclick="confirmLoaded()">✓ Mark Loaded</button></div>
   </div>
 </div>
 
@@ -882,7 +882,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="ferr" id="crec-err"></div>
       <input type="hidden" id="crec-order-id"/>
     </div>
-    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-crec')">Cancel</button><button class="btn btn-primary" onclick="confirmReceived()">✓ Complete</button></div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-crec')">Cancel</button><button class="btn btn-ghost" onclick="saveRecLater()">+ Save for Later</button><button class="btn btn-primary" onclick="confirmReceived()">✓ Complete</button></div>
   </div>
 </div>
 
@@ -935,7 +935,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     </div>
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeM('m-quick')">Cancel</button>
-      <button class="btn btn-ghost" onclick="saveQuickEntry(true)">+ Create Only</button>
+      
       <button class="btn btn-primary" id="qk-save-btn" onclick="saveQuickEntry(false)">⚡ Create &amp; Load</button>
     </div>
   </div>
