@@ -1422,7 +1422,7 @@ function syncCloud(){
   persist();
   // Sync blobs
   pushRecord('sp_stock','__stock',S.stock||{});
-  pushRecord('sp_stock','__products',S.products||[]);
+  pushRecord('sp_products','__products',S.products||[]);
   pushRecord('sp_stock','__workers',S.workers||DEFAULT_WORKERS);
   pushRecord('sp_stock','__adjustments',S.adjustments||[]);
   pushRecord('sp_stock','__dismissedDups',S.dismissedDups||[]);
@@ -4201,7 +4201,7 @@ function doMergeProduct(master){
   delete S.stock[src];
   // Remove src from products list
   S.products=(S.products||getSKUS()).filter(p=>p!==src);
-  pushRecord('sp_stock','__products',S.products||[]);
+  pushRecord('sp_products','__products',S.products||[]);
   pushStock(master);
   // Sync all affected records
   (S.orders||[]).forEach(j=>syncOrder(j));
@@ -4239,7 +4239,7 @@ function saveProduct(){
     S.products.push(name);
     toast(`Product "${name}" added`);
   }
-  pushRecord('sp_stock','__products',S.products||[]);
+  pushRecord('sp_products','__products',S.products||[]);
   persist();closeM('m-product');renderStock();renderReorder();
 }
 
@@ -4250,7 +4250,7 @@ function deleteProductDirect(cls){
     if(!S.products)S.products=[...DEFAULT_SKUS];
     S.products=S.products.filter(p=>p!==cls);
     if(S.stock)delete S.stock[cls];
-    pushRecord('sp_stock','__products',S.products||[]);
+    pushRecord('sp_products','__products',S.products||[]);
   persist();toast('"'+cls+'" deleted');closeM('m-product');renderStock();
   });
 }
@@ -4377,7 +4377,7 @@ function renderReorder(){
       newOrder.splice(toIdx,0,moved);
       if(!S.products)S.products=[...DEFAULT_SKUS];
       S.products=newOrder;
-      pushRecord('sp_stock','__products',S.products||[]);
+      pushRecord('sp_products','__products',S.products||[]);
       persist();toast('Order saved');renderReorder();
     });
     item.addEventListener('touchstart',e=>{dragSrc=item;item.classList.add('dragging');},{passive:true});
@@ -4394,7 +4394,7 @@ function renderReorder(){
         newOrder.splice(toIdx,0,moved);
         if(!S.products)S.products=[...DEFAULT_SKUS];
         S.products=newOrder;
-        pushRecord('sp_stock','__products',S.products||[]);
+        pushRecord('sp_products','__products',S.products||[]);
         persist();toast('Order saved');renderReorder();
       }
     });
