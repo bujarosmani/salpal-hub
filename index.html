@@ -19,7 +19,7 @@
   --purple:#a78bfa;--purple-bg:rgba(167,139,250,.12);
   --r:12px;--sidebar:224px;
 }
-html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;font-size:14px;-webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
 button,input,select,textarea{font:inherit;color:inherit;background:none;border:none;outline:none;box-sizing:border-box}
 button{cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}
 a{color:inherit;text-decoration:none}img{display:block}h1,h2,h3,p{margin:0}
@@ -300,6 +300,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
   </div>
   <div class="sb-sec" id="nav-ops">
     <div class="sb-sec-lbl">Operations</div>
+    <button class="sb-btn" data-p="hub" id="snav-hub"><span class="ic">🏠</span>Home</button>
     <button class="sb-btn" data-p="dashboard" id="snav-dashboard"><span class="ic">⊞</span>Dashboard</button>
     <button class="sb-btn" data-p="orders" id="snav-orders"><span class="ic">📋</span>Orders</button>
     <button class="sb-btn" data-p="dispatch" id="snav-dispatch"><span class="ic">📤</span>Dispatch</button>
@@ -339,6 +340,9 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
   <div id="mob-vt"></div>
 </div>
 
+<div class="page" id="page-hub">
+  <div id="hub-root" style="min-height:100vh;padding:0 0 32px"></div>
+</div>
 <div class="page" id="page-dashboard">
   <div class="phdr"><div><div class="ptitle">Dashboard</div><div class="psub" id="dash-date"></div></div></div>
   <div class="card" id="dash-fleet-card" style="display:none;margin-bottom:14px;background:rgba(245,107,107,.06);border:1.5px solid rgba(245,107,107,.4)"><div class="card-hdr" style="border-bottom:1px solid rgba(245,107,107,.2)"><span class="card-hdr-title" style="color:var(--red)">⚠ Fleet & HR Alerts</span><button class="btn btn-ghost btn-sm" onclick="navTo('fleet')">View All</button></div><div class="card-body" id="dash-fleet"></div></div>
@@ -1780,8 +1784,7 @@ async function doLogin(){
     if(window._pollInterval)clearInterval(window._pollInterval);
     window._pollInterval=setInterval(()=>loadCloud().catch(()=>{}),30000);
     await loadCloud();
-    if(ME.role==='Driver')goTo('driver');
-    else if(ME.role==='Supervisor')goTo('dispatch');
+    if(ME.role==='Driver'||ME.role==='Supervisor')goTo('hub');
     else goTo('dashboard');
   }catch(err){if(document.getElementById('li-btn'))document.getElementById('li-btn').disabled=false;document.getElementById('li-err').textContent='Error: '+err.message;}
 }
@@ -1809,7 +1812,10 @@ function tryRestoreSession(){
     setupNav();updateNavBadges();startRealtime();
     if(window._pollInterval)clearInterval(window._pollInterval);
     window._pollInterval=setInterval(()=>loadCloud().catch(()=>{}),30000);
-    if(ME.role==='Driver')goTo('driver');
+    // Restore last visited page
+    const lastPage=sessionStorage.getItem('salpal-last-page');
+    if(lastPage)goTo(lastPage);
+    else if(ME.role==='Driver')goTo('driver');
     else if(ME.role==='Supervisor')goTo('dispatch');
     else goTo('dashboard');
     return true;
@@ -1857,20 +1863,102 @@ let currentPage=null;
 function goTo(page){
   if(currentPage&&currentPage!==page)resetPageFilters(currentPage);
   currentPage=page;
+  try{sessionStorage.setItem('salpal-last-page',page);}catch(e){}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('on'));
   const pg=document.getElementById('page-'+page);if(pg)pg.classList.add('on');
   document.querySelectorAll(`.sb-btn[data-p="${page}"]`).forEach(b=>b.classList.add('on'));
   closeMob();renderPage(page);
 }
-function renderPage(p){if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='fleet')renderFleet();else if(p==='stocktake')renderStocktake();else if(p==='driver')renderDriver();}
+function renderPage(p){if(p==='hub')renderHub();else if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='fleet')renderFleet();else if(p==='stocktake')renderStocktake();else if(p==='driver')renderDriver();}
 document.querySelectorAll('.sb-btn[data-p]').forEach(btn=>{btn.onclick=()=>goTo(btn.dataset.p);});
 document.getElementById('ham-btn').onclick=()=>{document.getElementById('sidebar').classList.add('open');document.getElementById('mob-overlay').classList.add('open');};
 document.getElementById('mob-overlay').onclick=closeMob;
 function closeMob(){document.getElementById('sidebar').classList.remove('open');document.getElementById('mob-overlay').classList.remove('open');}
 // Backdrop click disabled — use ✕ or Cancel to close
 
+// ── PREVENT PULL-TO-REFRESH ON IOS SAFARI ──
+(function(){
+  let lastY=0;
+  document.addEventListener('touchstart',function(e){
+    lastY=e.touches[0].clientY;
+  },{passive:true});
+  document.addEventListener('touchmove',function(e){
+    const y=e.touches[0].clientY;
+    const el=e.target;
+    // Find nearest scrollable ancestor
+    let scrollable=el;
+    while(scrollable&&scrollable!==document.body){
+      const style=window.getComputedStyle(scrollable);
+      const overflow=style.overflow+style.overflowY;
+      if(overflow.includes('auto')||overflow.includes('scroll'))break;
+      scrollable=scrollable.parentElement;
+    }
+    const atTop=!scrollable||scrollable===document.body||scrollable.scrollTop<=0;
+    const pullingDown=y>lastY;
+    // Block pull-to-refresh when at top of page
+    if(atTop&&pullingDown){
+      e.preventDefault();
+    }
+    lastY=y;
+  },{passive:false});
+})();
+
 /* ── DASHBOARD ── */
+function renderHub(){
+  const el=document.getElementById('hub-root');if(!el)return;
+  const role=ME?.role||'';
+  const today=tod();
+  const name=ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():'';
+
+  // Count badges
+  const orders=S.orders||[];
+  const dispatchCount=orders.filter(o=>o.type==='Delivery'&&['Open','Loaded'].includes(o.status)).length;
+  const receivingCount=orders.filter(o=>o.type==='Collection'&&!['Completed','Pending Sort'].includes(o.status)).length;
+  const pendingSortCount=orders.filter(o=>o.status==='Pending Sort').length;
+  const repairCount=(S.repairs||[]).filter(r=>{const d=r.date||'';return d.slice(0,10)===today;}).length;
+  const driverOrders=orders.filter(o=>o.driverId===ME?.id&&o.deliveryDate===today&&!['Completed'].includes(o.status));
+
+  // Pages available per role
+  const allPages=[
+    {id:'dispatch',  icon:'📦', label:'Dispatch',   sub:'Outgoing deliveries', badge:dispatchCount,   color:'#22c55e', roles:['Admin','Manager','Supervisor']},
+    {id:'receiving', icon:'📥', label:'Receiving',   sub:'Incoming collections', badge:receivingCount, color:'#f59e0b', roles:['Admin','Manager','Supervisor']},
+    {id:'sorting',   icon:'🔄', label:'Sorting',     sub:`${pendingSortCount} pending sort`, badge:pendingSortCount, color:'#a78bfa', roles:['Admin','Manager','Supervisor']},
+    {id:'repairs',   icon:'🔧', label:'Repairs',     sub:'Log repair sessions', badge:repairCount,    color:'#f87171', roles:['Admin','Manager','Supervisor']},
+    {id:'stocktake', icon:'📋', label:'Stock Take',  sub:'Count & submit', badge:0,                  color:'#38bdf8', roles:['Admin','Manager','Supervisor']},
+    {id:'stock',     icon:'📊', label:'Stock',       sub:'Live inventory', badge:0,                  color:'#34d399', roles:['Admin','Manager']},
+    {id:'orders',    icon:'📑', label:'All Orders',  sub:'View & manage orders', badge:0,             color:'#94a3b8', roles:['Admin','Manager']},
+    {id:'driver',    icon:'🚛', label:'My Tasks',    sub:`${driverOrders.length} task${driverOrders.length===1?'':'s'} today`, badge:driverOrders.length, color:'#22c55e', roles:['Driver']},
+  ];
+
+  const pages=allPages.filter(p=>p.roles.includes(role));
+
+  el.innerHTML=`
+    <div style="background:var(--panel);border-bottom:1px solid var(--line);padding:16px 18px 14px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10">
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:.5px">SalPal Hub</div>
+        <div style="font-size:12px;color:var(--ink3);margin-top:1px">${name} · ${role}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="font-size:12px">Sign out</button>
+    </div>
+    <div style="padding:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">${today.split('-').reverse().join('/')}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        ${pages.map(p=>`
+          <button onclick="goTo('${p.id}')" style="background:var(--panel);border:1.5px solid var(--line2);border-radius:16px;padding:20px 16px;text-align:left;cursor:pointer;position:relative;transition:border-color .15s;-webkit-tap-highlight-color:transparent;min-height:110px;display:flex;flex-direction:column;justify-content:space-between" ontouchstart="this.style.borderColor='${p.color}'" ontouchend="this.style.borderColor='var(--line2)'">
+            ${p.badge>0?`<div style="position:absolute;top:12px;right:12px;background:${p.color};color:#000;font-size:11px;font-weight:800;border-radius:20px;padding:2px 8px;min-width:22px;text-align:center">${p.badge}</div>`:''}
+            <div style="font-size:28px;line-height:1;margin-bottom:8px">${p.icon}</div>
+            <div>
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:.3px;color:var(--ink)">${p.label}</div>
+              <div style="font-size:11px;color:var(--ink3);margin-top:2px">${p.sub}</div>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function renderDash(){
   document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const tr=(S.repairs||[]).filter(r=>isToday(r.date));
