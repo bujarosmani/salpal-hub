@@ -345,7 +345,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 </div>
 <div class="page" id="page-dashboard">
   <div class="phdr"><div><div class="ptitle">Dashboard</div><div class="psub" id="dash-date"></div></div></div>
-  <div class="card" id="dash-fleet-card" style="display:none;margin-bottom:14px;background:rgba(245,107,107,.06);border:1.5px solid rgba(245,107,107,.4)"><div class="card-hdr" style="border-bottom:1px solid rgba(245,107,107,.2)"><span class="card-hdr-title" style="color:var(--red)">⚠ Fleet & HR Alerts</span><button class="btn btn-ghost btn-sm" onclick="navTo('fleet')">View All</button></div><div class="card-body" id="dash-fleet"></div></div>
+  <div class="card" id="dash-fleet-card" style="display:none;margin-bottom:14px;background:rgba(245,107,107,.06);border:1.5px solid rgba(245,107,107,.4)"><div class="card-hdr" style="border-bottom:1px solid rgba(245,107,107,.2)"><span class="card-hdr-title" style="color:var(--red)">⚠ Fleet & HR Alerts</span><button class="btn btn-ghost btn-sm" onclick="goTo('fleet')">View All</button></div><div class="card-body" id="dash-fleet"></div></div>
   <div id="dash-recon-warn" style="display:none"></div>
   <div id="dash-dup-warn" style="display:none"></div>
   <div class="stats" id="dash-stats"></div>
@@ -1093,6 +1093,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     </div>
     <div class="mfoot">
       <button class="btn btn-danger btn-sm" id="cf-del" style="display:none;margin-right:auto" onclick="deleteCompany()">Delete</button>
+      <button class="btn btn-ghost btn-sm" id="cf-merge-btn" style="display:none;margin-right:8px" onclick="openMergeCompanyModal()">⟳ Merge</button>
       <button class="btn btn-ghost" onclick="closeM('m-company')">Cancel</button>
       <button class="btn btn-primary" onclick="saveCompany()">Save ✓</button>
     </div>
@@ -1154,6 +1155,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     </div>
     <div class="mfoot">
       <button class="btn btn-danger btn-sm" id="prod-del" style="display:none;margin-right:auto" onclick="deleteProduct()">Delete</button>
+      <button class="btn btn-ghost btn-sm" id="prod-merge-btn" style="display:none;margin-right:8px" onclick="openMergeProductFromModal()">⟳ Merge</button>
       <button class="btn btn-ghost" onclick="closeM('m-product')">Cancel</button>
       <button class="btn btn-primary" onclick="saveProduct()">Save ✓</button>
     </div>
@@ -1858,6 +1860,12 @@ function setupNav(){
   const isV=r==='Viewer';
   ['btn-log-repair','btn-log-sort'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isV?'none':'';});
   document.getElementById('btn-dropoff').style.display=(r==='Admin'||r==='Supervisor')?'':'none';
+  // Hide export buttons for non-admin/manager roles
+  const canExport=(r==='Admin'||r==='Manager');
+  document.querySelectorAll('[onclick*="exportOrdersPDF"],[onclick*="exportOrdersExcel"],[onclick*="exportDispatchExcel"],[onclick*="exportReceivingExcel"],[onclick*="exportRepairsExcel"],[onclick*="exportSortingExcel"],[onclick*="exportInventoryExcel"],[onclick*="exportLedgerExcel"],[onclick*="exportAdjExcel"],[onclick*="exportUsersExcel"],[onclick*="exportCompaniesExcel"],[onclick*="exportStocktakeExcel"],[onclick*="exportSelectedStocktakes"]').forEach(btn=>{
+    btn.style.display=canExport?'':'none';
+  });
+
   const mvt=document.getElementById('mob-vt');
   if((r==='Admin'||r==='Manager')&&mvt)mvt.innerHTML=`<div class="view-toggle"><button class="vt-btn on" id="vt-d" onclick="setView('desktop')">🖥</button><button class="vt-btn" id="vt-m" onclick="setView('mobile')">📱</button></div>`;
   const svt=document.getElementById('sb-vt');
@@ -2527,7 +2535,7 @@ function deleteOrder(){
 function forceUnlockOrder(id){
   if(!S.orderLocks)return;
   delete S.orderLocks[id];
-  sbUpsert('sp_stock','__locks',S.orderLocks).catch(()=>{});
+  pushRecord('sp_stock','__locks',S.orderLocks||{});
   persist();
   renderOrders();
   toast('Order unlocked');
@@ -2537,8 +2545,7 @@ function closeOrderModal(){
   const id=document.getElementById('of-edit-id')?.value;
   if(id&&S.orderLocks){
     delete S.orderLocks[id];
-    // Force-push cleared locks to Supabase immediately (don't wait for debounce)
-    sbUpsert('sp_stock','__locks',S.orderLocks).catch(()=>{});
+    pushRecord('sp_stock','__locks',S.orderLocks||{});
     persist();
     renderOrders();
   }
@@ -3730,8 +3737,30 @@ function viewCompanyOrders(id){
   document.body.appendChild(m);
 }
 
-function openCompanyModal(){document.getElementById('cf-name').value='';document.getElementById('cf-addr').value='';document.getElementById('cf-city').value='';document.getElementById('cf-post').value='';document.getElementById('cf-id').value='';document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display='none';document.getElementById('co-modal-title').textContent='Add Company';_inlineCoCb=null;openM('m-company');}
-function editCompany(id){const c=(S.companies||[]).find(x=>x.id===id);if(!c)return;document.getElementById('cf-name').value=c.name;document.getElementById('cf-addr').value=c.address||'';document.getElementById('cf-city').value=c.city||'';document.getElementById('cf-post').value=c.postcode||'';document.getElementById('cf-id').value=c.id;document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display=canDelete()?'':'none';document.getElementById('co-modal-title').textContent='Edit Company';_inlineCoCb=null;openM('m-company');}
+function openCompanyModal(){document.getElementById('cf-name').value='';document.getElementById('cf-addr').value='';document.getElementById('cf-city').value='';document.getElementById('cf-post').value='';document.getElementById('cf-id').value='';document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display='none';const mb=document.getElementById('cf-merge-btn');if(mb)mb.style.display='none';document.getElementById('co-modal-title').textContent='Add Company';_inlineCoCb=null;openM('m-company');}
+function editCompany(id){const c=(S.companies||[]).find(x=>x.id===id);if(!c)return;document.getElementById('cf-name').value=c.name;document.getElementById('cf-addr').value=c.address||'';document.getElementById('cf-city').value=c.city||'';document.getElementById('cf-post').value=c.postcode||'';document.getElementById('cf-id').value=c.id;document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display=canDelete()?'':'none';const mb=document.getElementById('cf-merge-btn');if(mb)mb.style.display=canDelete()?'':'none';document.getElementById('co-modal-title').textContent='Edit Company';_inlineCoCb=null;openM('m-company');}
+function openMergeCompanyModal(){
+  const id=document.getElementById('cf-id').value;if(!id)return;
+  closeM('m-company');
+  const current=(S.companies||[]).find(c=>c.id===id);if(!current)return;
+  const others=(S.companies||[]).filter(c=>c.id!==id);
+  const list=document.getElementById('merge-co-list');if(!list)return;
+  list.innerHTML=`
+    <div style="font-size:12px;color:var(--ink3);margin-bottom:8px">Keeping: <strong style="color:var(--brand)">${esc(current.name)}</strong> — select which company to merge INTO it:</div>
+    ${others.map(c=>`
+      <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid var(--line2);border-radius:9px;margin-bottom:8px;cursor:pointer">
+        <input type="radio" name="merge-co-master" value="${c.id}" style="width:16px;height:16px">
+        <div>
+          <div style="font-weight:600">${esc(c.name)}</div>
+          <div style="font-size:11px;color:var(--ink3)">${esc(c.city||'')} ${esc(c.postcode||'')}</div>
+        </div>
+      </label>
+    `).join('')}
+    <input type="hidden" id="merge-keep-id" value="${id}">
+  `;
+  document.getElementById('merge-co-err').textContent='';
+  openM('m-merge-co');
+}
 function saveCompany(){
   const id=document.getElementById('cf-id').value;
   const name=document.getElementById('cf-name').value.trim();
@@ -3780,12 +3809,13 @@ function openMergeCompany(id){
 }
 
 function doMergeCompany(){
+  const keepId=document.getElementById('merge-keep-id')?.value;
   const sel=document.querySelector('input[name="merge-co-master"]:checked');
-  if(!sel){document.getElementById('merge-co-err').textContent='Please select the master record.';return;}
-  const masterId=sel.value;
+  if(!sel){document.getElementById('merge-co-err').textContent='Please select the company to merge.';return;}
+  const masterId=keepId; // keep current company
+  const dupeId=sel.value; // merge this one into master
   const master=(S.companies||[]).find(x=>x.id===masterId);if(!master)return;
-  // Find all duplicates
-  const dupes=(S.companies||[]).filter(x=>x.id!==masterId&&(x.name||'').toLowerCase()===master.name.toLowerCase()&&(x.city||'').toLowerCase()===(master.city||'').toLowerCase());
+  const dupes=(S.companies||[]).filter(x=>x.id===dupeId);
   // Redirect all orders from duplicates to master
   let moved=0;
   dupes.forEach(d=>{
@@ -3803,6 +3833,10 @@ function doMergeCompany(){
   persist();
   toast(`Merged ${dupes.length} duplicates into "${master.name}" — ${moved} orders updated`);
   closeM('m-merge-co');renderCompanies();
+}
+function deleteCompany(){
+  const id=document.getElementById('cf-id').value;
+  if(id)delCo(id);
 }
 function delCo(id){
   const c=(S.companies||[]).find(x=>x.id===id);if(!c)return;
@@ -4197,6 +4231,7 @@ function openProductModal(){
   document.getElementById('prod-old-name').value='';
   document.getElementById('prod-err').textContent='';
   document.getElementById('prod-del').style.display='none';
+  const mb=document.getElementById('prod-merge-btn');if(mb)mb.style.display='none';
   openM('m-product');
 }
 
@@ -4255,7 +4290,15 @@ function editProduct(cls){
   document.getElementById('prod-old-name').value=cls;
   document.getElementById('prod-err').textContent='';
   document.getElementById('prod-del').style.display=(!isProductInUse(cls)&&canDelete())?'':'none';
+  const mb=document.getElementById('prod-merge-btn');if(mb)mb.style.display=canDelete()?'':'none';
   openM('m-product');
+}
+
+function openMergeProductFromModal(){
+  const cls=document.getElementById('prod-old-name').value;
+  if(!cls)return;
+  closeM('m-product');
+  openMergeProduct(cls);
 }
 
 function saveProduct(){
@@ -5158,6 +5201,7 @@ function plannerRemove(orderId,colId){
   const plan=S.plans[date];
   if(colId==='unassigned')plan.unassigned=(plan.unassigned||[]).filter(id=>id!==orderId);
   else plan.drivers[colId]=(plan.drivers[colId]||[]).filter(id=>id!==orderId);
+  pushRecord('sp_stock','__plans',S.plans||{});
   persist();renderPlanner();
 }
 
@@ -5234,6 +5278,7 @@ function reorderInCol(colId,orderId,toIdx,date){
   if(colId!=='unassigned'){
     arr.forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planSeq=i+1;syncOrder(j);}});
   }
+  pushRecord('sp_stock','__plans',S.plans||{});
   persist();renderPlanner();
 }
 
@@ -5250,6 +5295,7 @@ function dropToColAt(toCol,orderId,fromCol,toIdx,date){
   const order=(S.orders||[]).find(j=>j.id===orderId);
   if(order){order.driverId=toCol==='unassigned'?'':toCol;order.updatedAt=new Date().toISOString();}
   drvs().forEach(d=>{(plan.drivers[d.id]||[]).forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planDate=date;j.planSeq=i+1;j.driverId=d.id;}});});
+  pushRecord('sp_stock','__plans',S.plans||{});
   persist();renderPlanner();
 }
 
@@ -5582,12 +5628,14 @@ function approveStocktake(id){
 function rejectStocktake(id){
   const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
   t.status='rejected';t.rejectedAt=new Date().toISOString();
+  syncStocktake(t);
   persist();renderStocktake();toast('Stocktake rejected');
 }
 
 function setFleetAlertStatus(key,val){
   if(!S.fleetAlertStatus)S.fleetAlertStatus={};
   S.fleetAlertStatus[key]=val;
+  pushRecord('sp_stock','__fleet',S.fleet||{});
   persist();
   renderFleetOverview();
   renderDash();
@@ -5832,12 +5880,14 @@ function saveVehicle(){
   };
   const idx=(S.fleet.vehicles||[]).findIndex(x=>x.id===id);
   if(idx>=0)S.fleet.vehicles[idx]=v;else{if(!S.fleet.vehicles)S.fleet.vehicles=[];S.fleet.vehicles.push(v);}
+  pushRecord('sp_stock','__fleet',S.fleet||{});
   persist();closeM('m-vehicle');renderFleetVehicles();toast('Vehicle saved');
 }
 
 function deleteVehicle(id){
   if(!S.fleet?.vehicles)return;
   S.fleet.vehicles=S.fleet.vehicles.filter(x=>x.id!==id);
+  pushRecord('sp_stock','__fleet',S.fleet||{});
   persist();renderFleetVehicles();toast('Vehicle deleted');
 }
 
@@ -5862,6 +5912,7 @@ function saveService(){
   const notes=document.getElementById('svc-notes').value.trim();
   if(!v.svcHistory)v.svcHistory=[];
   v.svcHistory.unshift({date,km,notes,loggedAt:new Date().toISOString()});
+  pushRecord('sp_stock','__fleet',S.fleet||{});
   persist();closeM('m-service');renderFleetVehicles();
   const next=nextServiceDate(date,v.svcMonths);
   toast(`Service logged ✓${next?' · Next: '+fd(next):''}`);
@@ -5896,12 +5947,14 @@ function saveEmployee(){
   };
   const idx=(S.fleet.employees||[]).findIndex(x=>x.id===id);
   if(idx>=0)S.fleet.employees[idx]=e;else{if(!S.fleet.employees)S.fleet.employees=[];S.fleet.employees.push(e);}
+  pushRecord('sp_stock','__fleet',S.fleet||{});
   persist();closeM('m-employee');renderFleetEmployees();toast('Employee saved');
 }
 
 function deleteEmployee(id){
   if(!S.fleet?.employees)return;
   S.fleet.employees=S.fleet.employees.filter(x=>x.id!==id);
+  pushRecord('sp_stock','__fleet',S.fleet||{});
   persist();renderFleetEmployees();toast('Employee deleted');
 }
 
@@ -5916,6 +5969,7 @@ function sendToBin(type,id,name,data){
 function dismissDupGroup(key){
   if(!S.dismissedDups)S.dismissedDups=[];
   if(!S.dismissedDups.includes(key))S.dismissedDups.push(key);
+  pushRecord('sp_stock','__dismissedDups',S.dismissedDups);
   persist();
   checkDuplicateOrders();
 }
