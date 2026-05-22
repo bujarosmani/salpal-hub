@@ -1877,30 +1877,28 @@ document.getElementById('mob-overlay').onclick=closeMob;
 function closeMob(){document.getElementById('sidebar').classList.remove('open');document.getElementById('mob-overlay').classList.remove('open');}
 // Backdrop click disabled — use ✕ or Cancel to close
 
-// ── PREVENT PULL-TO-REFRESH ON IOS SAFARI ──
+// ── PREVENT PULL-TO-REFRESH (iOS Safari + Edge Mobile) ──
 (function(){
-  let lastY=0;
+  let startY=0;
   document.addEventListener('touchstart',function(e){
-    lastY=e.touches[0].clientY;
+    startY=e.touches[0].clientY;
   },{passive:true});
   document.addEventListener('touchmove',function(e){
-    const y=e.touches[0].clientY;
-    const el=e.target;
-    // Find nearest scrollable ancestor
-    let scrollable=el;
-    while(scrollable&&scrollable!==document.body){
-      const style=window.getComputedStyle(scrollable);
-      const overflow=style.overflow+style.overflowY;
-      if(overflow.includes('auto')||overflow.includes('scroll'))break;
-      scrollable=scrollable.parentElement;
+    // Only block if: single touch, pulling down, page is at top, not inside a scrollable element
+    if(e.touches.length!==1)return;
+    const dy=e.touches[0].clientY-startY;
+    if(dy<=0)return; // not pulling down
+    // Check if target or any ancestor is scrollable and not at top
+    let el=e.target;
+    while(el&&el!==document.documentElement){
+      if(el.scrollTop>0)return; // inside scrolled element — allow
+      const cs=getComputedStyle(el);
+      if((cs.overflowY==='auto'||cs.overflowY==='scroll')&&el.scrollHeight>el.clientHeight+1){
+        if(el.scrollTop>0)return;
+      }
+      el=el.parentElement;
     }
-    const atTop=!scrollable||scrollable===document.body||scrollable.scrollTop<=0;
-    const pullingDown=y>lastY;
-    // Block pull-to-refresh when at top of page
-    if(atTop&&pullingDown){
-      e.preventDefault();
-    }
-    lastY=y;
+    e.preventDefault();
   },{passive:false});
 })();
 
