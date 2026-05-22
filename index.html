@@ -826,7 +826,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 
 <div class="mbackdrop" id="m-load">
   <div class="mbox">
-    <div class="mhdr"><span class="mtitle">Mark as Loaded</span><button class="mclose" onclick="closeM('m-load')">✕</button></div>
+    <div class="mhdr"><span class="mtitle">Mark as Loaded</span><button class="mclose" onclick="closeLoadModal()">✕</button></div>
     <div class="mbody">
       <div style="background:var(--panel2);border-radius:9px;padding:12px;margin-bottom:16px">
         <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700" id="load-ref">—</div>
@@ -849,13 +849,13 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="ferr" id="load-err"></div>
       <input type="hidden" id="load-order-id"/>
     </div>
-    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-load')">Cancel</button><button class="btn btn-ghost" onclick="saveLoadLater()">+ Save for Later</button><button class="btn btn-primary" onclick="confirmLoaded()">✓ Mark Loaded</button></div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeLoadModal()">Cancel</button><button class="btn btn-ghost" onclick="saveLoadLater()">+ Save for Later</button><button class="btn btn-primary" onclick="confirmLoaded()">✓ Mark Loaded</button></div>
   </div>
 </div>
 
 <div class="mbackdrop" id="m-crec">
   <div class="mbox">
-    <div class="mhdr"><span class="mtitle">Complete Receiving</span><button class="mclose" onclick="closeM('m-crec')">✕</button></div>
+    <div class="mhdr"><span class="mtitle">Complete Receiving</span><button class="mclose" onclick="closeRecModal()">✕</button></div>
     <div class="mbody">
       <div style="background:var(--panel2);border-radius:9px;padding:12px;margin-bottom:16px">
         <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700" id="crec-ref">—</div>
@@ -882,7 +882,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="ferr" id="crec-err"></div>
       <input type="hidden" id="crec-order-id"/>
     </div>
-    <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-crec')">Cancel</button><button class="btn btn-ghost" onclick="saveRecLater()">+ Save for Later</button><button class="btn btn-primary" onclick="confirmReceived()">✓ Complete</button></div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeRecModal()">Cancel</button><button class="btn btn-ghost" onclick="saveRecLater()">+ Save for Later</button><button class="btn btn-primary" onclick="confirmReceived()">✓ Complete</button></div>
   </div>
 </div>
 
@@ -1525,6 +1525,41 @@ async function loadCloud(){
     }
   }}catch(e){console.error('loadCloud error',e);setSS('error');}
 }
+// ── OFFLINE DETECTION ──
+window.addEventListener('online', ()=>{
+  const txt=document.getElementById('sync-txt');
+  if(txt)txt.textContent='Back online — syncing...';
+  loadCloud().catch(()=>{});
+  // Flush retry queue immediately
+  if(_retryQueue.length)scheduleRetry();
+});
+window.addEventListener('offline', ()=>{
+  setSS('error');
+  const txt=document.getElementById('sync-txt');
+  if(txt)txt.textContent='⚠ No internet connection';
+});
+
+// ── TOKEN AUTO-REFRESH ──
+// Check token expiry every 30 minutes and refresh 1 hour before it expires
+setInterval(async()=>{
+  if(!API_TOKEN)return;
+  try{
+    const payload=JSON.parse(atob(API_TOKEN.split('.')[1]));
+    const expiresIn=(payload.exp*1000)-Date.now();
+    // If less than 1 hour left, refresh
+    if(expiresIn<3600000){
+      const r=await fetch(API_URL+'/api/refresh',{method:'POST',headers:apiHeaders()});
+      if(r.ok){
+        const {token}=await r.json();
+        API_TOKEN=token;
+        try{sessionStorage.setItem('salpal-token',token);}catch(e){}
+      } else if(r.status===401){
+        handleExpiredToken();
+      }
+    }
+  }catch(e){console.warn('token refresh check failed',e);}
+},1800000); // every 30 minutes
+
 function setSS(s){
   const row=document.getElementById('sync-row'),txt=document.getElementById('sync-txt');
   if(!row)return;
@@ -2655,6 +2690,16 @@ function saveLoadLater(){
 
 function openLoadModal(id){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
+  // Check if someone else is already processing this order
+  if(!S.orderLocks)S.orderLocks={};
+  const existingLock=S.orderLocks[id];
+  const myName=ME?`${ME.firstName} ${ME.lastName}`.trim():'';
+  if(existingLock&&existingLock.user!==myName){
+    const age=(Date.now()-new Date(existingLock.time).getTime())/1000;
+    if(age<300){toast(`⚠ ${existingLock.user} is already processing this order`,'err');return;}
+  }
+  S.orderLocks[id]={user:myName,time:new Date().toISOString()};
+  pushRecord('sp_stock','__locks',S.orderLocks||{});
   document.getElementById('load-order-id').value=id;
   document.getElementById('load-ref').textContent=j.awb;
   document.getElementById('load-co').textContent=j.companyName||'\u2014';
@@ -2874,8 +2919,23 @@ function renderReceiving(){
   bindCbDropdown('recDrv',recDrvOpts,v=>{recF.drivers=v;renderReceiving();});
   const dpb=document.getElementById('rec-dp-btn');if(dpb)dpb.onclick=()=>openDatePicker(recF.dateFrom,recF.dateTo,(f,t)=>{recF.dateFrom=f;recF.dateTo=t;renderReceiving();});
 }
+function closeLoadModal(){
+  const id=document.getElementById('load-order-id')?.value;
+  if(id&&S.orderLocks){delete S.orderLocks[id];pushRecord('sp_stock','__locks',S.orderLocks||{});}
+  closeM('m-load');
+}
 function openCompleteRecModal(id){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
+  // Check if someone else is already processing this order
+  if(!S.orderLocks)S.orderLocks={};
+  const existingLock=S.orderLocks[id];
+  const myName=ME?`${ME.firstName} ${ME.lastName}`.trim():'';
+  if(existingLock&&existingLock.user!==myName){
+    const age=(Date.now()-new Date(existingLock.time).getTime())/1000;
+    if(age<300){toast(`⚠ ${existingLock.user} is already processing this order`,'err');return;}
+  }
+  S.orderLocks[id]={user:myName,time:new Date().toISOString()};
+  pushRecord('sp_stock','__locks',S.orderLocks||{});
   document.getElementById('crec-order-id').value=id;
   document.getElementById('crec-ref').textContent=j.awb;
   document.getElementById('crec-co').textContent=j.companyName||'\u2014';
@@ -2888,6 +2948,11 @@ function openCompleteRecModal(id){
   document.getElementById('crec-lines').innerHTML='';(j.pallets||[]).forEach(p=>addPltLine('crec-lines',p.cls,p.qty));
   setTimeout(updateCrecTotal,50);
   openM('m-crec');
+}
+function closeRecModal(){
+  const id=document.getElementById('crec-order-id')?.value;
+  if(id&&S.orderLocks){delete S.orderLocks[id];pushRecord('sp_stock','__locks',S.orderLocks||{});}
+  closeM('m-crec');
 }
 function confirmReceived(){
   const id=document.getElementById('crec-order-id').value;
