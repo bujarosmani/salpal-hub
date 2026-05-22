@@ -1486,8 +1486,19 @@ async function loadCloud(){
       stock.filter(r=>r.id&&r.id.startsWith('stock__')&&r.data).forEach(r=>{if(!S.stock)S.stock={};S.stock[r.data.cls]=r.data.qty;});const wr=stock.find(r=>r.id==='__workers');if(wr&&wr.data)S.workers=wr.data;const pr=stock.find(r=>r.id==='__plans');if(pr&&pr.data)S.plans=pr.data;const fr=stock.find(r=>r.id==='__fleet');if(fr&&fr.data)S.fleet=fr.data;
     const lkr=stock.find(r=>r.id==='__locks');if(lkr&&lkr.data)S.orderLocks=lkr.data;
     const adjr=stock.find(r=>r.id==='__adjustments');if(adjr&&adjr.data)S.adjustments=adjr.data;
-    const ddr=stock.find(r=>r.id==='__dismissedDups');if(ddr&&ddr.data)S.dismissedDups=ddr.data;}
-    if(products&&products.length){const pr=products.find(r=>r.id==='__products');if(pr)S.products=pr.data;}
+    const ddr=stock.find(r=>r.id==='__dismissedDups');if(ddr&&ddr.data)S.dismissedDups=ddr.data;
+    const dpR=stock.find(r=>r.id==='__deletedProducts');if(dpR&&dpR.data)S.deletedProducts=dpR.data;}
+    if(products&&products.length){
+      const pr=products.find(r=>r.id==='__products');
+      if(pr&&pr.data){
+        // Merge: keep all products from both local and remote — except deleted ones
+        const remote=Array.isArray(pr.data)?pr.data:[];
+        const local=S.products||[];
+        const deleted=S.deletedProducts||[];
+        const merged=[...new Set([...remote,...local])].filter(p=>!deleted.includes(p));
+        S.products=merged;
+      }
+    }
     if(stocktakes&&stocktakes.length){
       const remote=stocktakes.map(r=>r.data).filter(Boolean);
       const local=S.stocktakes||[];
@@ -4250,8 +4261,12 @@ function deleteProductDirect(cls){
     if(!S.products)S.products=[...DEFAULT_SKUS];
     S.products=S.products.filter(p=>p!==cls);
     if(S.stock)delete S.stock[cls];
+    // Track deleted so sync doesn't restore it
+    if(!S.deletedProducts)S.deletedProducts=[];
+    if(!S.deletedProducts.includes(cls))S.deletedProducts.push(cls);
     pushRecord('sp_products','__products',S.products||[]);
-  persist();toast('"'+cls+'" deleted');closeM('m-product');renderStock();
+    pushRecord('sp_stock','__deletedProducts',S.deletedProducts);
+    persist();toast('"'+cls+'" deleted');closeM('m-product');renderStock();
   });
 }
 
