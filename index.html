@@ -910,6 +910,11 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="fwrap">
         <div class="sec-row"><label class="flabel" style="margin:0">Pallets *</label><button type="button" class="btn btn-ghost btn-sm" onclick="addPltLine('qk-lines')">+ Add Line</button></div>
         <div id="qk-lines"></div>
+        <div id="qk-total-row" style="display:none;justify-content:flex-end;align-items:center;gap:8px;padding:6px 2px 0">
+          <span style="font-size:12px;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Total</span>
+          <span id="qk-total" style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--brand)">0</span>
+          <span style="font-size:12px;color:var(--ink3)">pallets</span>
+        </div>
       </div>
       <div id="qk-condition-row" class="fwrap" style="display:none">
         <label class="flabel">Condition</label>
@@ -2823,7 +2828,7 @@ function openQuickEntry(type){
   const qtr=document.getElementById('qk-trailer');if(qtr)qtr.value='';
   document.getElementById('qk-date').value=localIso(new Date());
   document.getElementById('qk-err').textContent='';
-  document.getElementById('qk-lines').innerHTML='';addPltLine('qk-lines');
+  document.getElementById('qk-lines').innerHTML='';addPltLine('qk-lines');updateQkTotal();
   // Populate drivers
   const drv=document.getElementById('qk-driver');
   drv.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
@@ -4376,8 +4381,8 @@ function addPltLine(cid,cls,qty){
   // Filter classes based on context
   let skuList=getSKUS();
   if(cid==='srt-lines') skuList=getSKUS().filter(s=>s!=='Unsorted'&&!s.toLowerCase().includes('new'));
-  const rmCb=`this.closest('.plt-line').remove();${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}`;
-  const inpCb=`${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}`;
+  const rmCb=`this.closest('.plt-line').remove();${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}`;
+  const inpCb=`${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}`;
   d.innerHTML=`<select class="inp"><option value="">— Class —</option>${skuList.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="${inpCb}"/><button type="button" class="rm-btn" onclick="${rmCb}">−</button>`;
   c.appendChild(d);
   // Set selected class after DOM insertion to ensure match
@@ -4391,6 +4396,18 @@ function addPltLine(cid,cls,qty){
     d.querySelector('select').addEventListener('change',updateDoTotal);
     d.querySelector('input').addEventListener('input',updateDoTotal);
   }
+  if(cid==='qk-lines'){
+    d.querySelector('select').addEventListener('change',updateQkTotal);
+    d.querySelector('input').addEventListener('input',updateQkTotal);
+  }
+}
+function updateQkTotal(){
+  const lines=getLines('qk-lines');
+  const total=lines.reduce((s,p)=>s+p.qty,0);
+  const row=document.getElementById('qk-total-row');
+  const el=document.getElementById('qk-total');
+  if(row)row.style.display=total>0?'flex':'none';
+  if(el)el.textContent=total.toLocaleString();
 }
 function getLines(cid){
   return Array.from(document.querySelectorAll(`#${cid} .plt-line`)).map(row=>({cls:row.querySelector('select').value,qty:parseInt(row.querySelector('input').value)||0})).filter(p=>p.qty>0&&p.cls);
