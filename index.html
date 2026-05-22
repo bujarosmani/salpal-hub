@@ -1051,6 +1051,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="fwrap" id="rep-date-wrap"><label class="flabel">Date *</label><input class="inp" type="date" id="rep-date"/></div>
       <div id="rep-warn" style="display:none;margin-bottom:10px"></div>
     </div>
+    <div id="rep-err" style="display:none;background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px;margin:0 18px 8px;font-size:12px;font-weight:700;color:var(--red)"></div>
     <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-repair')">Cancel</button><button class="btn btn-primary" onclick="saveRepair(false)">✓ Save</button></div>
   </div>
 </div>
@@ -1129,6 +1130,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="fwrap" id="srt-date-wrap"><label class="flabel">Date *</label><input class="inp" type="date" id="srt-date"/></div>
       <div id="srt-warn" style="display:none;margin-bottom:10px"></div>
     </div>
+    <div id="srt-err" style="display:none;background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px;margin:0 18px 8px;font-size:12px;font-weight:700;color:var(--red)"></div>
     <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-sort')">Cancel</button><button class="btn btn-primary" onclick="saveSorting(false)">✓ Save</button></div>
   </div>
 </div>
@@ -2009,7 +2011,7 @@ function renderHub(){
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:.5px">SalPal Hub</div>
         <div style="font-size:12px;color:var(--ink3);margin-top:1px">${name} · ${role}</div>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="font-size:12px">Sign out</button>
+
     </div>
     <div style="padding:16px">
       <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">${today.split('-').reverse().join('/')}</div>
@@ -3188,7 +3190,48 @@ function renderRepTab(name){
     if(isSupervisor&&r.date&&r.date.slice(0,10)<sevenDaysAgo)return false;
     return filterRep(r);
   };
-  if(name==='today'){const tr=(S.repairs||[]).filter(r=>isToday(r.date)&&filterRep(r)).sort((a,b)=>b.date.localeCompare(a.date));document.getElementById('rep-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800">${esc(r.repairer)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} \u00b7 ${esc(r.supervisor)}</div></div><div style="display:flex;align-items:center;gap:8px">${skuBadge(r.pallet_class,true)}${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteRepairEntry('${r.id}')">Delete</button>`:''}</div></div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand);margin-top:6px">${r.qty} repaired · from ${esc(r.src||r.pallet_class||'—')}</div></div>`).join(''):'<div class="empty">No repairs today</div>';}
+  if(name==='today'){
+    const tr=(S.repairs||[]).filter(r=>isToday(r.date)&&filterRep(r)).sort((a,b)=>b.date.localeCompare(a.date));
+    if(!tr.length){document.getElementById('rep-today').innerHTML='<div class="empty">No repairs today</div>';return;}
+    // Group by worker
+    const workers=[...new Set(tr.map(r=>r.repairer))];
+    document.getElementById('rep-today').innerHTML=workers.map(worker=>{
+      const entries=tr.filter(r=>r.repairer===worker);
+      const total=entries.reduce((s,r)=>s+(r.qty||0),0);
+      // Summary by class
+      const byClass={};entries.forEach(r=>{if(!byClass[r.pallet_class])byClass[r.pallet_class]=0;byClass[r.pallet_class]+=r.qty;});
+      return`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);margin-bottom:12px;overflow:hidden">
+        <!-- Worker header -->
+        <div style="padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;letter-spacing:.5px">${esc(worker)}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+              ${Object.entries(byClass).map(([cls,qty])=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;background:var(--panel2);border:1px solid var(--line2);border-radius:6px;padding:2px 8px">${skuBadge(cls,true)} <span style="color:var(--brand)">${qty}</span></span>`).join('')}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:900;color:var(--brand);line-height:1">${total}</div>
+            <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px">repaired</div>
+          </div>
+        </div>
+        <!-- Individual entries -->
+        <div style="padding:8px 14px">
+          ${entries.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line2)">
+            <div style="display:flex;align-items:center;gap:8px">
+              ${skuBadge(r.pallet_class,true)}
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--brand)">${r.qty} repaired</div>
+                <div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} · ${esc(r.supervisor)} · from ${esc(r.src||'—')}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px">
+              ${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editRepair('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteRepairEntry('${r.id}')">Delete</button>`:''}
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
   if(name==='history'){
     const rhF={
       worker:document.getElementById('rhf-worker')?.value||'',
@@ -3310,7 +3353,12 @@ function confirmDeleteRepair(id){
 
 function saveRepairEdit(id,force){
   const lines=getRepLines();
-  if(!RF.sup||!RF.rep||!RF.src||!lines.length){toast('Fill all fields','err');return;}
+  const _rErr=document.getElementById('rep-err');if(_rErr)_rErr.style.display='none';
+  if(!RF.sup||!RF.rep||!RF.src||!lines.length){
+    const _msg=!RF.sup?'Select a supervisor':!RF.rep?'Select a repairer':!RF.src?'Select source class':'Add at least one pallet line';
+    if(_rErr){_rErr.style.display='';_rErr.textContent='⚠ '+_msg;_rErr.scrollIntoView({behavior:'smooth',block:'center'});}
+    return;
+  }
   const p=lines[0];const qty=p.qty;const cls=p.cls;
   const r=(S.repairs||[]).find(x=>x.id===id);if(!r)return;
   if(!S.stock)S.stock={};
@@ -3373,7 +3421,7 @@ function getRepLines(){
   })).filter(p=>p.qty>0&&p.cls);
 }
 
-function openRepairModal(){
+function openRepairModal(){const _re=document.getElementById('rep-err');if(_re)_re.style.display='none';
   RF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',rep:'',src:''};
   renderRepPickers();
   document.getElementById('rep-lines').innerHTML='';
@@ -4105,9 +4153,16 @@ function editSorting(id){
 }
 
 function saveSortingEdit(id,force){
-  if(!SF.sup||!SF.sorters.length){toast('Select supervisor and at least one sorter','err');return;}
+  const _sErr=document.getElementById('srt-err');if(_sErr)_sErr.style.display='none';
+  if(!SF.sup||!SF.sorters.length){
+    if(_sErr){_sErr.style.display='';_sErr.textContent='⚠ Select a supervisor and at least one sorter';_sErr.scrollIntoView({behavior:'smooth',block:'center'});}
+    return;
+  }
   const pallets=getLines('srt-lines');
-  if(!pallets.length){toast('Add at least one pallet line','err');return;}
+  if(!pallets.length){
+    if(_sErr){_sErr.style.display='';_sErr.textContent='⚠ Add at least one pallet line';_sErr.scrollIntoView({behavior:'smooth',block:'center'});}
+    return;
+  }
   const totalQty=pallets.reduce((s,p)=>s+(p.qty||0),0);
   const r=(S.sortings||[]).find(x=>x.id===id);if(!r)return;
   if(!force){
@@ -4137,7 +4192,7 @@ function saveSortingEdit(id,force){
   if(r&&r.id)syncSorting(r);
   persist();clearDirty('m-sort');toast('Sorting updated');closeM('m-sort');renderSorting();renderDash();
 }
-function openSortModal(){
+function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se.style.display='none';
   SF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',sorters:[]};
   renderSrtPickers();
   document.getElementById('srt-lines').innerHTML='';
@@ -4238,9 +4293,16 @@ function onSrtOrderChange(){
 
 function toggleSorter(name){const i=SF.sorters.indexOf(name);if(i>=0)SF.sorters.splice(i,1);else SF.sorters.push(name);renderSrtPickers();}
 function saveSorting(force){
-  if(!SF.sup||!SF.sorters.length){toast('Select supervisor and at least one sorter','err');return;}
+  const _sErr=document.getElementById('srt-err');if(_sErr)_sErr.style.display='none';
+  if(!SF.sup||!SF.sorters.length){
+    if(_sErr){_sErr.style.display='';_sErr.textContent='⚠ Select a supervisor and at least one sorter';_sErr.scrollIntoView({behavior:'smooth',block:'center'});}
+    return;
+  }
   const pallets=getLines('srt-lines');
-  if(!pallets.length){toast('Add at least one pallet line','err');return;}
+  if(!pallets.length){
+    if(_sErr){_sErr.style.display='';_sErr.textContent='⚠ Add at least one pallet line';_sErr.scrollIntoView({behavior:'smooth',block:'center'});}
+    return;
+  }
   const totalQty=pallets.reduce((s,p)=>s+(p.qty||0),0);
   // If linked to an order, validate against remaining qty
   const orderRef=document.getElementById('srt-order-ref').value;
