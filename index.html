@@ -4227,6 +4227,7 @@ function saveProduct(){
     S.products.push(name);
     toast(`Product "${name}" added`);
   }
+  pushRecord('sp_stock','__products',S.products||[]);
   persist();closeM('m-product');renderStock();
 }
 
@@ -4237,7 +4238,8 @@ function deleteProductDirect(cls){
     if(!S.products)S.products=[...DEFAULT_SKUS];
     S.products=S.products.filter(p=>p!==cls);
     if(S.stock)delete S.stock[cls];
-    persist();toast('"'+cls+'" deleted');closeM('m-product');renderStock();
+    pushRecord('sp_stock','__products',S.products||[]);
+  persist();toast('"'+cls+'" deleted');closeM('m-product');renderStock();
   });
 }
 
@@ -4363,6 +4365,7 @@ function renderReorder(){
       newOrder.splice(toIdx,0,moved);
       if(!S.products)S.products=[...DEFAULT_SKUS];
       S.products=newOrder;
+      pushRecord('sp_stock','__products',S.products||[]);
       persist();toast('Order saved');renderReorder();
     });
     item.addEventListener('touchstart',e=>{dragSrc=item;item.classList.add('dragging');},{passive:true});
@@ -4379,6 +4382,7 @@ function renderReorder(){
         newOrder.splice(toIdx,0,moved);
         if(!S.products)S.products=[...DEFAULT_SKUS];
         S.products=newOrder;
+        pushRecord('sp_stock','__products',S.products||[]);
         persist();toast('Order saved');renderReorder();
       }
     });
