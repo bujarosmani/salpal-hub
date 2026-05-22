@@ -2467,8 +2467,19 @@ function setOrdStatus(id,status){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   const old=j.status;j.status=status;j.updatedAt=new Date().toISOString();if(status==='Completed')j.completedAt=new Date().toISOString();
   addTL(j,`Status: ${old} \u2192 ${status}`,'status');
-  if(old!=='Completed'&&status==='Completed')adjustStockOnComplete(j);
-  syncOrder(j);toast(`${j.awb} → ${status}`);
+  if(old!=='Completed'&&status==='Completed'){
+    fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j})})
+    .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);}))
+    .then(result=>{
+      const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
+      if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+      result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+      persist();
+    }).catch(e=>console.error('status complete failed',e));
+  } else {
+    syncOrder(j);
+  }
+  toast(`${j.awb} → ${status}`);
   closeM('m-detail');renderOrders();renderDash();
   if(j.type==='Delivery')renderDispatch();else renderReceiving();
 }
@@ -2536,42 +2547,18 @@ function saveOrder(force){
     if(ex.driverId!==driverId)changes.push(`Driver: ${uname(ex.driverId)} \u2192 ${uname(driverId)}`);
     const op=palletStr(ex.pallets),np=palletStr(pallets);if(op!==np)changes.push(`Pallets changed: ${op} → ${np}`);
     // Admin editing pallets on completed order — adjust stock for the difference
+    // Admin editing pallets on completed order — use atomic endpoint
     if(isAdmin()&&op!==np&&['Completed','Pending Sort'].includes(ex.status)){
-      if(!S.stock)S.stock={};
       const oldPallets=ex.pallets||[];
       const newPallets=pallets;
-      const editNote=`Admin edit on ${awb}`;
-      if(ex.type==='Delivery'){
-        // Delivery: old pallets were deducted — reverse them back in
-        oldPallets.forEach(p=>{
-          if(!p.cls||!p.qty)return;
-          if(!S.stock[p.cls])S.stock[p.cls]=0;
-          S.stock[p.cls]+=p.qty;
-          addLedger('Order Edit',awb,p.cls,'in',p.qty,`Reversed old delivery pallet — ${editNote}`);
-        });
-        // Deduct new pallets
-        newPallets.forEach(p=>{
-          if(!p.cls||!p.qty)return;
-          if(!S.stock[p.cls])S.stock[p.cls]=0;
-          S.stock[p.cls]-=p.qty;
-          addLedger('Order Edit',awb,p.cls,'out',p.qty,`New delivery pallet — ${editNote}`);
-        });
-      } else {
-        // Collection: old pallets were added — reverse them out
-        oldPallets.forEach(p=>{
-          if(!p.cls||!p.qty)return;
-          if(!S.stock[p.cls])S.stock[p.cls]=0;
-          S.stock[p.cls]-=p.qty;
-          addLedger('Order Edit',awb,p.cls,'out',p.qty,`Reversed old collection pallet — ${editNote}`);
-        });
-        // Add new pallets
-        newPallets.forEach(p=>{
-          if(!p.cls||!p.qty)return;
-          if(!S.stock[p.cls])S.stock[p.cls]=0;
-          S.stock[p.cls]+=p.qty;
-          addLedger('Order Edit',awb,p.cls,'in',p.qty,`New collection pallet — ${editNote}`);
-        });
-      }
+      fetch(API_URL+'/api/action/order/edit-pallets',{method:'POST',headers:apiHeaders(),
+        body:JSON.stringify({order,oldPallets,newPallets})})
+      .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);}))
+      .then(result=>{
+        if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+        result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+        persist();renderStock();
+      }).catch(e=>console.error('pallet edit failed',e));
     }
     if(ex.status!==newStatus){
       const wasForced=document.getElementById('of-status-value').dataset.forced==='1';
@@ -2580,8 +2567,9 @@ function saveOrder(force){
         if(!S.ledger)S.ledger=[];
         S.ledger.unshift({id:mkId(),date:new Date().toISOString(),type:'Manual',ref:order.awb,cls:'\u2014',dir:'in',qty:0,balance:0,notes:`\u26a0 Force status override: ${ex.status} \u2192 ${newStatus} by ${ME?ME.firstName:''} \u2014 verify stock manually`});
       } else if(ex.status!=='Completed'&&newStatus==='Completed'){
-        // Forward to Completed — adjust stock normally
-        adjustStockOnComplete(order);
+        // Forward to Completed — use atomic endpoint
+        fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order})})
+        .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);})).then(result=>{if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});persist();}).catch(e=>console.error('saveOrder complete failed',e));
       }
     }
     if(changes.length)addTL(order,'Order edited','edit',changes);
@@ -2602,31 +2590,18 @@ function confirmDeleteOrderNow(){
 function deleteOrder(){
   const id=document.getElementById('of-edit-id').value;
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
-  // Reverse stock if order had stock already moved (Completed, Pending Sort, Loaded, In Transit, Collected, Delivered)
-  const stockMoved=['Completed','Pending Sort','Loaded','In Transit','Collected','Delivered'];
-  if(stockMoved.includes(j.status)||j._stockMoved){
-    if(!S.stock)S.stock={};
-    (j.pallets||[]).forEach(p=>{
-      if(!p.cls||!p.qty)return;
-      if(!S.stock[p.cls])S.stock[p.cls]=0;
-      if(j.type==='Delivery'){
-        S.stock[p.cls]+=p.qty;
-        addLedger('Order Reversal',j.awb,p.cls,'in',p.qty,`Deleted order — reversed delivery to ${j.companyName||''}`);
-        pushStock(p.cls);
-      } else if(j.type==='Collection'){
-        S.stock[p.cls]-=p.qty;
-        addLedger('Order Reversal',j.awb,p.cls,'out',p.qty,`Deleted order — reversed collection from ${j.companyName||''}`);
-        pushStock(p.cls);
-      }
-    });
-  }
   sendToBin('order',id,j.awb,j);
   S.orders=(S.orders||[]).filter(x=>x.id!==id);
-  persist();
-  pushRecord('sp_deleted',id,{id,type:'order',originalId:id});
-  apiDelete('sp_orders',id).catch(()=>{});
+  // Atomic delete with stock reversal on server
+  fetch(API_URL+'/api/action/order/delete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j})})
+  .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);}))
+  .then(result=>{
+    if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+    result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+    pushRecord('sp_deleted',id,{id,type:'order',originalId:id});
+    persist();renderOrders();renderDash();renderStock();
+  }).catch(e=>{toast('Delete failed: '+e.message,'err');});
   toast('Order deleted — stock reversed');closeM('m-order');
-  renderOrders();renderDash();renderStock();
   const disTodo=document.getElementById('dis-pane-todo');if(disTodo)renderDisTodo();
   const disPaneAll=document.getElementById('dis-pane-all');if(disPaneAll?.classList.contains('on'))renderDispatch();
   const recTodo=document.getElementById('rec-pane-todo');if(recTodo)renderRecTodo();
@@ -2713,9 +2688,14 @@ function saveRecLater(){
     // Only adjust stock if order was already completed/pending sort
     const stockAlreadyMoved=['Completed','Pending Sort'].includes(j.status);
     if(stockAlreadyMoved&&JSON.stringify(oldPallets)!==JSON.stringify(newPallets)){
-      if(!S.stock)S.stock={};
-      oldPallets.forEach(p=>{if(!p.cls||!p.qty)return;if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]-=p.qty;addLedger('Order Edit',j.awb,p.cls,'out',p.qty,`Pallet edit on ${j.awb}`);pushStock(p.cls);});
-      newPallets.forEach(p=>{if(!p.cls||!p.qty)return;if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]+=p.qty;addLedger('Order Edit',j.awb,p.cls,'in',p.qty,`Pallet edit on ${j.awb}`);pushStock(p.cls);});
+      fetch(API_URL+'/api/action/order/edit-pallets',{method:'POST',headers:apiHeaders(),
+        body:JSON.stringify({order:j,oldPallets,newPallets})})
+      .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);}))
+      .then(result=>{
+        if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+        result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+        persist();
+      }).catch(e=>console.error('pallet edit failed',e));
     }
     j.pallets=newPallets;j.totalQty=newPallets.reduce((s,p)=>s+(p.qty||0),0);
   }
@@ -2741,9 +2721,14 @@ function saveLoadLater(){
     // Only adjust stock if order was already loaded/completed
     const stockAlreadyMoved=['Loaded','Completed'].includes(j.status);
     if(stockAlreadyMoved&&JSON.stringify(oldPallets)!==JSON.stringify(newPallets)){
-      if(!S.stock)S.stock={};
-      oldPallets.forEach(p=>{if(!p.cls||!p.qty)return;if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]+=p.qty;addLedger('Order Edit',j.awb,p.cls,'in',p.qty,`Pallet edit on ${j.awb}`);pushStock(p.cls);});
-      newPallets.forEach(p=>{if(!p.cls||!p.qty)return;if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]-=p.qty;addLedger('Order Edit',j.awb,p.cls,'out',p.qty,`Pallet edit on ${j.awb}`);pushStock(p.cls);});
+      fetch(API_URL+'/api/action/order/edit-pallets',{method:'POST',headers:apiHeaders(),
+        body:JSON.stringify({order:j,oldPallets,newPallets})})
+      .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);}))
+      .then(result=>{
+        if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+        result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+        persist();
+      }).catch(e=>console.error('pallet edit failed',e));
     }
     j.pallets=newPallets;j.totalQty=newPallets.reduce((s,p)=>s+(p.qty||0),0);
   }
@@ -3054,12 +3039,24 @@ function confirmReceived(){
   if(truck)j.truckPlate=truck;
   if(trailer)j.trailerPlate=trailer;
   if(!hasUnsortedPallets){j.completedAt=_now;}
-  adjustStockOnComplete(j);
-  if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Receive check',value:`Ordered: ${oldPs} \u00b7 Received: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
-  addTL(j,`Completed by ${sup}`,'status',[...changes,...(notes?[`Notes: ${notes}`]:[])]);
-  syncOrder(j);toast(`${j.awb} completed`);closeM('m-crec');renderReceiving();renderOrders();renderDash();goHome();
-  sendWhatsAppReceiving(j);
-}
+   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Receive check',value:`Ordered: ${oldPs} · Received: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
+   addTL(j,`Completed by ${sup}`,'status',[...changes,...(notes?[`Notes: ${notes}`]:[])]); 
+   const _crecBtn=document.querySelector('#m-crec .btn-primary');
+   if(_crecBtn){_crecBtn.disabled=true;_crecBtn.textContent='Saving...';}
+   fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...j,_hasPendingSort:hasUnsortedPallets}})})
+   .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Server error');});return r.json();})
+   .then(result=>{
+     const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
+     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+     persist();toast(`${j.awb} completed`);closeRecModal();renderReceiving();renderOrders();renderDash();goHome();
+     sendWhatsAppReceiving(j);
+   })
+   .catch(e=>{
+     if(_crecBtn){_crecBtn.disabled=false;_crecBtn.textContent='✓ Complete';}
+     document.getElementById('crec-err').textContent='⚠ Save failed: '+e.message+' — please try again';
+   });
+ }
 
 /* ── DROP-OFF ── */
 let QK={type:'Delivery',companyId:null,companyName:'',city:'',postcode:'',address:''};
@@ -3136,34 +3133,42 @@ function saveQuickEntry(createOnly){
   };
   const tlMsg=createOnly?`Order created by ${sup}`:(type==='Delivery'?`Quick dispatch — loaded by ${sup}`:`Quick receive — received by ${sup}`);
   addTL(j,tlMsg,'status');
-  // Stock adjustment only if not createOnly
-  if(!createOnly){
-    const hasUnsorted=pallets.some(p=>p.cls==='Unsorted');
-    if(!S.stock)S.stock={};
-    if(type==='Delivery'){
-      status='Loaded';
-      pallets.forEach(p=>{if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;addLedger('Order Out',awb,p.cls,'out',p.qty,`Quick dispatch to ${QK.companyName||co}`);pushStock(p.cls);});
-    } else {
-      status=hasUnsorted?'Pending Sort':'Completed';
-      pallets.forEach(p=>{if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]+=p.qty;addLedger('Order In',awb,p.cls,'in',p.qty,`Quick receive from ${QK.companyName||co}`);pushStock(p.cls);});
-    }
-  }
   if(!S.orders)S.orders=[];
   S.orders.unshift(j);
-  syncOrder(j); // immediate save — no delay
+  const _qBtn=document.getElementById('qk-save-btn');
+  if(_qBtn){_qBtn.disabled=true;_qBtn.textContent='Saving...';}
   if(createOnly){
+    // Create only — no stock movement, just save order
+    syncOrder(j);
+    if(_qBtn){_qBtn.disabled=false;}
     toast(`✓ Order ${awb} created — Open`);
-    closeM('m-quick');
-    renderOrders();renderDash();
+    closeM('m-quick');renderOrders();renderDash();
     if(type==='Delivery')renderDispatch();else renderReceiving();
     goHome();
   } else {
-    toast(`✓ ${type==='Delivery'?'Loaded':'Received'} — ${awb}`);
-    closeM('m-quick');
-    if(type==='Delivery'){renderDispatch();sendWhatsAppDispatch(j);}
-    else{renderReceiving();sendWhatsAppReceiving(j);}
-    renderOrders();renderDash();
-    goHome();
+    // Atomic save — order + stock + ledger together
+    const hasUnsorted=pallets.some(p=>p.cls==='Unsorted');
+    j.status=type==='Delivery'?'Loaded':(hasUnsorted?'Pending Sort':'Completed');
+    fetch(API_URL+'/api/action/quickentry',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j,type})})
+    .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Server error');});return r.json();})
+    .then(result=>{
+      const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
+      if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+      result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+      persist();
+      if(_qBtn){_qBtn.disabled=false;}
+      toast(`✓ ${type==='Delivery'?'Loaded':'Received'} — ${awb}`);
+      closeM('m-quick');
+      if(type==='Delivery'){renderDispatch();sendWhatsAppDispatch(j);}
+      else{renderReceiving();sendWhatsAppReceiving(j);}
+      renderOrders();renderDash();goHome();
+    })
+    .catch(e=>{
+      // Remove from local state on failure
+      S.orders=(S.orders||[]).filter(x=>x.id!==j.id);
+      if(_qBtn){_qBtn.disabled=false;_qBtn.textContent=type==='Delivery'?'⚡ Create & Load':'⚡ Create & Receive';}
+      document.getElementById('qk-err').textContent='⚠ Save failed: '+e.message+' — please try again';
+    });
   }
 }
 
@@ -3192,8 +3197,14 @@ function saveDropoff(){
   const order={id:mkId(),awb,type:'Collection',orderDate:document.getElementById('do-date').value,deliveryDate:document.getElementById('do-date').value,companyId:document.getElementById('do-co-id').value,companyName:coSearch,companyAddress:document.getElementById('do-addr').value.trim(),city,postcode:post,pallets,totalQty,driver:'Customer Drop Off',driverId:'',condition:document.getElementById('do-cond').value,truckPlate:document.getElementById('do-truck').value.trim(),trailerPlate:document.getElementById('do-trailer').value.trim(),collectionRef:document.getElementById('do-ref').value.trim(),driverNotes:document.getElementById('do-notes').value.trim(),status:'Completed',whBy:by,whChanges:[],history:[],createdAt:now,updatedAt:now,source:'dropoff',signature:sigCtxs['do-canvas']&&sigCtxs['do-canvas']._has?document.getElementById('do-canvas').toDataURL('image/png'):null};
   addTL(order,`Drop-off received by ${by}`,'create',[`${totalQty} pallets`,`Supplier: ${coSearch}`,`Condition: ${order.condition||'\u2014'}`]);
   S.orders.unshift(order);
-  adjustStockOnComplete(order);
-  syncOrder(newOrder);toast(`Drop-off received — ${awb}`);closeM('m-dropoff');renderReceiving();renderOrders();renderDash();
+  fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order})})
+  .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Server error');});return r.json();})
+  .then(result=>{
+    if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+    result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+    persist();toast(`Drop-off received — ${awb}`);closeM('m-dropoff');renderReceiving();renderOrders();renderDash();
+  })
+  .catch(e=>{toast('Save failed: '+e.message+' — please try again','err');});
 }
 
 /* ── REPAIRS ── */
@@ -3363,18 +3374,18 @@ function deleteRepairEntry(id){
   if(!confirm('Delete this repair entry? Cannot be undone.'))return;
   confirmDeleteRepair(id);
 }
-function confirmDeleteRepair(id){
+async function confirmDeleteRepair(id){
   const r=(S.repairs||[]).find(x=>x.id===id);if(!r)return;
-  // Reverse stock
-  if(S.stock){
-    if(S.stock[r.pallet_class]!==undefined)S.stock[r.pallet_class]-=r.qty;
-    const src=r.src||'Defected';
-    if(S.stock[src]!==undefined)S.stock[src]+=r.qty;
-  }
-  S.repairs=(S.repairs||[]).filter(x=>x.id!==id);
-  // Remove from Supabase
-  apiDelete('sp_repairs',id).catch(()=>{});
-  persist();pushRecord('sp_repairs',id,{id,_deleted:true});toast('Repair entry deleted');renderRepairs();
+  try{
+    const res=await fetch(API_URL+'/api/action/repair/delete',{method:'POST',headers:apiHeaders(),
+      body:JSON.stringify({repairId:id,pallet_class:r.pallet_class,src:r.src||'Defected Euro',qty:r.qty})});
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error||'Server error');}
+    const result=await res.json();
+    S.repairs=(S.repairs||[]).filter(x=>x.id!==id);
+    if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+    result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+    persist();toast('Repair entry deleted');renderRepairs();
+  }catch(e){toast('Delete failed: '+e.message,'err');}
 }
 
 function saveRepairEdit(id,force){
@@ -3387,33 +3398,24 @@ function saveRepairEdit(id,force){
   }
   const p=lines[0];const qty=p.qty;const cls=p.cls;
   const r=(S.repairs||[]).find(x=>x.id===id);if(!r)return;
-  if(!S.stock)S.stock={};
-  // Reverse old
-  if(S.stock[r.pallet_class]!==undefined)S.stock[r.pallet_class]-=r.qty;
-  const oldSrc=r.src||'Defected';
-  if(S.stock[oldSrc]!==undefined)S.stock[oldSrc]+=r.qty;
-  if(!force){
-    const defectedStock=(S.stock[RF.src])||0;
-    if(qty>defectedStock){
-      const warn=document.getElementById('rep-warn');
-      if(warn){warn.style.display='';warn.innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:12px 14px"><div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px">⚠ ${RF.src} stock: ${defectedStock} available, ${qty} needed.<br>Proceed?</div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="saveRepairEdit('${id}',true)">✓ Yes</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('rep-warn').style.display='none'">✕ No</button></div></div>`;}
-      S.stock[r.pallet_class]+=r.qty;
-      if(S.stock[oldSrc]!==undefined)S.stock[oldSrc]-=r.qty;
-      return;
-    }
-  }
-  if(!S.stock[cls])S.stock[cls]=0;S.stock[cls]+=qty;
-  if(!S.stock[RF.src])S.stock[RF.src]=0;S.stock[RF.src]-=qty;
+  const oldCls=r.pallet_class;const oldQty=r.qty;const oldSrc=r.src||'Defected Euro';
   const editRepDate=document.getElementById('rep-date').value;
   r.supervisor=RF.sup;r.repairer=RF.rep;r.pallet_class=cls;r.src=RF.src;r.qty=qty;
   if(editRepDate){const existingTime=r.date?new Date(r.date).toTimeString().slice(0,8):new Date().toTimeString().slice(0,8);r.date=new Date(editRepDate+'T'+existingTime).toISOString();}
-  // Only add ledger if class or qty actually changed
-  if(r.pallet_class!==cls||r.qty!==qty){
-    addLedger('Repair Edit',r.id,cls,'in',qty,`Edited repair by ${RF.rep}`);
-    addLedger('Repair Edit',r.id,RF.src,'out',qty,`Edited repair → ${cls}`);
-  }
-  syncRepair(r);
-  persist();clearDirty('m-repair');toast('Repair updated');forceCloseM('m-repair');renderRepairs();
+  const btn=document.querySelector('#m-repair .btn-primary');
+  if(btn){btn.disabled=true;btn.textContent='Saving...';}
+  fetch(API_URL+'/api/action/repair/edit',{method:'POST',headers:apiHeaders(),
+    body:JSON.stringify({repair:r,oldCls,oldQty,oldSrc})})
+  .then(res=>res.ok?res.json():res.json().then(e=>{throw new Error(e.error);}))
+  .then(result=>{
+    if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+    result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+    persist();clearDirty('m-repair');toast('Repair updated');forceCloseM('m-repair');renderRepairs();
+  })
+  .catch(e=>{
+    if(btn){btn.disabled=false;btn.textContent='✓ Save';}
+    toast('Save failed: '+e.message,'err');
+  });
 }
 const REP_DEFAULT_QTY_CLASSES=['A','B','C'];
 const REP_DEFAULT_QTY=15;
@@ -3798,7 +3800,15 @@ function submitProof(){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   const at=new Date().toISOString();j.status='Completed';j.updatedAt=at;j.completedAt=at;j.proof={recipientName:name,companyName:co,completedAt:at};
   addTL(j,`Delivered \u2014 signed by ${name} (${co})`,'status');
-  adjustStockOnComplete(j);syncOrder(j);toast('Delivered ✓');closeM('m-proof');renderDriver();renderDash();
+  fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j})})
+  .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error);});return r.json();})
+  .then(result=>{
+    const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
+    if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+    result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+    persist();toast('Delivered ✓');closeM('m-proof');renderDriver();renderDash();
+  })
+  .catch(e=>{toast('Save failed: '+e.message,'err');});
 }
 
 /* ── CANVAS ── */
@@ -4144,19 +4154,19 @@ function deleteSortingEntry(id){
   card.after(conf);
 }
 
-function confirmDeleteSorting(id){
+async function confirmDeleteSorting(id){
   const r=(S.sortings||[]).find(x=>x.id===id);if(!r)return;
-  // Reverse stock — move sorted pallets back to Unsorted
-  if(!S.stock)S.stock={};
-  (r.pallets||[]).forEach(p=>{
-    if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;
-    if(!S.stock['Unsorted'])S.stock['Unsorted']=0;
-    S.stock['Unsorted']+=p.qty;
-  });
-  addLedger('Sorting Reversed',r.id,'Unsorted','in',r.totalQty||0,'Sorting entry deleted');
-  S.sortings=(S.sortings||[]).filter(x=>x.id!==id);
-  apiDelete('sp_sortings',id).catch(()=>{});
-  persist();pushRecord('sp_sortings',id,{id,_deleted:true});toast('Sorting entry deleted — stock reversed');renderSorting();renderDash();
+  try{
+    const res=await fetch(API_URL+'/api/action/sorting/delete',{method:'POST',headers:apiHeaders(),
+      body:JSON.stringify({sortingId:id,pallets:r.pallets||[],totalQty:r.totalQty||0})});
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error||'Server error');}
+    const result=await res.json();
+    S.sortings=(S.sortings||[]).filter(x=>x.id!==id);
+    if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+    result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+    persist();toast('Sorting entry deleted — stock reversed');renderSorting();renderDash();
+    document.querySelectorAll('.srt-del-confirm').forEach(c=>c.remove());
+  }catch(e){toast('Delete failed: '+e.message,'err');}
 }
 
 function editSorting(id){
@@ -4797,7 +4807,7 @@ function populateAdjProducts(){
   const skus=getSKUS();
   sel.innerHTML='<option value="">— Select product —</option>'+skus.map(s=>`<option value="${s}">${s}</option>`).join('');
 }
-function saveStockAdjTab(){
+async function saveStockAdjTab(){
   const cls=document.getElementById('adj-cls').value;
   const qtyRaw=document.getElementById('adj-qty').value;
   const ref=document.getElementById('adj-ref').value.trim();
@@ -4806,25 +4816,29 @@ function saveStockAdjTab(){
   if(!cls){err.textContent='Select a product.';return;}
   const qty=parseInt(qtyRaw,10);
   if(isNaN(qty)||qty===0){err.textContent='Enter a non-zero quantity.';return;}
-  err.textContent='';
-  if(!S.stock)S.stock={};
-  if(!S.stock[cls])S.stock[cls]=0;
-  S.stock[cls]+=qty;
-  pushStock(cls);
-  const dir=qty>0?'in':'out';
-  const adjRef=ref||('ADJ-'+mkId().slice(0,6).toUpperCase());
-  addLedger('Manual Adjustment',adjRef,cls,dir,Math.abs(qty),note||(qty>0?`Manual addition to ${cls}`:`Manual reduction of ${cls}`));
-  // Save adjustment record
-  if(!S.adjustments)S.adjustments=[];
-  S.adjustments.unshift({id:mkId(),date:new Date().toISOString(),cls,qty,ref:adjRef,note,by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():''});
-  persist();
-  // Clear form
-  document.getElementById('adj-cls').value='';
-  document.getElementById('adj-qty').value='';
-  document.getElementById('adj-ref').value='';
-  document.getElementById('adj-note').value='';
-  toast(`Adjustment saved — ${cls} ${qty>0?'+'+qty:qty}`);
-  renderAdjTab();renderStock();
+  err.textContent='Saving...';
+  try{
+    const r=await fetch(API_URL+'/api/action/adjustment',{
+      method:'POST',headers:apiHeaders(),
+      body:JSON.stringify({cls,qty,ref,note,by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():''})
+    });
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||'Server error');}
+    const result=await r.json();
+    // Update local state
+    if(!S.stock)S.stock={};S.stock[cls]=(S.stock[cls]||0)+qty;
+    if(!S.ledger)S.ledger=[];S.ledger.unshift(result.ledger);
+    if(!S.adjustments)S.adjustments=[];S.adjustments.unshift(result.adjustment);
+    persist();
+    err.textContent='';
+    document.getElementById('adj-cls').value='';
+    document.getElementById('adj-qty').value='';
+    document.getElementById('adj-ref').value='';
+    document.getElementById('adj-note').value='';
+    toast(`Adjustment saved — ${cls} ${qty>0?'+'+qty:qty}`);
+    renderAdjTab();renderStock();
+  }catch(e){
+    err.textContent='⚠ Save failed: '+e.message+' — please try again';
+  }
 }
 function renderAdjTab(){
   const tb=document.getElementById('adj-tbody');if(!tb)return;
@@ -5168,13 +5182,18 @@ function saveStockAdj(){
     const oldQty=S.stock[cls]||0;
     const diff=newQty-oldQty;
     if(diff!==0){
-      S.stock[cls]=newQty;
-      addLedger('Manual','ADJ',cls,diff>0?'in':'out',Math.abs(diff),`Manual adjustment by ${ME?ME.firstName:''}`);
-      pushStock(cls);
+      // Use atomic adjustment endpoint
+      fetch(API_URL+'/api/action/adjustment',{method:'POST',headers:apiHeaders(),
+        body:JSON.stringify({cls,qty:diff,ref:'ADJ',note:`Manual adjustment by ${ME?ME.firstName:''}`,by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():''})})
+      .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);}))
+      .then(result=>{
+        if(!S.stock)S.stock={};S.stock[cls]=(S.stock[cls]||0)+diff;
+        if(!S.ledger)S.ledger=[];S.ledger.unshift(result.ledger);
+        persist();renderStock();
+      }).catch(e=>console.error('adj failed',e));
     }
   });
-  syncBlob('__stock',S.stock||{});
-  persist();toast('Stock updated');closeM('m-stock-adj');renderStock();
+  toast('Stock updated');closeM('m-stock-adj');
 }
 
 // Called when an order is completed — adjusts stock
@@ -6088,9 +6107,8 @@ function continueStocktake(id){
   // Scroll to form
   form?.scrollIntoView({behavior:'smooth'});
 }
-function approveStocktake(id){
+async function approveStocktake(id){
   const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
-  if(!S.stock)S.stock={};
   // Generate ADJ reference
   const now=new Date();
   const dd=String(now.getDate()).padStart(2,'0');
@@ -6099,14 +6117,18 @@ function approveStocktake(id){
   const hh=String(now.getHours()).padStart(2,'0');
   const min=String(now.getMinutes()).padStart(2,'0');
   t.adjRef=`ADJ-${dd}${mm}${yyyy}-${hh}${min}`;
-  t.counts.filter(c=>c.counted!==null).forEach(c=>{
-    const diff=c.counted-(c.systemQty||0);
-    S.stock[c.cls]=(S.stock[c.cls]||0)+diff;
-    if(diff!==0){addLedger('Stocktake',t.adjRef,c.cls,diff>0?'in':'out',Math.abs(diff),`${t.adjRef} — Stocktake by ${t.userName}`);pushStock(c.cls);}
-  });
-  t.status='approved';t.approvedAt=new Date().toISOString();t.approvedBy=ME?`${ME.firstName} ${ME.lastName}`.trim():'';
-  syncStocktake(t);
-  persist();renderStocktake();renderDash();toast(`${t.adjRef} approved — ${t.counts.filter(c=>c.counted!==null).length} products adjusted`);
+  try{
+    const res=await fetch(API_URL+'/api/action/stocktake/approve',{method:'POST',headers:apiHeaders(),
+      body:JSON.stringify({stocktake:t})});
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error||'Server error');}
+    const result=await res.json();
+    // Update local state
+    const idx=(S.stocktakes||[]).findIndex(x=>x.id===id);if(idx>=0)S.stocktakes[idx]=result.stocktake;
+    if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+    result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+    persist();renderStocktake();renderDash();
+    toast(`${t.adjRef} approved — ${result.ledger.length} adjustments saved ✓`);
+  }catch(e){toast('Approval failed: '+e.message+' — please try again','err');}
 }
 
 function rejectStocktake(id){
@@ -6504,26 +6526,19 @@ function checkDuplicateOrders(){
   }
 }
 
-function fixMissingStock(orderId){
+async function fixMissingStock(orderId){
   const j=(S.orders||[]).find(x=>x.id===orderId);if(!j)return;
-  if(!S.stock)S.stock={};
-  let fixed=0;
-  (j.pallets||[]).forEach(p=>{
-    if(!p.cls||!p.qty)return;
-    if(!S.stock[p.cls])S.stock[p.cls]=0;
-    if(j.type==='Delivery'){
-      S.stock[p.cls]-=p.qty;
-      addLedger('Order Out',j.awb,p.cls,'out',p.qty,`Manual fix — Delivered to ${j.companyName||''}`);
-    } else {
-      S.stock[p.cls]+=p.qty;
-      addLedger('Order In',j.awb,p.cls,'in',p.qty,`Manual fix — Received from ${j.companyName||''}`);
-    }
-    fixed++;
-  });
-  persist();
-  setTimeout(()=>syncCloud(),100);
-  toast(`✓ Stock fixed for ${j.awb} — ${fixed} product${fixed>1?'s':''} updated`);
-  renderDash();
+  try{
+    const res=await fetch(API_URL+'/api/action/fixstock',{method:'POST',headers:apiHeaders(),
+      body:JSON.stringify({orderId:j.id,awb:j.awb,pallets:j.pallets||[],type:j.type,companyName:j.companyName||''})});
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error||'Server error');}
+    const result=await res.json();
+    if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+    result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+    persist();
+    toast(`✓ Stock fixed for ${j.awb} — ${result.ledger.length} product${result.ledger.length>1?'s':''} updated`);
+    renderDash();
+  }catch(e){toast('Fix failed: '+e.message,'err');}
 }
 
 function forceSyncNow(){
