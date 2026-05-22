@@ -1663,6 +1663,7 @@ function forceCloseM(id){
   modal._dirty=false;modal._saved=false;modal._snapshot=null;
 }
 function clearDirty(id){const m=document.getElementById(id);if(m){m._dirty=false;m._saved=true;m._snapshot=null;}}
+function markModalNew(id){clearDirty(id);}
 
 /* ── TIMELINE ── */
 function addTL(order,action,type,changes){
