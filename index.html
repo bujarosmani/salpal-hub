@@ -3555,6 +3555,7 @@ function submitPartial(){
   if(!S.orders)S.orders=[];
   S.orders.unshift(returnOrder);
   addLedger('Return',returnOrder.id,'','out',totalRefused,`Refused: ${finalReason} from ${j.awb}`);
+  syncOrder(j);syncOrder(returnOrder);
   persist();
   toast(`✓ Partial delivery recorded — ${totalRefused} pallets returning to WH`);
   closeM('m-partial');renderDriver();renderDash();
@@ -3611,8 +3612,7 @@ async function saveUser(){
     if(!S.users)S.users=[];
     S.users.push({id:mkId(),firstName:first,lastName:last,username,role,password:hashedPw});
   }
-  const savedUser=S.users.find(u=>u.username===username);if(savedUser)syncUser(savedUser);
-  const su=S.users.find(u=>u.id===(id||S.users[0]?.id));if(su)syncUser(su);
+  const savedUser=id?S.users.find(u=>u.id===id):S.users[S.users.length-1];if(savedUser)syncUser(savedUser);
   persist();toast(id?'User updated':'User added');closeM('m-user');renderUsers();
 }
 function deleteUser(){delUser(document.getElementById('uf-id').value);}
@@ -3752,6 +3752,9 @@ function doMergeCompany(){
   });
   // Remove duplicates from state
   S.companies=(S.companies||[]).filter(x=>x.id===masterId||(!dupes.find(d=>d.id===x.id)));
+  syncCompany(master);
+  // Sync all affected orders
+  (S.orders||[]).filter(j=>j.companyId===masterId).forEach(j=>syncOrder(j));
   persist();
   toast(`Merged ${dupes.length} duplicates into "${master.name}" — ${moved} orders updated`);
   closeM('m-merge-co');renderCompanies();
@@ -4193,6 +4196,10 @@ function doMergeProduct(master){
   delete S.stock[src];
   // Remove src from products list
   S.products=(S.products||getSKUS()).filter(p=>p!==src);
+  pushRecord('sp_stock','__products',S.products||[]);
+  pushStock(master);
+  // Sync all affected records
+  (S.orders||[]).forEach(j=>syncOrder(j));
   persist();
   toast(`"${src}" merged into "${master}" ✓`);
   document.getElementById('m-merge-prod-tmp').remove();
@@ -4415,6 +4422,7 @@ function renderWorkersReorder(listId){
       const [moved]=newOrder.splice(fromIdx,1);
       newOrder.splice(toIdx,0,moved);
       S.workers=newOrder;
+      pushRecord('sp_stock','__workers',S.workers||DEFAULT_WORKERS);
       persist();toast('Worker order saved');renderWorkersReorder(listId);
     });
     item.addEventListener('touchstart',e=>{dragSrc=item;item.classList.add('dragging');},{passive:true});
@@ -4430,7 +4438,8 @@ function renderWorkersReorder(listId){
         const [moved]=newOrder.splice(fromIdx,1);
         newOrder.splice(toIdx,0,moved);
         S.workers=newOrder;
-        persist();toast('Worker order saved');renderWorkersReorder(listId);
+        pushRecord('sp_stock','__workers',S.workers||DEFAULT_WORKERS);
+      persist();toast('Worker order saved');renderWorkersReorder(listId);
       }
     });
   });
@@ -5174,7 +5183,7 @@ function reorderInCol(colId,orderId,toIdx,date){
   const insertAt=fromIdx<toIdx?toIdx-1:toIdx;
   arr.splice(insertAt,0,orderId);
   if(colId!=='unassigned'){
-    arr.forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planSeq=i+1;}});
+    arr.forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planSeq=i+1;syncOrder(j);}});
   }
   persist();renderPlanner();
 }
@@ -5210,6 +5219,8 @@ function plannerDrop(toCol,orderId,fromCol){
   if(order){order.driverId=toCol==='unassigned'?'':toCol;order.updatedAt=new Date().toISOString();}
   // Update planSeq
   drvs().forEach(d=>{(plan.drivers[d.id]||[]).forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planDate=date;j.planSeq=i+1;j.driverId=d.id;}});});
+  // Sync the moved order
+  const movedOrder=(S.orders||[]).find(j=>j.id===orderId);if(movedOrder)syncOrder(movedOrder);
   persist();renderPlanner();
 }
 
@@ -5303,6 +5314,7 @@ function startStocktake(){
   const counts=skus.map(cls=>({cls,systemQty:(S.stock&&S.stock[cls])||0,counted:null}));
   const t={id:mkId(),userId:ME?.id,userName:ME?`${ME.firstName} ${ME.lastName}`.trim():'',status:'draft',createdAt:new Date().toISOString(),counts};
   S.stocktakes.unshift(t);
+  syncStocktake(t);
   persist();renderStocktake();
 }
 
@@ -5350,6 +5362,7 @@ function clearStocktakeCount(id,cls){
   const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
   const c=t.counts.find(x=>x.cls===cls);if(!c)return;
   c.counted=null;
+  syncStocktake(t);
   persist();renderStocktakeForm(t);
 }
 
@@ -5360,6 +5373,9 @@ function updateStocktakeCount(id,cls,val){
   const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
   const c=t.counts.find(x=>x.cls===cls);if(!c)return;
   c.counted=val===null||val===''?null:parseInt(val);
+  // Debounced sync while counting to avoid too many requests
+  clearTimeout(window._stSyncT);
+  window._stSyncT=setTimeout(()=>{const st=(S.stocktakes||[]).find(x=>x.id===id);if(st)syncStocktake(st);},1500);
   persist();
   // Update progress label
   const countedNum=t.counts.filter(x=>x.counted!==null).length;
@@ -5385,6 +5401,7 @@ function submitStocktake(id){
 
 function discardStocktake(id){
   S.stocktakes=(S.stocktakes||[]).filter(x=>x.id!==id);
+  apiDelete('sp_stocktakes',id).catch(()=>{});
   persist();renderStocktake();toast('Stock take discarded');
 }
 
