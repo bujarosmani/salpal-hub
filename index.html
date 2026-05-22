@@ -1567,11 +1567,20 @@ function supSelectHtml(){
 }
 const uname=id=>{const u=(S.users||[]).find(x=>x.id===id);return u?`${u.firstName} ${u.lastName}`:'—';};
 const makeAWB=()=>{
-  const ns=(S.orders||[]).map(t=>{const m=(t.awb||'').match(/WMS-(\d+)/);return m?+m[1]:0}).filter(n=>n>0);
-  const maxN=ns.length?Math.max(...ns):1000;
-  // User initials suffix — guarantees no two users can ever create same AWB
   const initials=ME?(ME.firstName.charAt(0)+(ME.lastName?ME.lastName.charAt(0):'')).toUpperCase():'XX';
-  return`WMS-${maxN+1}-${initials}`;
+  // Use max+1 from ALL known AWBs (orders + bin) as base
+  const allAwbs=[
+    ...(S.orders||[]).map(t=>t.awb||''),
+    ...(S.bin||[]).map(t=>t.name||t.awb||''),
+  ];
+  const ns=allAwbs.map(awb=>{const m=(awb||'').match(/WMS-(\d+)/);return m?+m[1]:0}).filter(n=>n>0);
+  const maxN=ns.length?Math.max(...ns):1000;
+  // Add timestamp component (seconds within the hour) to prevent same-second collisions between users
+  const tieBreak=Math.floor((Date.now()%3600000)/1000).toString().padStart(4,'0');
+  const candidate=`WMS-${maxN+1}-${initials}`;
+  // Check if this exact AWB already exists — if so add tiebreaker
+  const exists=(S.orders||[]).some(o=>o.awb===candidate)||(S.bin||[]).some(o=>(o.name||o.awb)===candidate);
+  return exists?`WMS-${maxN+1}-${initials}${tieBreak}`:candidate;
 };
 const skuBadge=(cls,lg)=>{const c=SKU_C[cls]||{bg:'var(--panel2)',c:'var(--ink3)'};return`<span class="sku" style="background:${c.bg};color:${c.c};font-size:${lg?13:11}px;padding:${lg?'4px 10px':'3px 7px'}">${esc(cls)}</span>`;};
 const palletStr=p=>{const total=(p||[]).filter(x=>x.qty>0).reduce((s,x)=>s+(x.qty||0),0);return total?`${total} Pallets`:'—';};
@@ -2590,7 +2599,17 @@ function saveRecLater(){
   const trailer=document.getElementById('crec-trailer').value.trim();
   const notes=document.getElementById('crec-notes').value.trim();
   const cond=document.getElementById('crec-cond').value;
-  if(newPallets.length){j.pallets=newPallets;j.totalQty=newPallets.reduce((s,p)=>s+(p.qty||0),0);}
+  if(newPallets.length){
+    const oldPallets=j.pallets||[];
+    // Only adjust stock if order was already completed/pending sort
+    const stockAlreadyMoved=['Completed','Pending Sort'].includes(j.status);
+    if(stockAlreadyMoved&&JSON.stringify(oldPallets)!==JSON.stringify(newPallets)){
+      if(!S.stock)S.stock={};
+      oldPallets.forEach(p=>{if(!p.cls||!p.qty)return;if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]-=p.qty;addLedger('Order Edit',j.awb,p.cls,'out',p.qty,`Pallet edit on ${j.awb}`);pushStock(p.cls);});
+      newPallets.forEach(p=>{if(!p.cls||!p.qty)return;if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]+=p.qty;addLedger('Order Edit',j.awb,p.cls,'in',p.qty,`Pallet edit on ${j.awb}`);pushStock(p.cls);});
+    }
+    j.pallets=newPallets;j.totalQty=newPallets.reduce((s,p)=>s+(p.qty||0),0);
+  }
   if(driverId)j.driverId=driverId;
   if(truck)j.truckPlate=truck;
   if(trailer)j.trailerPlate=trailer;
@@ -2608,7 +2627,17 @@ function saveLoadLater(){
   const truck=document.getElementById('load-truck').value.trim();
   const trailer=document.getElementById('load-trailer').value.trim();
   const notes=document.getElementById('load-notes').value.trim();
-  if(newPallets.length){j.pallets=newPallets;j.totalQty=newPallets.reduce((s,p)=>s+(p.qty||0),0);}
+  if(newPallets.length){
+    const oldPallets=j.pallets||[];
+    // Only adjust stock if order was already loaded/completed
+    const stockAlreadyMoved=['Loaded','Completed'].includes(j.status);
+    if(stockAlreadyMoved&&JSON.stringify(oldPallets)!==JSON.stringify(newPallets)){
+      if(!S.stock)S.stock={};
+      oldPallets.forEach(p=>{if(!p.cls||!p.qty)return;if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]+=p.qty;addLedger('Order Edit',j.awb,p.cls,'in',p.qty,`Pallet edit on ${j.awb}`);pushStock(p.cls);});
+      newPallets.forEach(p=>{if(!p.cls||!p.qty)return;if(!S.stock[p.cls])S.stock[p.cls]=0;S.stock[p.cls]-=p.qty;addLedger('Order Edit',j.awb,p.cls,'out',p.qty,`Pallet edit on ${j.awb}`);pushStock(p.cls);});
+    }
+    j.pallets=newPallets;j.totalQty=newPallets.reduce((s,p)=>s+(p.qty||0),0);
+  }
   if(driverId)j.driverId=driverId;
   if(truck)j.truckPlate=truck;
   if(trailer)j.trailerPlate=trailer;
