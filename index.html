@@ -1880,6 +1880,9 @@ function closeMob(){document.getElementById('sidebar').classList.remove('open');
 // Pull-to-refresh prevented via CSS overscroll-behavior-y:none
 
 /* ── DASHBOARD ── */
+function goHome(){
+  if(ME&&(ME.role==='Supervisor'||ME.role==='Driver'))goTo('hub');
+}
 function renderHub(){
   const el=document.getElementById('hub-root');if(!el)return;
   const role=ME?.role||'';
@@ -2583,7 +2586,7 @@ function saveRecLater(){
   if(notes)j.whNotes=notes;
   if(cond)j.condition=cond;
   j.updatedAt=new Date().toISOString();
-  syncOrder(j);closeM('m-crec');renderReceiving();toast('Saved — complete later from To Do');
+  syncOrder(j);closeM('m-crec');renderReceiving();toast('Saved — complete later from To Do');goHome();
 }
 
 function saveLoadLater(){
@@ -2600,7 +2603,7 @@ function saveLoadLater(){
   if(trailer)j.trailerPlate=trailer;
   if(notes)j.loadNotes=notes;
   j.updatedAt=new Date().toISOString();
-  syncOrder(j);closeM('m-load');renderDispatch();toast('Saved — load when ready from To Do');
+  syncOrder(j);closeM('m-load');renderDispatch();toast('Saved — load when ready from To Do');goHome();
 }
 
 function openLoadModal(id){
@@ -2648,7 +2651,7 @@ function confirmLoaded(){
   j.truckPlate=document.getElementById('load-truck').value.trim();j.trailerPlate=document.getElementById('load-trailer').value.trim();j.loadNotes=document.getElementById('load-notes').value.trim();j.loadedAt=new Date().toISOString();j.updatedAt=j.loadedAt;
   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Load check',value:`Ordered: ${oldPs} \u00b7 Actual: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
   addTL(j,`Marked Loaded by ${sup}`,'status',[...changes,...(j.loadNotes?[`Notes: ${j.loadNotes}`]:[])]);
-  syncOrder(j);toast(`${j.awb} Loaded by ${sup}`);closeM('m-load');
+  syncOrder(j);toast(`${j.awb} Loaded by ${sup}`);closeM('m-load');goHome();
   // Auto-complete if 3rd party driver
   const driverName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
   if(driverName.includes('3rd')||driverName.includes('third')||driverName.includes('3rd party')){
@@ -2875,7 +2878,7 @@ function confirmReceived(){
   adjustStockOnComplete(j);
   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Receive check',value:`Ordered: ${oldPs} \u00b7 Received: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
   addTL(j,`Completed by ${sup}`,'status',[...changes,...(notes?[`Notes: ${notes}`]:[])]);
-  syncOrder(j);toast(`${j.awb} completed`);closeM('m-crec');renderReceiving();renderOrders();renderDash();
+  syncOrder(j);toast(`${j.awb} completed`);closeM('m-crec');renderReceiving();renderOrders();renderDash();goHome();
   sendWhatsAppReceiving(j);
 }
 
@@ -2974,12 +2977,14 @@ function saveQuickEntry(createOnly){
     closeM('m-quick');
     renderOrders();renderDash();
     if(type==='Delivery')renderDispatch();else renderReceiving();
+    goHome();
   } else {
     toast(`✓ ${type==='Delivery'?'Loaded':'Received'} — ${awb}`);
     closeM('m-quick');
     if(type==='Delivery'){renderDispatch();sendWhatsAppDispatch(j);}
     else{renderReceiving();sendWhatsAppReceiving(j);}
     renderOrders();renderDash();
+    goHome();
   }
 }
 
@@ -3282,7 +3287,7 @@ function saveRepair(force){
   persist();
   clearDirty('m-repair');
   toast(`${totalQty} pallets repaired across ${lines.length} class${lines.length>1?'es':''} \u2014 stock updated`);
-  closeM('m-repair');renderRepairs();renderDash();
+  closeM('m-repair');renderRepairs();renderDash();goHome();
 }
 
 /* ── CALENDAR ── */
@@ -4137,7 +4142,7 @@ function saveSorting(force){
   S.sortings.slice(0,SF.lines.length).forEach(s=>syncSorting(s));
   persist();
   clearDirty('m-sort');toast(`${totalQty} pallets sorted — stock updated`);
-  closeM('m-sort');renderSorting();renderDash();
+  closeM('m-sort');renderSorting();renderDash();goHome();
 }
 
 function isProductInUse(cls){
@@ -5396,7 +5401,7 @@ function submitStocktake(id){
   if(!counted){toast('Count at least one product before submitting','err');return;}
   t.status='pending';t.submittedAt=new Date().toISOString();
   const latestSt=(S.stocktakes||[])[0];if(latestSt)syncStocktake(latestSt);
-  persist();toast('Submitted for admin approval ✓');renderStocktake();
+  persist();toast('Submitted for admin approval ✓');renderStocktake();goHome();
 }
 
 function discardStocktake(id){
