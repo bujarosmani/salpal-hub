@@ -2467,7 +2467,9 @@ function setOrdStatus(id,status){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   const old=j.status;j.status=status;j.updatedAt=new Date().toISOString();if(status==='Completed')j.completedAt=new Date().toISOString();
   addTL(j,`Status: ${old} \u2192 ${status}`,'status');
-  if(old!=='Completed'&&status==='Completed'){
+  // Only move stock if transitioning to Completed from a status that hasn't moved stock yet
+  const stockNotYetMoved=['Open','In Transit','Collected','Delivered'];
+  if(old!=='Completed'&&status==='Completed'&&stockNotYetMoved.includes(old)){
     fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j})})
     .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);}))
     .then(result=>{
@@ -2752,6 +2754,7 @@ function openLoadModal(id){
   }
   S.orderLocks[id]={user:myName,time:new Date().toISOString()};
   pushRecord('sp_stock','__locks',S.orderLocks||{});
+  const _lb=document.querySelector('#m-load .btn-primary');if(_lb){_lb.disabled=false;_lb.textContent='✓ Mark Loaded';}
   document.getElementById('load-order-id').value=id;
   document.getElementById('load-ref').textContent=j.awb;
   document.getElementById('load-co').textContent=j.companyName||'\u2014';
@@ -2988,6 +2991,7 @@ function openCompleteRecModal(id){
   }
   S.orderLocks[id]={user:myName,time:new Date().toISOString()};
   pushRecord('sp_stock','__locks',S.orderLocks||{});
+  const _crecb=document.querySelector('#m-crec .btn-primary');if(_crecb){_crecb.disabled=false;_crecb.textContent='✓ Complete';}
   document.getElementById('crec-order-id').value=id;
   document.getElementById('crec-ref').textContent=j.awb;
   document.getElementById('crec-co').textContent=j.companyName||'\u2014';
@@ -3449,7 +3453,7 @@ function getRepLines(){
   })).filter(p=>p.qty>0&&p.cls);
 }
 
-function openRepairModal(){const _re=document.getElementById('rep-err');if(_re)_re.style.display='none';
+function openRepairModal(){const _re=document.getElementById('rep-err');if(_re)_re.style.display='none';const _rb=document.querySelector('#m-repair .btn-primary');if(_rb){_rb.disabled=false;_rb.textContent='✓ Save';}
   RF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',rep:'',src:''};
   renderRepPickers();
   document.getElementById('rep-lines').innerHTML='';
@@ -4235,7 +4239,7 @@ function saveSortingEdit(id,force){
   if(r&&r.id)syncSorting(r);
   persist();clearDirty('m-sort');toast('Sorting updated');forceCloseM('m-sort');renderSorting();renderDash();
 }
-function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se.style.display='none';
+function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se.style.display='none';const _sb=document.querySelector('#m-sort .btn-primary');if(_sb){_sb.disabled=false;_sb.textContent='✓ Save';}
   SF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',sorters:[]};
   renderSrtPickers();
   document.getElementById('srt-lines').innerHTML='';
