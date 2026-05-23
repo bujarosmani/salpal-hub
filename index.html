@@ -4352,12 +4352,14 @@ async function saveSorting(force){
     const linkedOrder=(S.orders||[]).find(j=>j.awb===orderRef);
     if(linkedOrder){
       const orderedQty=(linkedOrder.pallets||[]).find(p=>p.cls==='Unsorted')?.qty||0;
-      const alreadySorted=(S.sortings||[]).filter(r=>r.orderRef===orderRef).reduce((s,r)=>s+(r.totalQty||0),0);
-      const remaining=orderedQty-alreadySorted;
-      if(totalQty>remaining){
-        const warn=document.getElementById('srt-warn');
-        if(warn){warn.style.display='';warn.innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:12px 14px"><div style="font-size:13px;color:var(--red);font-weight:700">⚠ Only ${remaining} pallets remaining for ${orderRef}. You entered ${totalQty} — reduce the qty to continue.</div></div>`;}
-        return;
+      if(orderedQty>0){
+        const alreadySorted=(S.sortings||[]).filter(r=>r.orderRef===orderRef&&!r._deleted).reduce((s,r)=>s+(r.totalQty||0),0);
+        const remaining=orderedQty-alreadySorted;
+        if(remaining>0&&totalQty>remaining){
+          const warn=document.getElementById('srt-warn');
+          if(warn){warn.style.display='';warn.innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:12px 14px"><div style="font-size:13px;color:var(--red);font-weight:700">⚠ Only ${remaining} pallets remaining for ${orderRef}. You entered ${totalQty} — reduce the qty to continue.</div></div>`;}
+          return;
+        }
       }
     }
   }
