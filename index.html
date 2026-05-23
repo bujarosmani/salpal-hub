@@ -1674,7 +1674,7 @@ function addTL(order,action,type,changes){
 }
 function renderSortingBox(order){
   const hasUnsorted=(order.pallets||[]).some(p=>p.cls==='Unsorted');
-  if(!hasUnsorted||order.status==='Completed')return '';
+  if(!hasUnsorted)return '';
   const entries=(S.sortings||[]).filter(r=>r.orderRef===order.awb);
   const orderedQty=(order.pallets||[]).find(p=>p.cls==='Unsorted')?.qty||0;
   const sortedQty=entries.reduce((s,r)=>s+(r.totalQty||0),0);
@@ -4071,9 +4071,10 @@ function renderSorting(){
   const totToday=trToday.reduce((s,r)=>s+(r.totalQty||r.qty||0),0);
   const allFiltered=(S.sortings||[]).filter(filterST);
   document.getElementById('srt-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="font-size:48px">${totToday}</div><div class="stat-lbl">Sorted Today</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px">${trToday.length}</div><div class="stat-lbl">Entries Today</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px">${allFiltered.reduce((s,r)=>s+(r.totalQty||r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div>`;
-  // Outstanding tasks — completed Collection orders with Unsorted pallets
+  // Outstanding tasks — only Pending Sort orders (Completed means admin confirmed it's done)
   const unsortedOrders=(S.orders||[]).filter(j=>
-    j.type==='Collection'&&j.status==='Completed'&&
+    j.type==='Collection'&&
+    j.status==='Pending Sort'&&
     (j.pallets||[]).some(p=>p.cls==='Unsorted')
   );
   // Calculate already sorted qty per order
