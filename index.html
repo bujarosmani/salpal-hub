@@ -1960,6 +1960,11 @@ function resetPageFilters(page){
 }
 let currentPage=null;
 function goTo(page){
+  // Reset stock ledger filters when leaving stock page
+  if(window._currentPage==='stock'&&page!=='stock'){
+    ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null};
+  }
+  window._currentPage=page;
   if(currentPage&&currentPage!==page)resetPageFilters(currentPage);
   currentPage=page;
   try{sessionStorage.setItem('salpal-last-page',page);}catch(e){}
@@ -4205,37 +4210,17 @@ function saveSortingEdit(id,force){
     if(_sErr){_sErr.style.display='';_sErr.textContent='⚠ Select a supervisor and at least one sorter';_sErr.scrollIntoView({behavior:'smooth',block:'center'});}
     return;
   }
-  const pallets=getLines('srt-lines');
-  if(!pallets.length){
-    if(_sErr){_sErr.style.display='';_sErr.textContent='⚠ Add at least one pallet line';_sErr.scrollIntoView({behavior:'smooth',block:'center'});}
-    return;
-  }
-  const totalQty=pallets.reduce((s,p)=>s+(p.qty||0),0);
   const r=(S.sortings||[]).find(x=>x.id===id);if(!r)return;
-  if(!force){
-    const unsortedStock=(S.stock&&S.stock['Unsorted'])||0;
-    if(totalQty>unsortedStock){
-      const short=totalQty-unsortedStock;
-      const warn=document.getElementById('srt-warn');
-      if(warn){warn.style.display='';warn.innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:12px 14px"><div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px">⚠ Unsorted stock: ${unsortedStock} available, ${totalQty} needed (${short} short).<br>Proceed?</div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="saveSortingEdit('${id}',true)">✓ Yes</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('srt-warn').style.display='none'">✕ No</button></div></div>`;}
-      return;
-    }
+  // Only update date, supervisor, sorters — never change pallets/orderRef on edit
+  // This prevents outstanding tasks from being affected
+  const srtDateVal=document.getElementById('srt-date')?.value;
+  if(srtDateVal){
+    const existingTime=r.date?new Date(r.date).toTimeString().slice(0,8):new Date().toTimeString().slice(0,8);
+    r.date=new Date(srtDateVal+'T'+existingTime).toISOString();
   }
-  // Reverse old stock transfer
-  if(!S.stock)S.stock={};
-  (r.pallets||[]).forEach(p=>{
-    if(S.stock[p.cls]!==undefined)S.stock[p.cls]-=p.qty;
-    if(S.stock['Unsorted']!==undefined)S.stock['Unsorted']+=p.qty;
-  });
-  // Apply new
-  const orderRef=document.getElementById('srt-order-ref').value;
-  r.supervisor=SF.sup;r.sorters=[...SF.sorters];r.pallets=pallets;r.totalQty=totalQty;r.orderRef=orderRef||'';
-  pallets.forEach(p=>{
-    if(!S.stock[p.cls])S.stock[p.cls]=0;
-    S.stock[p.cls]+=p.qty;
-    if(!S.stock['Unsorted'])S.stock['Unsorted']=0;
-    S.stock['Unsorted']-=p.qty;
-  });
+  r.supervisor=SF.sup;
+  r.sorters=[...SF.sorters];
+  // Keep original orderRef and pallets — never overwrite
   if(r&&r.id)syncSorting(r);
   persist();clearDirty('m-sort');toast('Sorting updated');forceCloseM('m-sort');renderSorting();renderDash();
 }
@@ -4776,7 +4761,7 @@ function getLines(cid){
   return Array.from(document.querySelectorAll(`#${cid} .plt-line`)).map(row=>({cls:row.querySelector('select').value,qty:parseInt(row.querySelector('input').value)||0})).filter(p=>p.qty>0&&p.cls);
 }
 
-let ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null};
+let ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null,sort:'newest'};
 function renderLedger(){
   const prodOpts=getSKUS().map(c=>({value:c,label:c}));
   const typeOpts=['Order In','Order Out','Sorting','Repair','Manual'].map(t=>({value:t,label:t}));
