@@ -2473,9 +2473,10 @@ function setOrdStatus(id,status){
   const old=j.status;j.status=status;j.updatedAt=new Date().toISOString();if(status==='Completed')j.completedAt=new Date().toISOString();
   addTL(j,`Status: ${old} \u2192 ${status}`,'status');
   // Only move stock if transitioning to Completed from a status that hasn't moved stock yet
+  // Stock moves when completing from these statuses — for others it was already moved
+  // Loaded and Pending Sort = stock already moved. Only move for Open/In Transit/Collected/Delivered
   const stockNotYetMoved=['Open','In Transit','Collected','Delivered'];
-  // Pending Sort means stock already moved on receive — don't move again
-  if(old!=='Completed'&&status==='Completed'&&stockNotYetMoved.includes(old)&&old!=='Pending Sort'){
+  if(old!=='Completed'&&status==='Completed'&&stockNotYetMoved.includes(old)){
     fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j})})
     .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);}))
     .then(result=>{
@@ -2804,16 +2805,32 @@ function confirmLoaded(){
   j.truckPlate=document.getElementById('load-truck').value.trim();j.trailerPlate=document.getElementById('load-trailer').value.trim();j.loadNotes=document.getElementById('load-notes').value.trim();j.loadedAt=new Date().toISOString();j.updatedAt=j.loadedAt;
   if(oldPs!==newPs){if(!j.whChanges)j.whChanges=[];j.whChanges.push({label:'Load check',value:`Ordered: ${oldPs} \u00b7 Actual: ${newPs}`});j.pallets=newPallets;j.totalQty=newTotal;}
   addTL(j,`Marked Loaded by ${sup}`,'status',[...changes,...(j.loadNotes?[`Notes: ${j.loadNotes}`]:[])]);
-  syncOrder(j);toast(`${j.awb} Loaded by ${sup}`);closeM('m-load');goHome();
-  // Auto-complete if 3rd party driver
-  const driverName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
-  if(driverName.includes('3rd')||driverName.includes('third')||driverName.includes('3rd party')){
-    j.status='Completed';j.completedAt=new Date().toISOString();j.updatedAt=j.completedAt;
-    addTL(j,'Auto-completed — 3rd party collection','status');
-    syncOrder(j);toast(`${j.awb} completed — 3rd party collected`);
-  }
-  renderDispatch();renderOrders();renderDash();
-  sendWhatsAppDispatch(j);
+  // Use atomic endpoint — stock moves OUT when loaded
+  const _loadBtn=document.querySelector('#m-load .btn-primary');
+  if(_loadBtn){_loadBtn.disabled=true;_loadBtn.textContent='Saving...';}
+  fetch(API_URL+'/api/action/order/loaded',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j})})
+  .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error||'Server error');}))
+  .then(result=>{
+    const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
+    if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
+    result.ledger.forEach(e=>{if(!S.stock)S.stock={};S.stock[e.cls]=(S.stock[e.cls]||0)-(e.qty||0);});
+    // Auto-complete if 3rd party driver
+    const driverName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
+    if(driverName.includes('3rd')||driverName.includes('third')||driverName.includes('3rd party')){
+      j.status='Completed';j.completedAt=new Date().toISOString();j.updatedAt=j.completedAt;
+      addTL(j,'Auto-completed — 3rd party delivery','status');
+      syncOrder(j);
+    }
+    persist();
+    if(_loadBtn){_loadBtn.disabled=false;_loadBtn.textContent='✓ Mark Loaded';}
+    toast(`${j.awb} Loaded by ${sup}`);closeLoadModal();goHome();
+    renderDispatch();renderOrders();renderDash();
+    sendWhatsAppDispatch(j);
+  })
+  .catch(e=>{
+    if(_loadBtn){_loadBtn.disabled=false;_loadBtn.textContent='✓ Mark Loaded';}
+    document.getElementById('load-err').textContent='⚠ Save failed: '+e.message+' — please try again';
+  });
 }
 
 /* ── RECEIVING ── */
@@ -3810,15 +3827,9 @@ function submitProof(){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   const at=new Date().toISOString();j.status='Completed';j.updatedAt=at;j.completedAt=at;j.proof={recipientName:name,companyName:co,completedAt:at};
   addTL(j,`Delivered \u2014 signed by ${name} (${co})`,'status');
-  fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j})})
-  .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error);});return r.json();})
-  .then(result=>{
-    const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
-    if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
-    result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-    persist();toast('Delivered ✓');closeM('m-proof');renderDriver();renderDash();
-  })
-  .catch(e=>{toast('Save failed: '+e.message,'err');});
+  // Stock already moved at Mark as Loaded — just update status
+  syncOrder(j);
+  persist();toast('Delivered ✓');closeM('m-proof');renderDriver();renderDash();
 }
 
 /* ── CANVAS ── */
