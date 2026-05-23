@@ -1674,7 +1674,7 @@ function addTL(order,action,type,changes){
 }
 function renderSortingBox(order){
   const hasUnsorted=(order.pallets||[]).some(p=>p.cls==='Unsorted');
-  if(!hasUnsorted)return '';
+  if(!hasUnsorted||order.status==='Completed')return '';
   const entries=(S.sortings||[]).filter(r=>r.orderRef===order.awb);
   const orderedQty=(order.pallets||[]).find(p=>p.cls==='Unsorted')?.qty||0;
   const sortedQty=entries.reduce((s,r)=>s+(r.totalQty||0),0);
@@ -4380,6 +4380,7 @@ async function saveSorting(force){
       method:'POST',headers:apiHeaders(),
       body:JSON.stringify({pallets,supervisor:SF.sup,sorters:[...SF.sorters],orderRef:orderRef||null,date:srtDateFull})
     });
+    if(r.status===409){const e=await r.json().catch(()=>({}));throw new Error(e.error||'Already completed');}
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||'Server error');}
     const result=await r.json();
     if(!S.sortings)S.sortings=[];if(!S.stock)S.stock={};if(!S.ledger)S.ledger=[];
@@ -4389,19 +4390,11 @@ async function saveSorting(force){
       S.stock[p.cls]=(S.stock[p.cls]||0)+p.qty;
       S.stock['Unsorted']=(S.stock['Unsorted']||0)-p.qty;
     });
-    // Check if linked order is fully sorted
-    if(orderRef){
-      const linkedOrder=(S.orders||[]).find(j=>j.awb===orderRef&&j.status==='Pending Sort');
-      if(linkedOrder){
-        const orderedQty=(linkedOrder.pallets||[]).find(p=>p.cls==='Unsorted')?.qty||0;
-        const totalSorted=(S.sortings||[]).filter(r=>r.orderRef===orderRef).reduce((s,r)=>s+(r.totalQty||0),0);
-        if(totalSorted>=orderedQty){
-          linkedOrder.status='Completed';linkedOrder.completedAt=new Date().toISOString();linkedOrder.updatedAt=linkedOrder.completedAt;
-          addTL(linkedOrder,'Auto-completed — all unsorted pallets sorted','status');
-          syncOrder(linkedOrder);
-          toast(`✓ ${orderRef} fully sorted — marked Completed`);
-        }
-      }
+    // Update order status from server response
+    if(result.completedOrder){
+      const idx=(S.orders||[]).findIndex(j=>j.id===result.completedOrder.id);
+      if(idx>=0)S.orders[idx]=result.completedOrder;
+      toast(`✓ ${orderRef} fully sorted — marked Completed`);
     }
     persist();clearDirty('m-sort');
     toast(`${totalQty} pallets sorted — saved ✓`);
