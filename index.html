@@ -1482,7 +1482,7 @@ async function loadCloud(){
       S.orders=(S.orders||[]).filter(o=>!deletedOrderIds.has(o.id));
     }
     if(repairs&&repairs.length)S.repairs=repairs.map(r=>r.data).filter(Boolean);
-    if(sortings&&sortings.length)S.sortings=sortings.map(r=>r.data).filter(Boolean);
+    if(sortings&&sortings.length)S.sortings=sortings.map(r=>r.data).filter(r=>r&&!r._deleted);
     if(companies&&companies.length)S.companies=companies.map(r=>r.data).filter(Boolean);
     if(ledger&&ledger.length)S.ledger=ledger.map(r=>r.data).filter(Boolean);
     if(stock&&stock.length){const sr=stock.find(r=>r.id==='__stock');if(sr)S.stock=sr.data;
