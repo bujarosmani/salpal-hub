@@ -2378,6 +2378,7 @@ function openOrderModal(){
   document.getElementById('of-addr').value='';document.getElementById('of-city').value='';document.getElementById('of-post').value='';
   document.getElementById('of-co-dd').classList.remove('open');
   document.getElementById('of-status-wrap').style.display='none';
+  document.getElementById('of-err').innerHTML=''; // Clear any previous warning
   document.getElementById('of-changes-box').style.display='none';
   const ds=document.getElementById('of-driver');ds.innerHTML='<option value="">Unassigned</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
   document.querySelectorAll('#of-lines select,#of-lines input,#of-lines .rm-btn').forEach(el=>el.disabled=false);
