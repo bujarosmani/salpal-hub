@@ -574,9 +574,9 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
   <div class="phdr">
     <div><div class="ptitle">Planner</div><div class="psub">Plan driver trips for the day</div></div>
     <div style="display:flex;gap:6px;align-items:center">
-      <button class="btn btn-ghost btn-sm" onclick="plannerPrevDay()">‹</button>
-      <button class="btn btn-ghost" id="planner-dp-btn" style="font-size:13px;padding:7px 14px">📅 Today</button>
-      <button class="btn btn-ghost btn-sm" onclick="plannerNextDay()">›</button>
+      <button class="btn btn-ghost btn-sm" onclick="plannerPrevWeek()">‹</button>
+      <div id="planner-date-tabs" style="display:flex;gap:4px;overflow-x:auto"></div>
+      <button class="btn btn-ghost btn-sm" onclick="plannerNextWeek()">›</button>
     </div>
   </div>
   <div id="planner-body"></div>
@@ -1957,7 +1957,7 @@ function resetPageFilters(page){
   if(page==='repairs'){const s=document.getElementById('rep-search');if(s)s.value='';window.rmfDateFrom='';window.rmfDateTo='';window.rhfDateFrom='';window.rhfDateTo='';}
   if(page==='sorting'){const s=document.getElementById('srt-search');if(s)s.value='';srtSortAsc=false;const sb=document.getElementById('srt-sort-btn');if(sb)sb.textContent='Oldest First';}
   if(page==='companies'){coSortAsc=false;const s=document.getElementById('co-search');if(s)s.value='';tableSort['co-table']={col:'name',asc:false};}
-  if(page==='planner'){window.plannerDate=localIso(new Date());}
+  if(page==='planner'){window.plannerDate=window.plannerDate||localIso(new Date());window.plannerWeekStart=window.plannerWeekStart||localIso(new Date());}
 }
 let currentPage=null;
 function goTo(page){
@@ -5326,11 +5326,28 @@ function exportOrdersExcel(){
 // ── PLANNER ──
 function renderPlanner(){
   if(!window.plannerDate)window.plannerDate=localIso(new Date());
+  if(!window.plannerWeekStart)window.plannerWeekStart=localIso(new Date());
   const date=window.plannerDate;
-  const dpBtn=document.getElementById('planner-dp-btn');
-  if(dpBtn){
-    dpBtn.textContent=`📅 ${fd(date)}`;
-    dpBtn.onclick=()=>openDatePickerSingle(date,(f)=>{window.plannerDate=f;renderPlanner();});
+  // Render 7-day tabs
+  const tabs=document.getElementById('planner-date-tabs');
+  if(tabs){
+    const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const today=localIso(new Date());
+    let html='';
+    for(let i=0;i<7;i++){
+      const d=new Date(window.plannerWeekStart);
+      d.setDate(d.getDate()+i);
+      const ds=localIso(d);
+      const isSelected=ds===date;
+      const isToday=ds===today;
+      const dayName=days[d.getDay()];
+      const dayNum=d.getDate();
+      const mon=String(d.getMonth()+1).padStart(2,'0');
+      html+=`<button onclick="window.plannerDate='${ds}';renderPlanner()" style="background:${isSelected?'var(--brand)':'var(--panel)'};color:${isSelected?'#000':isToday?'var(--brand)':'var(--ink)'};border:1.5px solid ${isSelected?'var(--brand)':isToday?'var(--brand)':'var(--line)'};border-radius:8px;padding:5px 10px;cursor:pointer;font-size:11px;font-weight:${isSelected?'800':'600'};white-space:nowrap;min-width:52px;text-align:center">
+        <div>${dayName}</div><div style="font-size:13px;font-weight:900">${dayNum}/${mon}</div>
+      </button>`;
+    }
+    tabs.innerHTML=html;
   }
 
   if(!S.plans)S.plans={};
@@ -5356,7 +5373,7 @@ function renderPlanner(){
   });
 
   const body=document.getElementById('planner-body');
-  body.innerHTML=`<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;align-items:flex-start" id="planner-cols">
+  body.innerHTML=`<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;align-items:flex-start;padding:4px" id="planner-cols">
     ${plannerCol('unassigned','📋 Unassigned',plan.unassigned||[],allOrders,'#f5c843')}
     ${drivers.map(d=>plannerCol(d.id,`🚛 ${d.firstName} ${d.lastName}`,plan.drivers[d.id]||[],allOrders,'var(--brand)')).join('')}
   </div>`;
@@ -5393,6 +5410,8 @@ function plannerCard(j,idx,colId){
 
 function plannerPrevDay(){const d=new Date(window.plannerDate||localIso(new Date()));d.setDate(d.getDate()-1);window.plannerDate=localIso(d);renderPlanner();}
 function plannerNextDay(){const d=new Date(window.plannerDate||localIso(new Date()));d.setDate(d.getDate()+1);window.plannerDate=localIso(d);renderPlanner();}
+function plannerPrevWeek(){const d=new Date(window.plannerWeekStart||localIso(new Date()));d.setDate(d.getDate()-7);window.plannerWeekStart=localIso(d);renderPlanner();}
+function plannerNextWeek(){const d=new Date(window.plannerWeekStart||localIso(new Date()));d.setDate(d.getDate()+7);window.plannerWeekStart=localIso(d);renderPlanner();}
 
 function plannerRemove(orderId,colId){
   const date=window.plannerDate;if(!S.plans?.[date])return;
