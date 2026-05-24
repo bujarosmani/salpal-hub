@@ -1205,6 +1205,10 @@ const REPAIRERS=null; // replaced by getWorkers()
 function getWorkers(){return(S.workers&&S.workers.length)?S.workers:[...DEFAULT_WORKERS];}
 const SHEETS_URL='https://script.google.com/macros/s/AKfycbwwEJC1ewE-VlgK1aMZwJmLmNhR-Fu7TxFWam2uJ84ohS--Y4S96ogJPDEcnp6e998CnA/exec';
 const SHEETS_ENABLED=false; // temporarily disabled
+// ─────────────────────────────────────────────
+// CONFIG & CONSTANTS
+// API endpoint and app settings
+// ─────────────────────────────────────────────
 const API_URL='https://salpal-api-production.up.railway.app';
 const SKEY='salpal-hub-v6';
 let API_TOKEN=null; // set after login
@@ -1257,6 +1261,10 @@ function seed(){return{
   orders:[],repairs:[]
 };}
 
+// ─────────────────────────────────────────────
+// LOCAL STATE
+// localStorage read/write and seed data
+// ─────────────────────────────────────────────
 function loadState(){try{const r=localStorage.getItem(SKEY);if(r){S=JSON.parse(r);return;}}catch(e){}S=seed();persist();}
 function getFleetAlerts(){
   if(!S.fleet)return{red:[],amber:[]};
@@ -1322,6 +1330,10 @@ function persist(){
 }
 
 // Save a single record immediately — with retry on failure
+// ─────────────────────────────────────────────
+// SYNC ENGINE
+// Handles all saves to server with retry queue
+// ─────────────────────────────────────────────
 async function pushRecord(table, id, data){
   _pendingCount++;
   setSS('syncing');
@@ -1372,6 +1384,9 @@ function scheduleRetry(){
   },10000); // retry every 10 seconds
 }
 
+// ─────────────────────────────────────────────
+// SYNC HELPERS — one function per data type
+// ─────────────────────────────────────────────
 // Save an order immediately
 function syncOrder(order){
   if(!order||!order.id)return;
@@ -1433,6 +1448,10 @@ function syncCloud(){
   // Sync any queued retries immediately
   if(_retryQueue.length)scheduleRetry();
 }
+// ─────────────────────────────────────────────
+// LOAD FROM SERVER
+// Fetches all data and merges with local state
+// ─────────────────────────────────────────────
 async function loadCloud(){
   try{
     setSS('syncing');
@@ -1852,6 +1871,10 @@ async function checkPassword(plain, stored){
 }
 
 /* ── AUTH ── */
+// ─────────────────────────────────────────────
+// AUTHENTICATION
+// Login, logout, token management
+// ─────────────────────────────────────────────
 async function doLogin(){
   try{
     const u=document.getElementById('li-user').value.trim().toLowerCase();
@@ -1960,6 +1983,10 @@ function resetPageFilters(page){
   if(page==='planner'){window.plannerDate=window.plannerDate||localIso(new Date());window.plannerWeekStart=window.plannerWeekStart||localIso(new Date());}
 }
 let currentPage=null;
+// ─────────────────────────────────────────────
+// NAVIGATION
+// Page routing and sidebar rendering
+// ─────────────────────────────────────────────
 function goTo(page){
   // Reset stock ledger filters when leaving stock page
   if(window._currentPage==='stock'&&page!=='stock'){
@@ -2779,6 +2806,13 @@ function openLoadModal(id){
   setTimeout(updateLoadTotal,50);
   openM('m-load');
 }
+/**
+ * confirmLoaded — Mark dispatch order as Loaded
+ * Sends to /api/action/order/loaded which atomically:
+ * - moves stock OUT immediately (pallets leave warehouse)
+ * - creates ledger entries
+ * - updates order status to Loaded
+ */
 function confirmLoaded(){
   const id=document.getElementById('load-order-id').value;
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
@@ -2834,6 +2868,11 @@ function confirmLoaded(){
   });
 }
 
+// ─────────────────────────────────────────────
+// RECEIVING MODULE
+// Complete Receiving → stock moves IN
+// via /api/action/order/complete
+// ─────────────────────────────────────────────
 /* ── RECEIVING ── */
 let recF={statuses:null,drivers:null,dateFrom:'',dateTo:'',search:''};let recSortAsc=false;
 function toggleRecSort(){recSortAsc=!recSortAsc;const btn=document.getElementById('rec-sort-btn');if(btn)btn.textContent=recSortAsc?'A → Z':'Z → A';renderReceiving();}
@@ -3034,6 +3073,13 @@ function closeRecModal(){
   if(id&&S.orderLocks){delete S.orderLocks[id];pushRecord('sp_stock','__locks',S.orderLocks||{});}
   closeM('m-crec');
 }
+/**
+ * confirmReceived — Complete a receiving (collection)
+ * Sends to /api/action/order/complete which atomically:
+ * - moves stock IN for each pallet class
+ * - creates ledger entries
+ * - updates order status to Completed/Pending Sort
+ */
 function confirmReceived(){
   const id=document.getElementById('crec-order-id').value;
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
@@ -3235,6 +3281,11 @@ function saveDropoff(){
   .catch(e=>{toast('Save failed: '+e.message+' — please try again','err');});
 }
 
+// ─────────────────────────────────────────────
+// REPAIRS MODULE
+// Log repairs: Defected → A/B/C etc.
+// All atomic via /api/action/repair
+// ─────────────────────────────────────────────
 /* ── REPAIRS ── */
 let RF={sup:'',rep:'',cls:''};
 function repTab(name,btn){const page=document.getElementById('page-repairs');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`rep-${name}`).classList.add('on');if(name==='workers')renderWorkersReorder('rep-workers-list');else renderRepTab(name);}
@@ -3498,6 +3549,13 @@ function renderRepPickers(){
   const defectSrcs=getSKUS().filter(c=>c.toLowerCase().includes('defect'));
   document.getElementById('rep-src').innerHTML=defectSrcs.map(c=>`<button type="button" class="pick-btn${RF.src===c?' sel':''}" onclick="RF.src='${c}';renderRepPickers()" style="color:${RF.src===c?'#fff':'var(--red)'}">${esc(c)}</button>`).join('');
 }
+/**
+ * saveRepair — Log a new repair session
+ * Sends to /api/action/repair which atomically saves:
+ * - repair record(s) in sp_repairs
+ * - stock update for each output class
+ * - ledger entries for output + source deduction
+ */
 async function saveRepair(force){
   const lines=getRepLines();
   const _rErr=document.getElementById('rep-err');if(_rErr)_rErr.style.display='none';
@@ -3889,6 +3947,10 @@ function delUser(id){
   });
 }
 
+// ─────────────────────────────────────────────
+// COMPANIES MODULE
+// Suppliers and customers management
+// ─────────────────────────────────────────────
 /* ── COMPANIES ── */
 let coSortAsc=true;
 function toggleCoSort(){coSortAsc=!coSortAsc;const btn=document.getElementById('co-sort-btn');if(btn)btn.textContent=coSortAsc?'A → Z':'Z → A';renderCompanies();}
@@ -4058,6 +4120,12 @@ function delCo(id){
   });
 }
 
+// ─────────────────────────────────────────────
+// SORTING MODULE
+// Log sorting: Unsorted → A/B/C etc.
+// Server prevents duplicates & auto-completes orders
+// All atomic via /api/action/sorting
+// ─────────────────────────────────────────────
 /* ── SORTING ── */
 let SF={sup:'',sorters:[],cls:''};
 function srtTab(name,btn){const page=document.getElementById('page-sorting');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`srt-${name}`).classList.add('on');if(name==='workers')renderWorkersReorder('srt-workers-list');else renderSrtTab(name);}
@@ -4338,6 +4406,14 @@ function onSrtOrderChange(){
 }
 
 function toggleSorter(name){const i=SF.sorters.indexOf(name);if(i>=0)SF.sorters.splice(i,1);else SF.sorters.push(name);renderSrtPickers();}
+/**
+ * saveSorting — Log a new sorting session
+ * Sends to /api/action/sorting which atomically:
+ * - checks for duplicate sorting (server-side)
+ * - saves sorting record in sp_sortings
+ * - moves stock: Unsorted → output classes
+ * - auto-completes order if fully sorted
+ */
 async function saveSorting(force){
   const _sErr=document.getElementById('srt-err');if(_sErr)_sErr.style.display='none';
   if(!SF.sup||!SF.sorters.length){
@@ -4577,6 +4653,12 @@ function populateAdjProducts(){
   const skus=getSKUS();
   sel.innerHTML='<option value="">— Select product —</option>'+skus.map(s=>`<option value="${s}">${s}</option>`).join('');
 }
+/**
+ * saveStockAdjTab — Manual stock adjustment
+ * Sends to /api/action/adjustment which atomically:
+ * - updates stock for the selected product
+ * - creates ledger entry (Manual Adjustment)
+ */
 async function saveStockAdjTab(){
   const cls=document.getElementById('adj-cls').value;
   const qtyRaw=document.getElementById('adj-qty').value;
@@ -4682,16 +4764,37 @@ function renderReorder(){
   });
 }
 
+function addWorker(listId){
+  const name=prompt('Worker name:');
+  if(!name||!name.trim())return;
+  const n=name.trim();
+  if(getWorkers().includes(n)){toast('Worker already exists','err');return;}
+  if(!S.workers)S.workers=getWorkers().slice();
+  S.workers.push(n);
+  pushRecord('sp_stock','__workers',S.workers);
+  persist();toast(`${n} added`);renderWorkersReorder(listId);
+}
+function deleteWorker(name,listId){
+  if(!confirm(`Delete worker "${name}"?`))return;
+  if(!S.workers)S.workers=getWorkers().slice();
+  S.workers=S.workers.filter(w=>w!==name);
+  pushRecord('sp_stock','__workers',S.workers);
+  persist();toast(`${name} deleted`);renderWorkersReorder(listId);
+}
 function renderWorkersReorder(listId){
   const list=document.getElementById(listId);if(!list)return;
   const workers=getWorkers();
   list.innerHTML=`
-    <div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Drag to reorder workers. Changes apply to all pickers.</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--ink3)">Drag to reorder. Changes apply to all pickers.</div>
+      <button class="btn btn-primary btn-sm" onclick="addWorker('${listId}')">+ Add Worker</button>
+    </div>
     ${workers.map((w,i)=>`
       <div class="reorder-item" draggable="true" data-worker="${esc(w)}" data-idx="${i}">
         <span class="reorder-handle">⠿</span>
         <span class="reorder-num">${i+1}</span>
-        <span style="font-size:14px;font-weight:700">${esc(w)}</span>
+        <span style="font-size:14px;font-weight:700;flex:1">${esc(w)}</span>
+        <button onclick="deleteWorker('${esc(w)}','${listId}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:0 4px">✕</button>
       </div>`).join('')}
   `;
   let dragSrc=null;
@@ -4851,6 +4954,11 @@ function viewLedgerEntry(id){
   openM('m-detail');
 }
 
+// ─────────────────────────────────────────────
+// STOCK MODULE
+// Inventory, ledger, adjustments, reorder
+// Adjustments via /api/action/adjustment
+// ─────────────────────────────────────────────
 /* ── STOCK ── */
 function getStock(){
   // Returns {cls: {onHand, incoming, outgoing, free}}
@@ -5896,6 +6004,13 @@ function continueStocktake(id){
   // Scroll to form
   form?.scrollIntoView({behavior:'smooth'});
 }
+/**
+ * approveStocktake — Approve a stocktake
+ * Sends to /api/action/stocktake/approve which atomically:
+ * - adjusts stock for each product where counted ≠ system
+ * - creates ledger entries with ADJ reference
+ * - marks stocktake as approved
+ */
 async function approveStocktake(id){
   const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
   // Generate ADJ reference
