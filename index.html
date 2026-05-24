@@ -1947,7 +1947,7 @@ function setupNav(){
   const r=ME.role;
   document.getElementById('nav-admin').style.display=(r==='Admin'||r==='Manager'||r==='Viewer')?'':'none';
   document.getElementById('nav-driver').style.display=r==='Driver'?'':'none';
-  const vis={Admin:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','planner','fleet','stocktake'],Manager:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','planner','fleet','stocktake'],Viewer:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','stocktake'],Supervisor:['dispatch','receiving','repairs','sorting','stocktake'],Driver:[]};
+  const vis={Admin:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','planner','fleet','stocktake'],Manager:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar','planner','fleet','stocktake'],Viewer:['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'],Supervisor:['dispatch','receiving','repairs','sorting','stocktake'],Driver:[]};
   const allowed=vis[r]||[];
   ['dashboard','orders','dispatch','receiving','repairs','sorting','stock','calendar'].forEach(p=>{const el=document.getElementById(`snav-${p}`);if(el)el.style.display=allowed.includes(p)?'':'none';});
   document.getElementById('btn-new-order').style.display=(r==='Admin'||r==='Manager')?'':'none';
