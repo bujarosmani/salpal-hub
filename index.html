@@ -420,6 +420,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <div><div class="ptitle">Receiving</div><div class="psub">Incoming — collections &amp; drop-offs</div></div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost btn-sm" onclick="exportReceivingExcel()">⬇ Excel</button>
+      <button class="btn btn-ghost btn-sm" onclick="openReturnModal()">↩ Return</button>
       <button class="btn btn-primary" id="btn-dropoff" onclick="openQuickEntry('Collection')">⚡ Quick Entry</button>
     </div>
   </div>
@@ -938,6 +939,61 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <button class="btn btn-ghost" onclick="closeM('m-quick')">Cancel</button>
       
       <button class="btn btn-primary" id="qk-save-btn" onclick="saveQuickEntry(false)">⚡ Create &amp; Load</button>
+    </div>
+  </div>
+</div>
+
+<!-- RETURN NOTE MODAL -->
+<div class="mbackdrop" id="m-return">
+  <div class="mbox" style="max-width:560px">
+    <div class="mhdr"><span class="mtitle">↩ Return Note</span><button class="mclose" onclick="closeM('m-return')">✕</button></div>
+    <div class="mbody">
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Linked to Original Order (optional)</div>
+        <input class="inp" id="rtn-orig-search" placeholder="Search AWB or company..." autocomplete="off" oninput="searchReturnOrders(this.value)" style="width:100%">
+        <div id="rtn-orig-results" style="max-height:160px;overflow-y:auto;margin-top:4px"></div>
+        <div id="rtn-orig-selected" style="display:none;background:var(--panel2);border:1.5px solid var(--brand-dim);border-radius:8px;padding:8px 12px;margin-top:6px;font-size:13px"></div>
+        <input type="hidden" id="rtn-orig-id">
+        <input type="hidden" id="rtn-orig-awb">
+      </div>
+      <div class="fwrap"><label class="flabel">Customer / Company *</label><input class="inp" id="rtn-company" placeholder="Company name" autocomplete="off"></div>
+      <div class="fwrap"><label class="flabel">Return Reason *</label>
+        <select class="inp" id="rtn-reason">
+          <option value="">— Select reason —</option>
+          <option value="Customer rejected">Customer rejected</option>
+          <option value="Damaged in transit">Damaged in transit</option>
+          <option value="Wrong pallets delivered">Wrong pallets delivered</option>
+          <option value="Partial rejection">Partial rejection</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="fwrap"><label class="flabel">Pallets Returning *</label>
+        <div id="rtn-lines"></div>
+        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="addPltLine('rtn-lines')">+ Add Line</button>
+      </div>
+      <div class="fwrap"><label class="flabel">Driver</label>
+        <select class="inp" id="rtn-driver"><option value="">— Select driver —</option><option value="3rd-party">3rd Party</option></select>
+      </div>
+      <div class="fwrap"><label class="flabel">Received By (Supervisor)</label>
+        <select class="inp" id="rtn-by"></select>
+      </div>
+      <div style="background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;padding:10px 12px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">Type</div>
+        <div style="display:flex;gap:8px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+            <input type="radio" name="rtn-flow" value="quick" checked onchange="toggleReturnFlow(this.value)"> Quick Return (pallets already at WH)
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+            <input type="radio" name="rtn-flow" value="driver"> Driver collecting from customer
+          </label>
+        </div>
+      </div>
+      <div class="fwrap"><label class="flabel">Notes</label><textarea class="inp" id="rtn-notes" rows="2" placeholder="Any additional notes..."></textarea></div>
+      <div id="rtn-err" style="color:var(--red);font-size:12px;margin-top:6px"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeM('m-return')">Cancel</button>
+      <button class="btn btn-primary" id="rtn-save-btn" onclick="saveReturn()">↩ Create Return</button>
     </div>
   </div>
 </div>
@@ -2374,7 +2430,7 @@ function renderOrdTable(){
     const ps=palletStr(j.pallets);
     const whn=(j.whChanges||[]).length?(j.whChanges||[]).map(c=>`${c.label}: ${c.value}`).join(' \u00b7 '):'\u2014';
     return`<tr>
-      <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap">${esc(j.awb)}</td>
+      <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap">${esc(j.awb)}${j.hasReturn?`<span style="font-size:9px;font-weight:800;color:var(--amber);background:var(--amber-bg);border:1px solid rgba(245,200,66,.3);border-radius:4px;padding:0 5px;margin-left:4px">↩</span>`:''}</td>
       ${col('orderRef')?`<td style="font-size:12px;color:var(--ink2)">${esc(j.orderRef||'\u2014')}</td>`:''}
       ${col('type')?`<td>${typeChip(j.type)}</td>`:''}
       ${col('company')?`<td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td>`:''}
@@ -2722,6 +2778,7 @@ function viewOrder(id){
   const isSup=ME&&(ME.role==='Admin'||ME.role==='Supervisor'||ME.role==='Manager')&&!isViewer();
   let foot=`<button class="btn btn-ghost" onclick="closeM('m-detail')">Close</button>`;
   if(isSup&&isD&&j.status==='Open')foot+=` <button class="btn btn-amber" onclick="closeM('m-detail');openLoadModal('${j.id}')">📦 Mark Loaded</button>`;
+  if(isSup&&isD&&['Completed','Loaded','In Transit'].includes(j.status))foot+=` <button class="btn btn-ghost" onclick="closeM('m-detail');openReturnModal('${j.id}')">↩ Return</button>`;
   if(isSup&&!isD){if(j.status==='Collected')foot+=` <button class="btn btn-ghost" onclick="setOrdStatus('${j.id}','Delivered')">🏭 At Warehouse</button>`;if(j.status==='Delivered')foot+=` <button class="btn btn-primary" onclick="closeM('m-detail');openCompleteRecModal('${j.id}')">✓ Complete</button>`;}
   document.getElementById('det-foot').innerHTML=foot;
   openM('m-detail');
@@ -3036,14 +3093,14 @@ function renderRecTodoResults(){
     const canAW=j.status==='Collected'&&isSup&&!isViewer();
     const canC=j.status==='Delivered'&&isSup&&!isViewer();
     const driver=j.driver==='Customer Drop Off'?'Drop-off':(j.driverId?uname(j.driverId):j.driver||'—');
-    return`<div style="background:var(--panel);border:1.5px solid var(--line);border-left:4px solid ${j.status==='Delivered'?'var(--blue)':j.status==='Collected'?'var(--amber)':'var(--line)'};border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
+    return`<div style="background:var(--panel);border:1.5px solid var(--line);border-left:4px solid ${j.isReturn?'var(--amber)':j.status==='Delivered'?'var(--blue)':j.status==='Collected'?'var(--amber)':'var(--line)'};border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
         <div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
             <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px">${esc(j.awb)}</span>
             ${j.orderRef?`<span style="font-size:11px;color:var(--ink3)">${esc(j.orderRef)}</span>`:''}
             ${stChip(j.status)}
-            ${j.isReturn?`<span style="background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px">↩ RETURN</span>`:''}
+            ${j.isReturn?`<span style="background:var(--amber);color:#000;font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px">↩ RETURN${j.originalAwb?' from '+esc(j.originalAwb):''}</span>`:''}
           </div>
           <div style="font-weight:700;font-size:14px">${esc(j.companyName||'—')}</div>
           <div style="font-size:12px;color:var(--ink3)">${esc([j.companyAddress,j.city,j.postcode].filter(Boolean).join(', '))}</div>
@@ -3796,6 +3853,195 @@ function markReturnArrived(id){
 }
 
 function markCollected(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Collected';j.updatedAt=new Date().toISOString();addTL(j,'Pallets collected — returning to warehouse','status');syncOrder(j);toast('Pallets collected');closeM('m-detail');renderDriver();}
+// ─────────────────────────────────────────────
+// RETURN NOTES MODULE
+// Creates return orders linked to original delivery
+// Two flows: Quick Return (already at WH) or Driver collecting
+// ─────────────────────────────────────────────
+
+function openReturnModal(origOrderId){
+  // Reset form
+  document.getElementById('rtn-orig-search').value='';
+  document.getElementById('rtn-orig-results').innerHTML='';
+  document.getElementById('rtn-orig-selected').style.display='none';
+  document.getElementById('rtn-orig-id').value='';
+  document.getElementById('rtn-orig-awb').value='';
+  document.getElementById('rtn-company').value='';
+  document.getElementById('rtn-reason').value='';
+  document.getElementById('rtn-notes').value='';
+  document.getElementById('rtn-err').textContent='';
+  document.getElementById('rtn-lines').innerHTML='';
+  addPltLine('rtn-lines');
+  // Populate dropdowns
+  const drvSel=document.getElementById('rtn-driver');
+  drvSel.innerHTML='<option value="">— Select driver —</option><option value="3rd-party">3rd Party</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
+  const bySel=document.getElementById('rtn-by');
+  bySel.innerHTML=supSelectHtml();
+  bySel.disabled=ME&&ME.role==='Supervisor';
+  if(ME&&ME.role==='Supervisor')bySel.value=`${ME.firstName} ${ME.lastName}`.trim();
+  // Reset radio to quick
+  document.querySelectorAll('input[name="rtn-flow"]').forEach(r=>r.checked=r.value==='quick');
+  // Pre-fill if called from a specific order
+  if(origOrderId){
+    const j=(S.orders||[]).find(x=>x.id===origOrderId);
+    if(j){
+      document.getElementById('rtn-orig-id').value=j.id;
+      document.getElementById('rtn-orig-awb').value=j.awb;
+      document.getElementById('rtn-company').value=j.companyName||'';
+      document.getElementById('rtn-orig-selected').style.display='';
+      document.getElementById('rtn-orig-selected').innerHTML=
+        `<span style="color:var(--brand);font-weight:700">${esc(j.awb)}</span> — ${esc(j.companyName||'')} · ${fd(j.deliveryDate)} · ${esc(palletStr(j.pallets))}
+        <button type="button" class="btn btn-ghost btn-sm" style="margin-left:8px;padding:2px 8px" onclick="clearReturnLink()">✕</button>`;
+      if(j.driverId)document.getElementById('rtn-driver').value=j.driverId;
+    }
+  }
+  const btn=document.getElementById('rtn-save-btn');
+  if(btn){btn.disabled=false;btn.textContent='↩ Create Return';}
+  openM('m-return');
+}
+
+function clearReturnLink(){
+  document.getElementById('rtn-orig-id').value='';
+  document.getElementById('rtn-orig-awb').value='';
+  document.getElementById('rtn-orig-selected').style.display='none';
+  document.getElementById('rtn-orig-search').value='';
+}
+
+function searchReturnOrders(q){
+  const results=document.getElementById('rtn-orig-results');
+  if(!q||q.length<2){results.innerHTML='';return;}
+  const ql=q.toLowerCase();
+  // Search completed delivery orders
+  const matches=(S.orders||[])
+    .filter(j=>j.type==='Delivery'&&['Completed','Loaded','In Transit'].includes(j.status))
+    .filter(j=>(j.awb||'').toLowerCase().includes(ql)||(j.companyName||'').toLowerCase().includes(ql))
+    .slice(0,6);
+  if(!matches.length){results.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:6px">No matching delivery orders</div>';return;}
+  results.innerHTML=matches.map(j=>`
+    <div onclick="selectReturnOrder('${j.id}')" style="cursor:pointer;padding:7px 10px;border-radius:6px;font-size:13px;border:1px solid var(--line2);margin-bottom:3px;background:var(--panel2)">
+      <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--brand)">${esc(j.awb)}</span>
+      — ${esc(j.companyName||'')} · ${fd(j.deliveryDate)} · <span style="color:var(--ink3)">${esc(palletStr(j.pallets))}</span>
+    </div>`).join('');
+}
+
+function selectReturnOrder(id){
+  const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
+  document.getElementById('rtn-orig-id').value=j.id;
+  document.getElementById('rtn-orig-awb').value=j.awb;
+  document.getElementById('rtn-company').value=j.companyName||'';
+  document.getElementById('rtn-orig-results').innerHTML='';
+  document.getElementById('rtn-orig-search').value='';
+  document.getElementById('rtn-orig-selected').style.display='';
+  document.getElementById('rtn-orig-selected').innerHTML=
+    `<span style="color:var(--brand);font-weight:700">${esc(j.awb)}</span> — ${esc(j.companyName||'')} · ${fd(j.deliveryDate)} · ${esc(palletStr(j.pallets))}
+    <button type="button" class="btn btn-ghost btn-sm" style="margin-left:8px;padding:2px 8px" onclick="clearReturnLink()">✕</button>`;
+  if(j.driverId)document.getElementById('rtn-driver').value=j.driverId;
+}
+
+function toggleReturnFlow(val){
+  // Show/hide driver field based on flow type
+  const drvRow=document.getElementById('rtn-driver').closest('.fwrap');
+  if(drvRow)drvRow.style.display=val==='driver'?'':'none';
+}
+
+async function saveReturn(){
+  const origId=document.getElementById('rtn-orig-id').value;
+  const origAwb=document.getElementById('rtn-orig-awb').value;
+  const company=document.getElementById('rtn-company').value.trim();
+  const reason=document.getElementById('rtn-reason').value;
+  const pallets=getLines('rtn-lines');
+  const flow=document.querySelector('input[name="rtn-flow"]:checked')?.value||'quick';
+  const driverId=document.getElementById('rtn-driver').value;
+  const by=document.getElementById('rtn-by').value;
+  const notes=document.getElementById('rtn-notes').value.trim();
+  const errEl=document.getElementById('rtn-err');
+
+  if(!company){errEl.textContent='Company name required.';return;}
+  if(!reason){errEl.textContent='Select a return reason.';return;}
+  if(!pallets.length){errEl.textContent='Add at least one pallet line.';return;}
+  if(flow==='quick'&&!by){errEl.textContent='Received by (supervisor) required for quick return.';return;}
+
+  const totalQty=pallets.reduce((s,p)=>s+(p.qty||0),0);
+  const now=new Date().toISOString();
+  const awb=`RTN-${origAwb||makeAWB().replace('WMS-','')}`;
+
+  const returnOrder={
+    id:mkId(),
+    awb,
+    orderRef:origAwb||'',
+    type:'Collection',
+    isReturn:true,
+    returnReason:reason,
+    originalAwb:origAwb||null,
+    originalOrderId:origId||null,
+    companyName:company,
+    driverId:driverId||'',
+    deliveryDate:localIso(new Date()),
+    orderDate:localIso(new Date()),
+    pallets,
+    totalQty,
+    driverNotes:notes||(origAwb?`Return from ${origAwb} — ${reason}`:`Return — ${reason}`),
+    whChanges:[],
+    history:[],
+    createdAt:now,
+    updatedAt:now,
+  };
+
+  if(flow==='quick'){
+    // Pallets already at WH — complete immediately, stock IN
+    returnOrder.status='Completed';
+    returnOrder.whBy=by;
+    returnOrder.completedAt=now;
+    addTL(returnOrder,`Quick return received by ${by} — ${reason}`,'create');
+  } else {
+    // Driver collecting from customer — start In Transit
+    returnOrder.status='In Transit';
+    addTL(returnOrder,`Return note created — driver collecting from customer — ${reason}`,'create');
+  }
+
+  // Flag original order as having a return
+  if(origId){
+    const orig=(S.orders||[]).find(x=>x.id===origId);
+    if(orig){
+      if(!orig.returns)orig.returns=[];
+      orig.returns.push({awb,reason,qty:totalQty,createdAt:now});
+      orig.hasReturn=true;
+      syncOrder(orig);
+    }
+  }
+
+  const btn=document.getElementById('rtn-save-btn');
+  if(btn){btn.disabled=true;btn.textContent='Saving...';}
+
+  try{
+    if(flow==='quick'){
+      // Atomic — stock IN immediately
+      const r=await fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:returnOrder})});
+      if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||'Server error');}
+      const result=await r.json();
+      if(!S.orders)S.orders=[];
+      S.orders.unshift(result.order||returnOrder);
+      if(!S.ledger)S.ledger=[];
+      result.ledger.forEach(e=>S.ledger.unshift(e));
+      result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+      persist();
+      toast(`↩ Return received — ${awb} · ${totalQty} pallets back in stock`);
+    } else {
+      // Driver flow — just save order, no stock yet
+      if(!S.orders)S.orders=[];
+      S.orders.unshift(returnOrder);
+      syncOrder(returnOrder);
+      persist();
+      toast(`↩ Return note created — ${awb} · driver collecting from customer`);
+    }
+    closeM('m-return');
+    syncAndRefresh('receiving');
+  }catch(e){
+    errEl.textContent='⚠ Save failed: '+e.message;
+    if(btn){btn.disabled=false;btn.textContent='↩ Create Return';}
+  }
+}
+
 function markDeliveredToWH(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Delivered';j.updatedAt=new Date().toISOString();addTL(j,'Driver delivered pallets to warehouse — awaiting receiving','status');syncOrder(j);toast('Delivered to WH ✓ — supervisor will complete receiving');closeM('m-detail');renderDriver();}
 
 /* ── WHATSAPP FORMS ── */
