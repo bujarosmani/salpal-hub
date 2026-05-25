@@ -1385,6 +1385,20 @@ function scheduleRetry(){
 }
 
 // ─────────────────────────────────────────────
+// AUTO REFRESH AFTER SAVE
+// Called after every successful save to pull latest data from server
+// ─────────────────────────────────────────────
+function syncAndRefresh(page){
+  loadCloud().then(()=>{
+    if(page)renderPage(page);
+    else{
+      const cur=document.querySelector('.sb-btn.on')?.dataset?.p;
+      if(cur)renderPage(cur);
+    }
+  }).catch(()=>{});
+}
+
+// ─────────────────────────────────────────────
 // SYNC HELPERS — one function per data type
 // ─────────────────────────────────────────────
 // Save an order immediately
@@ -2614,7 +2628,7 @@ function saveOrder(force){
     const i=(S.orders||[]).findIndex(x=>x.id===eid);if(i>=0)S.orders[i]=order;
     toast('Order updated');
   }
-  syncOrder(order);clearDirty('m-order');forceCloseM('m-order');renderOrders();renderDash();
+  syncOrder(order);clearDirty('m-order');forceCloseM('m-order');syncAndRefresh('orders');
 }
 function confirmDelete(errElId,label,onConfirm){
   const el=document.getElementById(errElId);if(!el)return;
@@ -2640,6 +2654,7 @@ function deleteOrder(){
     persist();renderOrders();renderDash();renderStock();
   }).catch(e=>{toast('Delete failed: '+e.message,'err');});
   toast('Order deleted — stock reversed');closeM('m-order');
+  syncAndRefresh('orders');
   const disTodo=document.getElementById('dis-pane-todo');if(disTodo)renderDisTodo();
   const disPaneAll=document.getElementById('dis-pane-all');if(disPaneAll?.classList.contains('on'))renderDispatch();
   const recTodo=document.getElementById('rec-pane-todo');if(recTodo)renderRecTodo();
@@ -2801,7 +2816,7 @@ function openLoadModal(id){
   document.getElementById('load-err').textContent='';
   const supSel=document.getElementById('load-by');supSel.innerHTML=supSelectHtml();supSel.disabled=ME&&ME.role==='Supervisor';
   const drvSel=document.getElementById('load-driver');
-  drvSel.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}"${j.driverId===d.id?' selected':''}>${d.firstName} ${d.lastName}</option>`).join('');
+  drvSel.innerHTML='<option value="">— Select driver —</option><option value="3rd-party"'+(j.driverId==='3rd-party'?' selected':'')+'>3rd Party (customer collects)</option>'+drvs().map(d=>`<option value="${d.id}"${j.driverId===d.id?' selected':''}>${d.firstName} ${d.lastName}</option>`).join('');
   document.getElementById('load-lines').innerHTML='';
   (j.pallets||[]).forEach(p=>addPltLine('load-lines',p.cls,p.qty));
   setTimeout(updateLoadTotal,50);
@@ -2850,18 +2865,25 @@ function confirmLoaded(){
     const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};S.stock[e.cls]=(S.stock[e.cls]||0)-(e.qty||0);});
-    // Auto-complete if 3rd party driver
-    const driverName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
-    if(driverName.includes('3rd')||driverName.includes('third')||driverName.includes('3rd party')){
+    // Auto-complete if 3rd party — customer collected themselves, job done
+    const driverDisplayName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
+    const is3rdParty=j.driverId==='3rd-party'||driverDisplayName.includes('3rd')||driverDisplayName.includes('third party');
+    if(is3rdParty){
+      // Stock already moved OUT via /order/loaded above
+      // Now just update status to Completed — pass _prevStatus='Loaded' so server skips stock movement
       j.status='Completed';j.completedAt=new Date().toISOString();j.updatedAt=j.completedAt;
-      addTL(j,'Auto-completed — 3rd party delivery','status');
-      syncOrder(j);
+      addTL(j,'Completed — 3rd party collected','status');
+      fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...j,_prevStatus:'Loaded'}})})
+      .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);}))
+      .then(result=>{const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;persist();})
+      .catch(e=>console.error('3rd party auto-complete failed',e));
+    } else {
+      persist();
     }
-    persist();
     if(_loadBtn){_loadBtn.disabled=false;_loadBtn.textContent='✓ Mark Loaded';}
-    toast(`${j.awb} Loaded by ${sup}`);closeLoadModal();goHome();
-    renderDispatch();renderOrders();renderDash();
+    toast(`${j.awb} ${is3rdParty?'Completed — 3rd party collected':`Loaded by ${sup}`}`);closeLoadModal();goHome();
     sendWhatsAppDispatch(j);
+    syncAndRefresh('dispatch');
   })
   .catch(e=>{
     if(_loadBtn){_loadBtn.disabled=false;_loadBtn.textContent='✓ Mark Loaded';}
@@ -3128,7 +3150,9 @@ function confirmReceived(){
      const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
      if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
      result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-     persist();toast(`${j.awb} completed`);closeRecModal();renderReceiving();renderOrders();renderDash();goHome();
+     persist();toast(`${j.awb} completed`);closeRecModal();goHome();
+     sendWhatsAppReceiving(j);
+     syncAndRefresh('receiving');
      sendWhatsAppReceiving(j);
    })
    .catch(e=>{
@@ -3152,7 +3176,7 @@ function openQuickEntry(type){
   document.getElementById('qk-lines').innerHTML='';addPltLine('qk-lines');updateQkTotal();
   // Populate drivers
   const drv=document.getElementById('qk-driver');
-  drv.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
+  drv.innerHTML='<option value="">— Select driver —</option><option value="3rd-party">3rd Party (customer collects)</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
   setQuickType(type);
   openM('m-quick');
 }
@@ -3227,7 +3251,10 @@ function saveQuickEntry(createOnly){
   } else {
     // Atomic save — order + stock + ledger together
     const hasUnsorted=pallets.some(p=>p.cls==='Unsorted');
-    j.status=type==='Delivery'?'Loaded':(hasUnsorted?'Pending Sort':'Completed');
+    // 3rd party delivery = Completed immediately (customer collected themselves)
+    const _drvName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
+    const _is3rd=j.driverId==='3rd-party'||_drvName.includes('3rd')||_drvName.includes('third party');
+    j.status=type==='Delivery'?(_is3rd?'Completed':'Loaded'):(hasUnsorted?'Pending Sort':'Completed');
     fetch(API_URL+'/api/action/quickentry',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j,type})})
     .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Server error');});return r.json();})
     .then(result=>{
@@ -3238,9 +3265,9 @@ function saveQuickEntry(createOnly){
       if(_qBtn){_qBtn.disabled=false;}
       toast(`✓ ${type==='Delivery'?'Loaded':'Received'} — ${awb}`);
       closeM('m-quick');
-      if(type==='Delivery'){renderDispatch();sendWhatsAppDispatch(j);}
-      else{renderReceiving();sendWhatsAppReceiving(j);}
-      renderOrders();renderDash();goHome();
+      if(type==='Delivery')sendWhatsAppDispatch(j);
+      else sendWhatsAppReceiving(j);
+      goHome();syncAndRefresh(type==='Delivery'?'dispatch':'receiving');
     })
     .catch(e=>{
       // Remove from local state on failure
@@ -3281,7 +3308,7 @@ function saveDropoff(){
   .then(result=>{
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-    persist();toast(`Drop-off received — ${awb}`);closeM('m-dropoff');renderReceiving();renderOrders();renderDash();
+    persist();toast(`Drop-off received — ${awb}`);closeM('m-dropoff');syncAndRefresh('receiving');
   })
   .catch(e=>{toast('Save failed: '+e.message+' — please try again','err');});
 }
@@ -3468,7 +3495,7 @@ async function confirmDeleteRepair(id){
     S.repairs=(S.repairs||[]).filter(x=>x.id!==id);
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-    persist();toast('Repair entry deleted');renderRepairs();
+    persist();toast('Repair entry deleted');syncAndRefresh('repairs');
   }catch(e){toast('Delete failed: '+e.message,'err');}
 }
 
@@ -3494,7 +3521,7 @@ function saveRepairEdit(id,force){
   .then(result=>{
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-    persist();clearDirty('m-repair');toast('Repair updated');forceCloseM('m-repair');renderRepairs();
+    persist();clearDirty('m-repair');toast('Repair updated');forceCloseM('m-repair');syncAndRefresh('repairs');
   })
   .catch(e=>{
     if(btn){btn.disabled=false;btn.textContent='✓ Save';}
@@ -3601,7 +3628,7 @@ async function saveRepair(force){
     S.stock[RF.src]=(S.stock[RF.src]||0)-totalQty;
     persist();clearDirty('m-repair');
     toast(`${totalQty} pallets repaired across ${lines.length} class${lines.length>1?'es':''} — saved ✓`);
-    forceCloseM('m-repair');renderRepairs();renderDash();goHome();
+    forceCloseM('m-repair');goHome();syncAndRefresh('repairs');
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='✓ Save';}
     if(_rErr){_rErr.style.display='';_rErr.textContent='⚠ Save failed: '+e.message+' — please try again';_rErr.scrollIntoView({behavior:'smooth',block:'center'});}
@@ -4262,7 +4289,7 @@ async function confirmDeleteSorting(id){
     S.sortings=(S.sortings||[]).filter(x=>x.id!==id);
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-    persist();toast('Sorting entry deleted — stock reversed');renderSorting();renderDash();
+    persist();toast('Sorting entry deleted — stock reversed');syncAndRefresh('sorting');
     document.querySelectorAll('.srt-del-confirm').forEach(c=>c.remove());
   }catch(e){toast('Delete failed: '+e.message,'err');}
 }
@@ -4311,7 +4338,7 @@ function saveSortingEdit(id,force){
   r.sorters=[...SF.sorters];
   // Keep original orderRef and pallets — never overwrite
   if(r&&r.id)syncSorting(r);
-  persist();clearDirty('m-sort');toast('Sorting updated');forceCloseM('m-sort');renderSorting();renderDash();
+  persist();clearDirty('m-sort');toast('Sorting updated');forceCloseM('m-sort');syncAndRefresh('sorting');
 }
 function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se.style.display='none';const _sb=document.querySelector('#m-sort .btn-primary');if(_sb){_sb.disabled=false;_sb.textContent='✓ Save';}
   SF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',sorters:[]};
@@ -4486,7 +4513,7 @@ async function saveSorting(force){
     }
     persist();clearDirty('m-sort');
     toast(`${totalQty} pallets sorted — saved ✓`);
-    forceCloseM('m-sort');renderSorting();renderDash();goHome();
+    forceCloseM('m-sort');goHome();syncAndRefresh('sorting');
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='✓ Save';}
     if(_sErr){_sErr.style.display='';_sErr.textContent='⚠ Save failed: '+e.message+' — please try again';_sErr.scrollIntoView({behavior:'smooth',block:'center'});}
@@ -4694,7 +4721,7 @@ async function saveStockAdjTab(){
     document.getElementById('adj-ref').value='';
     document.getElementById('adj-note').value='';
     toast(`Adjustment saved — ${cls} ${qty>0?'+'+qty:qty}`);
-    renderAdjTab();renderStock();
+    syncAndRefresh('stock');
   }catch(e){
     err.textContent='⚠ Save failed: '+e.message+' — please try again';
   }
@@ -6037,8 +6064,9 @@ async function approveStocktake(id){
     const idx=(S.stocktakes||[]).findIndex(x=>x.id===id);if(idx>=0)S.stocktakes[idx]=result.stocktake;
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-    persist();renderStocktake();renderDash();
+    persist();
     toast(`${t.adjRef} approved — ${result.ledger.length} adjustments saved ✓`);
+    syncAndRefresh('stocktake');
   }catch(e){toast('Approval failed: '+e.message+' — please try again','err');}
 }
 
