@@ -277,7 +277,8 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <div class="login-sub">Warehouse Operations</div>
     <div id="li-loading" style="text-align:center;padding:20px 0;color:var(--ink3);font-size:13px">
       <div style="font-size:28px;margin-bottom:8px">⏳</div>
-      Loading latest data...
+      <div id="li-loading-txt">Loading latest data...</div>
+      <div id="li-loading-sub" style="font-size:11px;color:var(--ink3);margin-top:6px;display:none">Server is waking up, please wait...</div>
     </div>
     <div id="li-form" style="display:none">
       <div class="fwrap"><label class="flabel">Username</label><input id="li-user" class="inp" type="text" placeholder="username" autocomplete="off"/></div>
@@ -5157,17 +5158,14 @@ function addPltLine(cid,cls,qty,maxQty){
   if(cid==='srt-lines') skuList=getSKUS().filter(s=>s!=='Unsorted'&&!s.toLowerCase().includes('new'));
   const rmCb=`this.closest('.plt-line').remove();${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}`;
   const inpCb=`${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}${cid==='rtn-lines'?'clampRtnQty(this);':''}`;
-  // Locked mode for rtn-lines when linked to an order: fixed class, capped qty
   const isLocked=cid==='rtn-lines'&&maxQty!=null;
   if(isLocked){
-    d.innerHTML=`<div class="inp" style="flex:1;display:flex;align-items:center;gap:6px;opacity:1;background:var(--panel2);border:1.5px solid var(--line2);border-radius:9px;padding:10px 12px;font-weight:700">${esc(cls)}<input type="hidden" class="rtn-cls-hidden" value="${esc(cls)}"/></div><div style="display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0"><input class="inp" type="number" min="0" max="${maxQty}" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:80px" oninput="${inpCb}"/><span style="font-size:10px;color:var(--ink3);margin-top:2px;font-weight:700">max ${maxQty}</span></div>`;
-    // Use a fake select so getLines still works
+    d.innerHTML=`<div class="inp" style="flex:1;display:flex;align-items:center;gap:6px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:9px;padding:10px 12px;font-weight:700">${esc(cls)}</div><div style="display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0"><input class="inp" type="number" min="0" max="${maxQty}" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:80px" oninput="${inpCb}"/><span style="font-size:10px;color:var(--ink3);margin-top:2px;font-weight:700">max ${maxQty}</span></div>`;
     const fakeSelect=document.createElement('select');fakeSelect.style.display='none';fakeSelect.innerHTML=`<option value="${esc(cls)}" selected>${esc(cls)}</option>`;d.appendChild(fakeSelect);
   } else {
     d.innerHTML=`<select class="inp"><option value="">— Class —</option>${skuList.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="${inpCb}"/><button type="button" class="rm-btn" onclick="${rmCb}">−</button>`;
   }
   c.appendChild(d);
-  // Set selected class after DOM insertion to ensure match
   if(cls&&!isLocked){const sel=d.querySelector('select');if(sel)sel.value=cls;}
   if(cid==='srt-lines'){
     d.querySelector('select').addEventListener('change',onSrtLinesChange);
@@ -5188,7 +5186,6 @@ function clampRtnQty(inp){
   if(!isNaN(max)&&parseInt(inp.value)>max)inp.value=max;
   if(parseInt(inp.value)<0)inp.value=0;
 }
-// Fill rtn-lines locked to a specific order's pallets
 function fillRtnLines(order){
   const c=document.getElementById('rtn-lines');if(!c)return;
   c.innerHTML='';
@@ -5201,6 +5198,7 @@ function fillRtnLines(order){
     if(btn)btn.style.display='';
   }
 }
+function updateQkTotal(){
   const lines=getLines('qk-lines');
   const total=lines.reduce((s,p)=>s+p.qty,0);
   const row=document.getElementById('qk-total-row');
@@ -6893,7 +6891,25 @@ loadState();
 if(!tryRestoreSession()){
   showLoginForm();
 } else {
-  loadCloud().catch(()=>{});
+  // Add timeout: if API doesn't respond in 10s, show login anyway
+  const _startupTimeout=setTimeout(()=>{
+    if(document.getElementById('login-screen').style.display!=='none'){
+      document.getElementById('li-loading').style.display='none';
+      document.getElementById('li-form').style.display='';
+      document.getElementById('li-err').textContent='Server took too long to respond. Please log in again.';
+    }
+  },10000);
+  // After 4s still loading, show "waking up" sub-message
+  const _wakeMsg=setTimeout(()=>{
+    const sub=document.getElementById('li-loading-sub');
+    if(sub&&document.getElementById('li-loading').style.display!=='none')sub.style.display='';
+  },4000);
+  loadCloud().catch(()=>{
+    clearTimeout(_startupTimeout);clearTimeout(_wakeMsg);
+    document.getElementById('li-loading').style.display='none';
+    document.getElementById('li-form').style.display='';
+    document.getElementById('li-err').textContent='Could not connect to server. Please log in again.';
+  }).then(()=>{clearTimeout(_startupTimeout);clearTimeout(_wakeMsg);});
 }
 </script>
 </body>
