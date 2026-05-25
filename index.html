@@ -2606,7 +2606,7 @@ function saveOrder(force){
         S.ledger.unshift({id:mkId(),date:new Date().toISOString(),type:'Manual',ref:order.awb,cls:'\u2014',dir:'in',qty:0,balance:0,notes:`\u26a0 Force status override: ${ex.status} \u2192 ${newStatus} by ${ME?ME.firstName:''} \u2014 verify stock manually`});
       } else if(ex.status!=='Completed'&&newStatus==='Completed'){
         // Forward to Completed — use atomic endpoint
-        fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order})})
+        fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...order,_prevStatus:ex.status}})})
         .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);})).then(result=>{if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});persist();}).catch(e=>console.error('saveOrder complete failed',e));
       }
     }
@@ -3118,7 +3118,7 @@ function confirmReceived(){
    addTL(j,`Completed by ${sup}`,'status',[...changes,...(notes?[`Notes: ${notes}`]:[])]); 
    const _crecBtn=document.querySelector('#m-crec .btn-primary');
    if(_crecBtn){_crecBtn.disabled=true;_crecBtn.textContent='Saving...';}
-   fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...j,_hasPendingSort:hasUnsortedPallets}})})
+   fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...j,_hasPendingSort:hasUnsortedPallets,_prevStatus:j.status}})})
    .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Server error');});return r.json();})
    .then(result=>{
      const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
