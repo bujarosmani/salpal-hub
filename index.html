@@ -393,6 +393,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
         <th id="th-driver" data-col="driverId" onclick="thClick('ord-table','driverId',renderOrdTable)" style="cursor:pointer">Driver</th>
         <th id="th-whBy" data-col="whBy" onclick="thClick('ord-table','whBy',renderOrdTable)" style="cursor:pointer">WH By</th>
         <th id="th-whNotes">WH Notes</th>
+        <th id="th-received" title="Whether full qty was received">Received</th>
         <th id="th-status" data-col="status" onclick="thClick('ord-table','status',renderOrdTable)" style="cursor:pointer">Status</th>
         <th class="right">Actions</th>
       </tr></thead><tbody id="ord-tbody"></tbody></table>
@@ -2353,7 +2354,7 @@ function renderOrdTable(){
   const tb=document.getElementById('ord-tbody');
   if(!list.length){tb.innerHTML=`<tr><td colspan="11" class="empty">No orders found</td></tr>`;return;}
   const col=c=>{const el=document.getElementById(`col-${c}`);return!el||el.checked!==false;};
-  ['orderRef','type','company','date','pallets','driver','whBy','whNotes','status'].forEach(c=>{
+  ['orderRef','type','company','date','pallets','driver','whBy','whNotes','received','status'].forEach(c=>{
     const th=document.getElementById(`th-${c}`);if(th)th.style.display=col(c)?'':'none';
   });
   tb.innerHTML=list.map(j=>{
@@ -2369,6 +2370,19 @@ function renderOrdTable(){
       ${col('driver')?`<td style="font-size:12px">${j.driverId?uname(j.driverId):j.driver||'\u2014'}</td>`:''}
       ${col('whBy')?`<td style="font-size:12px;font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td>`:''}
       ${col('whNotes')?`<td style="font-size:11px;color:var(--ink3);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(whn)}">${esc(whn)}</td>`:''}
+      ${col('received')?(()=>{
+        // Only relevant for completed collections
+        if(j.type!=='Collection'||!['Completed','Pending Sort'].includes(j.status))return'<td>—</td>';
+        const change=(j.whChanges||[]).find(c=>c.label==='Receive check');
+        if(!change)return`<td><span style="font-size:11px;color:var(--brand)">✓ Full</span></td>`;
+        // Parse ordered vs received totals from whChanges
+        const ordM=change.value.match(/Ordered:\s*([\d,]+)/);const recM=change.value.match(/Received:\s*([\d,]+)/);
+        const ordN=ordM?parseInt(ordM[1].replace(',','')):null;const recN=recM?parseInt(recM[1].replace(',','')):null;
+        if(ordN!==null&&recN!==null&&ordN===recN)return`<td><span style="font-size:11px;color:var(--brand)">✓ Full</span></td>`;
+        const diff=ordN!==null&&recN!==null?recN-ordN:null;
+        const diffStr=diff!==null?(diff>0?`+${diff}`:String(diff)):'';
+        return`<td><span style="font-size:11px;font-weight:700;color:var(--red);background:var(--red-bg);border:1px solid rgba(245,107,107,.3);border-radius:5px;padding:1px 7px" title="${esc(change.value)}">⚠ ${diffStr}</span></td>`;
+      })():''}
       ${col('status')?`<td>${stChip(j.status)}</td>`:''}
       <td class="right" style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>${isAdmin()?`${(()=>{const lk=S.orderLocks&&S.orderLocks[j.id];const age=lk?(Date.now()-new Date(lk.time).getTime())/1000:999;return lk&&age<300?` <span style="font-size:10px;color:var(--amber);font-weight:600">🔒 ${esc(lk.user)}</span> <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="forceUnlockOrder('${j.id}')">Unlock</button>`:(` <button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`);})()}`:''}
       </td>
