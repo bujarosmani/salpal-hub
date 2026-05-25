@@ -306,6 +306,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <button class="sb-btn" data-p="orders" id="snav-orders"><span class="ic">📋</span>Orders</button>
     <button class="sb-btn" data-p="dispatch" id="snav-dispatch"><span class="ic">📤</span>Dispatch</button>
     <button class="sb-btn" data-p="receiving" id="snav-receiving"><span class="ic">📥</span>Receiving</button>
+    <button class="sb-btn" data-p="returns" id="snav-returns"><span class="ic">↩</span>Returns<span id="nav-badge-returns" style="display:none;margin-left:auto;background:rgba(245,200,66,.25);color:var(--amber);font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0;min-width:20px;text-align:center"></span></button>
     <button class="sb-btn" data-p="repairs" id="snav-repairs"><span class="ic">🔧</span>Pallet Repairs<span id="nav-badge-repairs" style="display:none;margin-left:auto;background:rgba(245,107,107,.25);color:var(--red);font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0;min-width:20px;text-align:center"></span></button>
     <button class="sb-btn" data-p="sorting" id="snav-sorting"><span class="ic">📦</span>Sorting<span id="nav-badge-sorting" style="display:none;margin-left:auto;background:rgba(180,120,0,.25);color:var(--amber);font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0;min-width:20px;text-align:center"></span></button>
     <button class="sb-btn" data-p="stock" id="snav-stock"><span class="ic">📊</span>Stock</button>
@@ -435,6 +436,18 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <div style="padding:0 0 12px"><input class="inp" id="rec-search" placeholder="🔍 Search AWB, company, driver, ref..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderReceiving()"/></div>
     <div id="rec-body"></div>
   </div>
+</div>
+
+<div class="page" id="page-returns">
+  <div class="phdr">
+    <div><div class="ptitle">Returns</div><div class="psub">All return orders</div></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="openReturnModal()">↩ New Return</button>
+    </div>
+  </div>
+  <div class="stats" id="rtn-stats"></div>
+  <div style="padding:0 0 12px"><input class="inp" id="rtn-search" placeholder="🔍 Search AWB, company, reason..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderReturns()"/></div>
+  <div id="rtn-body"></div>
 </div>
 
 <div class="page" id="page-repairs">
@@ -1366,6 +1379,13 @@ function updateNavBadges(){
     if(unsorted>0){sb.textContent=unsorted;sb.style.display='';}
     else sb.style.display='none';
   }
+  // Returns badge — active (non-completed) returns
+  const rtnBadge=document.getElementById('nav-badge-returns');
+  if(rtnBadge){
+    const activeReturns=(S.orders||[]).filter(r=>r.isReturn&&r.status!=='Completed').length;
+    if(activeReturns>0){rtnBadge.textContent=activeReturns;rtnBadge.style.display='';}
+    else rtnBadge.style.display='none';
+  }
   // Fleet badge
   const {red,amber}=getFleetAlerts();
   const total=red.length+amber.length;
@@ -1804,6 +1824,53 @@ function renderChangesBox(order){
   const notesRow=hasNotes?`<div class="changes-row" style="margin-top:${hasChanges?'8px':'0'}"><span class="changes-lbl">Notes</span><span class="changes-val">${esc(order.whNotes)}</span></div>`:'';
   return`<div class="changes-box"><div class="changes-box-title">\u26a0 WH Changes</div>${changesRows}${notesRow}</div>`;
 }
+function renderReturnLinksBox(order){
+  // Show return orders linked to this order
+  const linked=(S.orders||[]).filter(r=>r.isReturn&&r.originalOrderId===order.id);
+  if(!linked.length)return'';
+  const stC=s=>s==='Completed'?'chip-green':s==='In Transit'?'chip-blue':'chip-amber';
+  const rows=linked.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);gap:10px">
+    <div>
+      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+        <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--amber);font-size:13px">${esc(r.awb)}</span>
+        <span class="chip ${stC(r.status)}" style="font-size:10px">${esc(r.status)}</span>
+      </div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:3px">${esc(r.returnReason||'—')} · ${esc(palletStr(r.pallets))} · ${fd(r.deliveryDate)}</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="viewOrder('${r.id}')">View</button>
+  </div>`).join('');
+  return`<div style="background:rgba(245,200,66,.06);border:1.5px solid rgba(245,200,66,.3);border-radius:var(--r);padding:12px 14px;margin-bottom:12px">
+    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--amber);margin-bottom:8px">↩ Returns (${linked.length})</div>
+    ${rows}
+  </div>`;
+}
+function renderReturns(){
+  const q=(document.getElementById('rtn-search')?.value||'').toLowerCase();
+  let list=(S.orders||[]).filter(r=>r.isReturn);
+  if(q)list=list.filter(r=>(r.awb||'').toLowerCase().includes(q)||(r.companyName||'').toLowerCase().includes(q)||(r.returnReason||'').toLowerCase().includes(q)||(r.originalAwb||'').toLowerCase().includes(q));
+  list=list.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+  const statsEl=document.getElementById('rtn-stats');
+  if(statsEl)statsEl.innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${list.length}</div><div class="stat-lbl">Total Returns</div></div><div class="stat-box"><div class="stat-num" style="color:var(--red)">${list.filter(r=>r.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${list.filter(r=>r.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
+  const body=document.getElementById('rtn-body');if(!body)return;
+  if(!list.length){body.innerHTML='<div class="empty">No returns found</div>';return;}
+  body.innerHTML=`<div class="card"><div class="tbl-wrap"><table><thead><tr>
+    <th>AWB</th><th>Original Order</th><th>Company</th><th>Reason</th><th>Pallets</th><th>Date</th><th>Driver</th><th>Status</th><th class="right">Actions</th>
+  </tr></thead><tbody>${list.map(r=>{
+    const orig=r.originalOrderId?(S.orders||[]).find(x=>x.id===r.originalOrderId):null;
+    const stC=s=>s==='Completed'?'chip-green':s==='In Transit'?'chip-blue':s==='Delivered'?'chip-blue':'chip-amber';
+    return`<tr>
+      <td style="font-family:'DM Mono',monospace;font-weight:700;color:var(--amber);font-size:13px;white-space:nowrap">${esc(r.awb)}</td>
+      <td style="font-size:12px">${orig?`<button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 8px" onclick="viewOrder('${orig.id}')">${esc(r.originalAwb||'—')}</button>`:r.originalAwb?`<span style="font-family:'DM Mono',monospace;color:var(--ink3)">${esc(r.originalAwb)}</span>`:'<span style="color:var(--ink3)">—</span>'}</td>
+      <td style="font-weight:600">${esc(r.companyName||'—')}</td>
+      <td style="font-size:12px;color:var(--ink2)">${esc(r.returnReason||'—')}</td>
+      <td style="font-size:12px;font-family:'DM Mono',monospace">${esc(palletStr(r.pallets))}</td>
+      <td style="font-size:12px;white-space:nowrap">${fd(r.deliveryDate)}</td>
+      <td style="font-size:12px">${r.driverId?uname(r.driverId):'<span style="color:var(--ink3)">—</span>'}</td>
+      <td><span class="chip ${stC(r.status)}" style="font-size:10px">${esc(r.status)}</span></td>
+      <td class="right"><button class="btn btn-ghost btn-sm" onclick="viewOrder('${r.id}')">View</button></td>
+    </tr>`;
+  }).join('')}</tbody></table></div></div>`;
+}
 
 /* ── PALLET LINES ── */
 
@@ -2074,7 +2141,7 @@ function goTo(page){
   document.querySelectorAll(`.sb-btn[data-p="${page}"]`).forEach(b=>b.classList.add('on'));
   closeMob();renderPage(page);
 }
-function renderPage(p){if(p==='hub')renderHub();else if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='fleet')renderFleet();else if(p==='stocktake')renderStocktake();else if(p==='driver')renderDriver();}
+function renderPage(p){if(p==='hub')renderHub();else if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='returns')renderReturns();else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='fleet')renderFleet();else if(p==='stocktake')renderStocktake();else if(p==='driver')renderDriver();}
 document.querySelectorAll('.sb-btn[data-p]').forEach(btn=>{btn.onclick=()=>goTo(btn.dataset.p);});
 document.getElementById('ham-btn').onclick=()=>{document.getElementById('sidebar').classList.add('open');document.getElementById('mob-overlay').classList.add('open');};
 document.getElementById('mob-overlay').onclick=closeMob;
@@ -2433,7 +2500,7 @@ function renderOrdTable(){
     return`<tr>
       <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap">${esc(j.awb)}${j.hasReturn?`<span style="font-size:9px;font-weight:800;color:var(--amber);background:var(--amber-bg);border:1px solid rgba(245,200,66,.3);border-radius:4px;padding:0 5px;margin-left:4px">↩</span>`:''}</td>
       ${col('orderRef')?`<td style="font-size:12px;color:var(--ink2)">${esc(j.orderRef||'\u2014')}</td>`:''}
-      ${col('type')?`<td>${typeChip(j.type)}</td>`:''}
+      ${col('type')?`<td>${j.isReturn?`<span class="chip chip-amber" style="font-size:10px">↩ Return</span>`:typeChip(j.type)}</td>`:''}
       ${col('company')?`<td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td>`:''}
       ${col('date')?`<td>${fd(j.deliveryDate)}</td>`:''}
       ${col('pallets')?`<td style="font-size:12px;font-family:'DM Mono',monospace">${esc(ps)}</td>`:''}
@@ -2775,7 +2842,7 @@ function viewOrder(id){
   const pr=(j.pallets||[]).map(p=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">${skuBadge(p.cls,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--brand)">\u00d7${p.qty}</span></div>`).join('');
   const pl=isD?'Customer':'Supplier';
   document.getElementById('det-title').textContent=j.awb;
-  document.getElementById('det-body').innerHTML=`${prog}<div style="display:flex;gap:8px;margin-bottom:14px">${typeChip(j.type)} ${stChip(j.status)}</div><div class="card" style="margin-bottom:12px"><div class="card-body" style="display:grid;gap:7px">${[[pl,j.companyName||'\u2014'],['Address',[j.companyAddress,j.city,j.postcode].filter(Boolean).join(', ')||'\u2014'],['Order Ref',j.orderRef||'\u2014'],['Date',fd(j.deliveryDate)],['Window',j.timeFrom&&j.timeTo?j.timeFrom+'\u2013'+j.timeTo:'Any time'],['Driver',j.driverId?uname(j.driverId):j.driver||'\u2014'],['WH By',j.whBy||'\u2014'],['Notes',j.driverNotes||'\u2014']].map(([l,v])=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;flex-shrink:0">${l}</span><span style="font-weight:600;text-align:right;font-size:13px">${esc(v)}</span></div>`).join('')}</div></div><div class="sec-title" style="margin-bottom:8px">Pallets</div><div class="card" style="margin-bottom:12px"><div class="card-body">${pr}<div style="display:flex;justify-content:space-between;padding:8px 0 0"><strong>TOTAL</strong><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--brand)">${j.totalQty}</span></div></div></div>${renderChangesBox(j)}${renderSortingBox(j)}${j.proof?`<div class="card" style="margin-bottom:12px;background:rgba(61,214,104,.05);border-color:var(--brand-dim)"><div class="card-body"><div style="color:var(--brand);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px">\u2713 Delivered</div><div style="font-weight:600;margin-top:4px">${esc(j.proof.recipientName)} \u00b7 ${esc(j.proof.companyName)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(j.proof.completedAt)}</div></div></div>`:''}  <div class="sec-title" style="margin-bottom:10px">Timeline</div>${renderTL(j)}`;
+  document.getElementById('det-body').innerHTML=`${prog}<div style="display:flex;gap:8px;margin-bottom:14px">${typeChip(j.type)} ${stChip(j.status)}</div><div class="card" style="margin-bottom:12px"><div class="card-body" style="display:grid;gap:7px">${[[pl,j.companyName||'\u2014'],['Address',[j.companyAddress,j.city,j.postcode].filter(Boolean).join(', ')||'\u2014'],['Order Ref',j.orderRef||'\u2014'],['Date',fd(j.deliveryDate)],['Window',j.timeFrom&&j.timeTo?j.timeFrom+'\u2013'+j.timeTo:'Any time'],['Driver',j.driverId?uname(j.driverId):j.driver||'\u2014'],['WH By',j.whBy||'\u2014'],['Notes',j.driverNotes||'\u2014']].map(([l,v])=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;flex-shrink:0">${l}</span><span style="font-weight:600;text-align:right;font-size:13px">${esc(v)}</span></div>`).join('')}</div></div><div class="sec-title" style="margin-bottom:8px">Pallets</div><div class="card" style="margin-bottom:12px"><div class="card-body">${pr}<div style="display:flex;justify-content:space-between;padding:8px 0 0"><strong>TOTAL</strong><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--brand)">${j.totalQty}</span></div></div></div>${renderChangesBox(j)}${renderSortingBox(j)}${j.proof?`<div class="card" style="margin-bottom:12px;background:rgba(61,214,104,.05);border-color:var(--brand-dim)"><div class="card-body"><div style="color:var(--brand);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px">\u2713 Delivered</div><div style="font-weight:600;margin-top:4px">${esc(j.proof.recipientName)} \u00b7 ${esc(j.proof.companyName)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(j.proof.completedAt)}</div></div></div>`:''}  <div class="sec-title" style="margin-bottom:10px">Timeline</div>${renderTL(j)}${renderReturnLinksBox(j)}`;
   const isSup=ME&&(ME.role==='Admin'||ME.role==='Supervisor'||ME.role==='Manager')&&!isViewer();
   let foot=`<button class="btn btn-ghost" onclick="closeM('m-detail')">Close</button>`;
   if(isSup&&isD&&j.status==='Open')foot+=` <button class="btn btn-amber" onclick="closeM('m-detail');openLoadModal('${j.id}')">📦 Mark Loaded</button>`;
@@ -3879,9 +3946,7 @@ function openReturnModal(origOrderId){
   bySel.innerHTML=supSelectHtml();
   bySel.disabled=ME&&ME.role==='Supervisor';
   if(ME&&ME.role==='Supervisor')bySel.value=`${ME.firstName} ${ME.lastName}`.trim();
-  // Reset radio to quick
   document.querySelectorAll('input[name="rtn-flow"]').forEach(r=>r.checked=r.value==='quick');
-  // Pre-fill if called from a specific order
   if(origOrderId){
     const j=(S.orders||[]).find(x=>x.id===origOrderId);
     if(j){
@@ -5153,7 +5218,6 @@ function addPltLine(cid,cls,qty,maxQty){
   cls=cls||'';qty=qty||'';
   const c=document.getElementById(cid);if(!c)return;
   const d=document.createElement('div');d.className='plt-line';
-  // Filter classes based on context
   let skuList=getSKUS();
   if(cid==='srt-lines') skuList=getSKUS().filter(s=>s!=='Unsorted'&&!s.toLowerCase().includes('new'));
   const rmCb=`this.closest('.plt-line').remove();${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}`;
@@ -6887,11 +6951,9 @@ try{
   oldKeys.forEach(k=>localStorage.removeItem(k));
 }catch(e){}
 loadState();
-// Try to restore session from stored token, then load data
 if(!tryRestoreSession()){
   showLoginForm();
 } else {
-  // Add timeout: if API doesn't respond in 10s, show login anyway
   const _startupTimeout=setTimeout(()=>{
     if(document.getElementById('login-screen').style.display!=='none'){
       document.getElementById('li-loading').style.display='none';
@@ -6899,7 +6961,6 @@ if(!tryRestoreSession()){
       document.getElementById('li-err').textContent='Server took too long to respond. Please log in again.';
     }
   },10000);
-  // After 4s still loading, show "waking up" sub-message
   const _wakeMsg=setTimeout(()=>{
     const sub=document.getElementById('li-loading-sub');
     if(sub&&document.getElementById('li-loading').style.display!=='none')sub.style.display='';
