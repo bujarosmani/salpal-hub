@@ -2900,7 +2900,7 @@ function openLoadModal(id){
   document.getElementById('load-err').textContent='';
   const supSel=document.getElementById('load-by');supSel.innerHTML=supSelectHtml();supSel.disabled=ME&&ME.role==='Supervisor';
   const drvSel=document.getElementById('load-driver');
-  drvSel.innerHTML='<option value="">— Select driver —</option><option value="3rd-party"'+(j.driverId==='3rd-party'?' selected':'')+'>3rd Party (customer collects)</option>'+drvs().map(d=>`<option value="${d.id}"${j.driverId===d.id?' selected':''}>${d.firstName} ${d.lastName}</option>`).join('');
+  drvSel.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}"${j.driverId===d.id?' selected':''}>${d.firstName} ${d.lastName}</option>`).join('');
   document.getElementById('load-lines').innerHTML='';
   (j.pallets||[]).forEach(p=>addPltLine('load-lines',p.cls,p.qty));
   setTimeout(updateLoadTotal,50);
@@ -2951,7 +2951,7 @@ function confirmLoaded(){
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};S.stock[e.cls]=(S.stock[e.cls]||0)-(e.qty||0);});
     // Auto-complete if 3rd party — customer collected themselves, job done
     const driverDisplayName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
-    const is3rdParty=j.driverId==='3rd-party'||driverDisplayName.includes('3rd')||driverDisplayName.includes('third party');
+    const is3rdParty=j.driverId==='3rd-party'||driverDisplayName.includes('3rd')||driverDisplayName.includes('third')||driverDisplayName.trim()==='3rd party .'||driverDisplayName.trim()==='3rd party';
     if(is3rdParty){
       // Stock already moved OUT via /order/loaded above
       // Now just update status to Completed — pass _prevStatus='Loaded' so server skips stock movement
@@ -3260,7 +3260,7 @@ function openQuickEntry(type){
   document.getElementById('qk-lines').innerHTML='';addPltLine('qk-lines');updateQkTotal();
   // Populate drivers
   const drv=document.getElementById('qk-driver');
-  drv.innerHTML='<option value="">— Select driver —</option><option value="3rd-party">3rd Party (customer collects)</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
+  drv.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
   setQuickType(type);
   openM('m-quick');
 }
@@ -3337,7 +3337,7 @@ function saveQuickEntry(createOnly){
     const hasUnsorted=pallets.some(p=>p.cls==='Unsorted');
     // 3rd party delivery = Completed immediately (customer collected themselves)
     const _drvName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
-    const _is3rd=j.driverId==='3rd-party'||_drvName.includes('3rd')||_drvName.includes('third party');
+    const _is3rd=j.driverId==='3rd-party'||_drvName.includes('3rd')||_drvName.includes('third');
     j.status=type==='Delivery'?(_is3rd?'Completed':'Loaded'):(hasUnsorted?'Pending Sort':'Completed');
     fetch(API_URL+'/api/action/quickentry',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j,type})})
     .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Server error');});return r.json();})
@@ -3874,7 +3874,7 @@ function openReturnModal(origOrderId){
   addPltLine('rtn-lines');
   // Populate dropdowns
   const drvSel=document.getElementById('rtn-driver');
-  drvSel.innerHTML='<option value="">— Select driver —</option><option value="3rd-party">3rd Party</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
+  drvSel.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
   const bySel=document.getElementById('rtn-by');
   bySel.innerHTML=supSelectHtml();
   bySel.disabled=ME&&ME.role==='Supervisor';
