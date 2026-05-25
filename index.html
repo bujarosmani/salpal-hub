@@ -441,9 +441,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <div class="page" id="page-returns">
   <div class="phdr">
     <div><div class="ptitle">Returns</div><div class="psub">All return orders</div></div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-primary" onclick="openReturnModal()">↩ New Return</button>
-    </div>
+    <div style="display:flex;gap:8px"><button class="btn btn-primary" onclick="openReturnModal()">↩ New Return</button></div>
   </div>
   <div class="stats" id="rtn-stats"></div>
   <div style="padding:0 0 12px"><input class="inp" id="rtn-search" placeholder="🔍 Search AWB, company, reason..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderReturns()"/></div>
@@ -983,7 +981,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       </div>
       <div class="fwrap"><label class="flabel">Pallets Returning *</label>
         <div id="rtn-lines"></div>
-        <button type="button" id="rtn-add-line-btn" class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="addPltLine('rtn-lines')">+ Add Line</button>
+        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px" id="rtn-add-line-btn" onclick="addPltLine('rtn-lines')">+ Add Line</button>
       </div>
       <div class="fwrap"><label class="flabel">Driver</label>
         <select class="inp" id="rtn-driver"><option value="">— Select driver —</option><option value="3rd-party">3rd Party</option></select>
@@ -1379,7 +1377,7 @@ function updateNavBadges(){
     if(unsorted>0){sb.textContent=unsorted;sb.style.display='';}
     else sb.style.display='none';
   }
-  // Returns badge — active (non-completed) returns
+  // Returns badge
   const rtnBadge=document.getElementById('nav-badge-returns');
   if(rtnBadge){
     const activeReturns=(S.orders||[]).filter(r=>r.isReturn&&r.status!=='Completed').length;
@@ -1825,7 +1823,6 @@ function renderChangesBox(order){
   return`<div class="changes-box"><div class="changes-box-title">\u26a0 WH Changes</div>${changesRows}${notesRow}</div>`;
 }
 function renderReturnLinksBox(order){
-  // Show return orders linked to this order
   const linked=(S.orders||[]).filter(r=>r.isReturn&&r.originalOrderId===order.id);
   if(!linked.length)return'';
   const stC=s=>s==='Completed'?'chip-green':s==='In Transit'?'chip-blue':'chip-amber';
@@ -2500,7 +2497,7 @@ function renderOrdTable(){
     return`<tr>
       <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap">${esc(j.awb)}${j.hasReturn?`<span style="font-size:9px;font-weight:800;color:var(--amber);background:var(--amber-bg);border:1px solid rgba(245,200,66,.3);border-radius:4px;padding:0 5px;margin-left:4px">↩</span>`:''}</td>
       ${col('orderRef')?`<td style="font-size:12px;color:var(--ink2)">${esc(j.orderRef||'\u2014')}</td>`:''}
-      ${col('type')?`<td>${j.isReturn?`<span class="chip chip-amber" style="font-size:10px">↩ Return</span>`:typeChip(j.type)}</td>`:''}
+      ${col('type')?`<td>${j.isReturn?'<span class="chip chip-amber" style="font-size:10px">↩ Return</span>':typeChip(j.type)}</td>`:''}
       ${col('company')?`<td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td>`:''}
       ${col('date')?`<td>${fd(j.deliveryDate)}</td>`:''}
       ${col('pallets')?`<td style="font-size:12px;font-family:'DM Mono',monospace">${esc(ps)}</td>`:''}
@@ -4057,6 +4054,9 @@ async function saveReturn(){
 
   if(flow==='quick'){
     // Pallets already at WH — complete immediately, stock IN
+    // _prevStatus must be set to a non-completed status so the server
+    // knows stock has NOT yet moved and writes the ledger entry
+    returnOrder._prevStatus='Open';
     returnOrder.status='Completed';
     returnOrder.whBy=by;
     returnOrder.completedAt=now;
