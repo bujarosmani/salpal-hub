@@ -2969,6 +2969,10 @@ function renderRecTodoResults(){
   let todo=(S.orders||[]).filter(j=>(j.type==='Collection'||j.type==='Drop-off')&&j.status!=='Completed'&&j.status!=='Pending Sort');
   if(q)todo=todo.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q)||(j.driverId?uname(j.driverId).toLowerCase():'').includes(q)||(j.orderRef||'').toLowerCase().includes(q));
   todo=todo.sort((a,b)=>{
+    // Delivered (driver at WH) always shows first — ready for supervisor to complete
+    const aPri=a.status==='Delivered'?0:a.status==='Collected'?1:2;
+    const bPri=b.status==='Delivered'?0:b.status==='Collected'?1:2;
+    if(aPri!==bPri)return aPri-bPri;
     if(recTodoSort==='date')return(a.deliveryDate||'').localeCompare(b.deliveryDate||'')||(a.companyName||'').localeCompare(b.companyName||'');
     if(recTodoSort==='company')return(a.companyName||'').localeCompare(b.companyName||'');
     if(recTodoSort==='driver')return(a.driverId?uname(a.driverId):'').localeCompare(b.driverId?uname(b.driverId):'');
@@ -2999,7 +3003,7 @@ function renderRecTodoResults(){
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           ${j.status==='Open'&&isSup&&!isViewer()?`<button class="btn btn-primary btn-sm" onclick="openCompleteRecModal('${j.id}')">✓ Receive</button>`:''}
-          ${canAW?`<button class="btn btn-ghost btn-sm" onclick="setOrdStatus('${j.id}','Delivered')">At WH</button>`:''}
+          
           ${canC?`<button class="btn btn-primary btn-sm" onclick="openCompleteRecModal('${j.id}')">✓ Complete</button>`:''}
           <button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>
           ${isAdmin()?`<button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`:''}
@@ -3724,6 +3728,7 @@ function viewDrvTask(id){
         foot+=` <button class="btn btn-primary" onclick="markCollected('${j.id}')">📦 Pallets Collected</button>`;
       }
     }
+    if(j.status==='Collected')foot+=` <button class="btn btn-primary" onclick="markDeliveredToWH('${j.id}')">🏭 Delivered to WH</button>`;
   }
   document.getElementById('det-foot').innerHTML=foot;openM('m-detail');
 }
@@ -3737,6 +3742,7 @@ function markReturnArrived(id){
 }
 
 function markCollected(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Collected';j.updatedAt=new Date().toISOString();addTL(j,'Pallets collected — returning to warehouse','status');syncOrder(j);toast('Pallets collected');closeM('m-detail');renderDriver();}
+function markDeliveredToWH(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Delivered';j.updatedAt=new Date().toISOString();addTL(j,'Driver delivered pallets to warehouse — awaiting receiving','status');syncOrder(j);toast('Delivered to WH ✓ — supervisor will complete receiving');closeM('m-detail');renderDriver();}
 
 /* ── WHATSAPP FORMS ── */
 let _waMsg='';
