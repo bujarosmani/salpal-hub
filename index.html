@@ -2245,12 +2245,19 @@ function renderOrders(){
       if(wrap&&dd&&!wrap.contains(e.target))dd.style.display='none';
     });
   }
-  // Build column toggles once
+  // Build column toggles once — restore saved preferences from localStorage
   const toggles=document.getElementById('ord-col-toggles');
   if(toggles&&!toggles.hasChildNodes()){
-    const cols=[{k:'orderRef',l:'Order Ref'},{k:'type',l:'Type'},{k:'company',l:'Company'},{k:'date',l:'Date'},{k:'pallets',l:'Pallets'},{k:'driver',l:'Driver'},{k:'whBy',l:'WH By'},{k:'whNotes',l:'WH Notes'},{k:'status',l:'Status'}];
+    const cols=[{k:'orderRef',l:'Order Ref'},{k:'type',l:'Type'},{k:'company',l:'Company'},{k:'date',l:'Date'},{k:'pallets',l:'Pallets'},{k:'driver',l:'Driver'},{k:'whBy',l:'WH By'},{k:'whNotes',l:'WH Notes'},{k:'received',l:'Received'},{k:'status',l:'Status'}];
+    // Load saved prefs — default: all on except whNotes
+    let savedCols={};try{savedCols=JSON.parse(localStorage.getItem('salpal_col_prefs')||'{}');}catch(e){}
     toggles.innerHTML=`<span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px">Columns:</span>`+
-      cols.map(c=>`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ink2)"><input type="checkbox" id="col-${c.k}" ${c.k==='whNotes'?'':'checked'} onchange="renderOrdTable()"/> ${c.l}</label>`).join('');
+      cols.map(c=>{
+        // Default: whNotes and received off, everything else on
+        const def=!['whNotes','received'].includes(c.k);
+        const checked=savedCols.hasOwnProperty(c.k)?savedCols[c.k]:def;
+        return`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ink2)"><input type="checkbox" id="col-${c.k}" ${checked?'checked':''} onchange="saveColPrefs();renderOrdTable()"/> ${c.l}</label>`;
+      }).join('');
   }
   const ords=S.orders||[];
   document.getElementById('ord-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${ords.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${ords.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
@@ -2310,6 +2317,12 @@ function thClick(tableId,col,renderFn){thSort(tableId,col);renderFn();}
  // default newest first
 let ordSortAsc=false;
 function toggleOrdSort(){ordSortAsc=!ordSortAsc;const btn=document.getElementById('ord-sort-btn');if(btn)btn.textContent=ordSortAsc?'A → Z':'Z → A';renderOrdTable();}
+function saveColPrefs(){
+  const cols=['orderRef','type','company','date','pallets','driver','whBy','whNotes','received','status'];
+  const prefs={};
+  cols.forEach(c=>{const el=document.getElementById(`col-${c}`);if(el)prefs[c]=el.checked;});
+  try{localStorage.setItem('salpal_col_prefs',JSON.stringify(prefs));}catch(e){}
+}
 function renderOrdTable(){
   let list=S.orders||[];
   if(ordF.types)list=list.filter(j=>ordF.types.includes(j.type));
