@@ -969,7 +969,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       </div>
       <div class="fwrap"><label class="flabel">Pallets Returning *</label>
         <div id="rtn-lines"></div>
-        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="addPltLine('rtn-lines')">+ Add Line</button>
+        <button type="button" id="rtn-add-line-btn" class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="addPltLine('rtn-lines')">+ Add Line</button>
       </div>
       <div class="fwrap"><label class="flabel">Driver</label>
         <select class="inp" id="rtn-driver"><option value="">— Select driver —</option><option value="3rd-party">3rd Party</option></select>
@@ -2779,7 +2779,7 @@ function viewOrder(id){
   let foot=`<button class="btn btn-ghost" onclick="closeM('m-detail')">Close</button>`;
   if(isSup&&isD&&j.status==='Open')foot+=` <button class="btn btn-amber" onclick="closeM('m-detail');openLoadModal('${j.id}')">📦 Mark Loaded</button>`;
   if(isSup&&isD&&['Completed','Loaded','In Transit'].includes(j.status))foot+=` <button class="btn btn-ghost" onclick="closeM('m-detail');openReturnModal('${j.id}')">↩ Return</button>`;
-  if(isSup&&!isD){if(j.status==='Collected')foot+=` <button class="btn btn-ghost" onclick="setOrdStatus('${j.id}','Delivered')">🏭 At Warehouse</button>`;if(j.status==='Delivered')foot+=` <button class="btn btn-primary" onclick="closeM('m-detail');openCompleteRecModal('${j.id}')">✓ Complete</button>`;}
+  if(isSup&&!isD){if(j.status==='Collected')foot+=` <button class="btn btn-ghost" onclick="setOrdStatus('${j.id}','Delivered')">🏭 At Warehouse</button>`;if(j.status==='Delivered')foot+=` <button class="btn btn-primary" onclick="closeM('m-detail');openCompleteRecModal('${j.id}')">✓ Complete</button>`;if(['Completed','Pending Sort'].includes(j.status))foot+=` <button class="btn btn-ghost" onclick="closeM('m-detail');openReturnModal('${j.id}')">↩ Return</button>`;}
   document.getElementById('det-foot').innerHTML=foot;
   openM('m-detail');
 }
@@ -3871,7 +3871,6 @@ function openReturnModal(origOrderId){
   document.getElementById('rtn-notes').value='';
   document.getElementById('rtn-err').textContent='';
   document.getElementById('rtn-lines').innerHTML='';
-  addPltLine('rtn-lines');
   // Populate dropdowns
   const drvSel=document.getElementById('rtn-driver');
   drvSel.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
@@ -3893,8 +3892,9 @@ function openReturnModal(origOrderId){
         `<span style="color:var(--brand);font-weight:700">${esc(j.awb)}</span> — ${esc(j.companyName||'')} · ${fd(j.deliveryDate)} · ${esc(palletStr(j.pallets))}
         <button type="button" class="btn btn-ghost btn-sm" style="margin-left:8px;padding:2px 8px" onclick="clearReturnLink()">✕</button>`;
       if(j.driverId)document.getElementById('rtn-driver').value=j.driverId;
-    }
-  }
+      fillRtnLines(j);
+    } else { fillRtnLines(null); }
+  } else { fillRtnLines(null); }
   const btn=document.getElementById('rtn-save-btn');
   if(btn){btn.disabled=false;btn.textContent='↩ Create Return';}
   openM('m-return');
@@ -3905,6 +3905,7 @@ function clearReturnLink(){
   document.getElementById('rtn-orig-awb').value='';
   document.getElementById('rtn-orig-selected').style.display='none';
   document.getElementById('rtn-orig-search').value='';
+  fillRtnLines(null);
 }
 
 function searchReturnOrders(q){
@@ -3936,6 +3937,7 @@ function selectReturnOrder(id){
     `<span style="color:var(--brand);font-weight:700">${esc(j.awb)}</span> — ${esc(j.companyName||'')} · ${fd(j.deliveryDate)} · ${esc(palletStr(j.pallets))}
     <button type="button" class="btn btn-ghost btn-sm" style="margin-left:8px;padding:2px 8px" onclick="clearReturnLink()">✕</button>`;
   if(j.driverId)document.getElementById('rtn-driver').value=j.driverId;
+  fillRtnLines(j);
 }
 
 function toggleReturnFlow(val){
@@ -5146,7 +5148,7 @@ function updateDoTotal(){
   const total=getLines('do-lines').reduce((s,p)=>s+p.qty,0);
   const el=document.getElementById('do-total');if(el)el.textContent=total;
 }
-function addPltLine(cid,cls,qty){
+function addPltLine(cid,cls,qty,maxQty){
   cls=cls||'';qty=qty||'';
   const c=document.getElementById(cid);if(!c)return;
   const d=document.createElement('div');d.className='plt-line';
@@ -5154,11 +5156,19 @@ function addPltLine(cid,cls,qty){
   let skuList=getSKUS();
   if(cid==='srt-lines') skuList=getSKUS().filter(s=>s!=='Unsorted'&&!s.toLowerCase().includes('new'));
   const rmCb=`this.closest('.plt-line').remove();${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}`;
-  const inpCb=`${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}`;
-  d.innerHTML=`<select class="inp"><option value="">— Class —</option>${skuList.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="${inpCb}"/><button type="button" class="rm-btn" onclick="${rmCb}">−</button>`;
+  const inpCb=`${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}${cid==='rtn-lines'?'clampRtnQty(this);':''}`;
+  // Locked mode for rtn-lines when linked to an order: fixed class, capped qty
+  const isLocked=cid==='rtn-lines'&&maxQty!=null;
+  if(isLocked){
+    d.innerHTML=`<div class="inp" style="flex:1;display:flex;align-items:center;gap:6px;opacity:1;background:var(--panel2);border:1.5px solid var(--line2);border-radius:9px;padding:10px 12px;font-weight:700">${esc(cls)}<input type="hidden" class="rtn-cls-hidden" value="${esc(cls)}"/></div><div style="display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0"><input class="inp" type="number" min="0" max="${maxQty}" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:80px" oninput="${inpCb}"/><span style="font-size:10px;color:var(--ink3);margin-top:2px;font-weight:700">max ${maxQty}</span></div>`;
+    // Use a fake select so getLines still works
+    const fakeSelect=document.createElement('select');fakeSelect.style.display='none';fakeSelect.innerHTML=`<option value="${esc(cls)}" selected>${esc(cls)}</option>`;d.appendChild(fakeSelect);
+  } else {
+    d.innerHTML=`<select class="inp"><option value="">— Class —</option>${skuList.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="${inpCb}"/><button type="button" class="rm-btn" onclick="${rmCb}">−</button>`;
+  }
   c.appendChild(d);
   // Set selected class after DOM insertion to ensure match
-  if(cls){const sel=d.querySelector('select');if(sel)sel.value=cls;}
+  if(cls&&!isLocked){const sel=d.querySelector('select');if(sel)sel.value=cls;}
   if(cid==='srt-lines'){
     d.querySelector('select').addEventListener('change',onSrtLinesChange);
     d.querySelector('input').addEventListener('input',onSrtLinesChange);
@@ -5173,7 +5183,24 @@ function addPltLine(cid,cls,qty){
     d.querySelector('input').addEventListener('input',updateQkTotal);
   }
 }
-function updateQkTotal(){
+function clampRtnQty(inp){
+  const max=parseInt(inp.getAttribute('max'));
+  if(!isNaN(max)&&parseInt(inp.value)>max)inp.value=max;
+  if(parseInt(inp.value)<0)inp.value=0;
+}
+// Fill rtn-lines locked to a specific order's pallets
+function fillRtnLines(order){
+  const c=document.getElementById('rtn-lines');if(!c)return;
+  c.innerHTML='';
+  const btn=document.getElementById('rtn-add-line-btn');
+  if(order){
+    (order.pallets||[]).forEach(p=>{if(p.cls&&p.qty)addPltLine('rtn-lines',p.cls,'',p.qty);});
+    if(btn)btn.style.display='none';
+  } else {
+    addPltLine('rtn-lines');
+    if(btn)btn.style.display='';
+  }
+}
   const lines=getLines('qk-lines');
   const total=lines.reduce((s,p)=>s+p.qty,0);
   const row=document.getElementById('qk-total-row');
