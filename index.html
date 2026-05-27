@@ -3587,9 +3587,14 @@ function renderRepTab(name){
         const allDates=[...new Set(rlist.map(r=>r.date.slice(0,10)))].sort((a,b)=>b.localeCompare(a));
         const allRepairers=[...new Set(rlist.map(r=>r.repairer||'—'))].sort();
         if(!allDates.length)return'';
-        const rows=allDates.map(day=>{const dayRecs=rlist.filter(r=>r.date.slice(0,10)===day);const dayTotal=dayRecs.reduce((s,r)=>s+(r.qty||0),0);const cells=allRepairers.map(rep=>{const qt=dayRecs.filter(r=>(r.repairer||'—')===rep).reduce((s,r)=>s+(r.qty||0),0);return`<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:${qt>0?'var(--brand)':'var(--ink3)'}">${qt>0?qt:'—'}</td>`;}).join('');return`<tr><td style="font-size:12px;white-space:nowrap;font-weight:700">${fd(day)}</td>${cells}<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:var(--brand);border-left:2px solid var(--line2)">${dayTotal}</td></tr>`;}).join('');
+        const rows=allDates.map(day=>{
+          const dayRecs=rlist.filter(r=>r.date.slice(0,10)===day);
+          const dayTotal=dayRecs.reduce((s,r)=>s+(r.qty||0),0);
+          const cells=allRepairers.map(rep=>{const qt=dayRecs.filter(r=>(r.repairer||'—')===rep).reduce((s,r)=>s+(r.qty||0),0);return`<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:${qt>0?'var(--brand)':'var(--ink3)'}">${qt>0?qt:'—'}</td>`;}).join('');
+          return`<tr><td style="font-size:12px;white-space:nowrap;font-weight:700">${fd(day)}</td>${cells}<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:var(--brand);border-left:2px solid var(--line2)">${dayTotal}</td></tr>`;
+        }).join('');
         const totCells=allRepairers.map(rep=>{const t=rlist.filter(r=>(r.repairer||'—')===rep).reduce((s,r)=>s+(r.qty||0),0);return`<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:var(--brand);border-top:2px solid var(--line2)">${t}</td>`;}).join('');
-        return`<div class="sec-title" style="margin-bottom:10px">Daily Breakdown</div><div class="card" style="margin-bottom:16px"><div class="tbl-wrap"><table><thead><tr><th style="white-space:nowrap">Date</th>${allRepairers.map(r=>`<th class="right" style="white-space:nowrap">${esc(r)}</th>`).join('')}<th class="right" style="border-left:2px solid var(--line2)">Total</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td style="font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;color:var(--ink3)">Total</td>${totCells}<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:var(--brand);border-left:2px solid var(--line2);border-top:2px solid var(--line2)">${tot}</td></tr></tfoot></table></div></div>`;
+        return`<div class="sec-title" style="margin-bottom:10px">Daily Breakdown — Pallets Repaired</div><div class="card" style="margin-bottom:16px"><div class="tbl-wrap"><table><thead><tr><th style="white-space:nowrap">Date</th>${allRepairers.map(r=>`<th class="right" style="white-space:nowrap">${esc(r)}</th>`).join('')}<th class="right" style="border-left:2px solid var(--line2)">Total</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td style="font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;color:var(--ink3)">Total</td>${totCells}<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:var(--brand);border-left:2px solid var(--line2);border-top:2px solid var(--line2)">${tot}</td></tr></tfoot></table></div></div>`;
       })()}
     `;
   }
@@ -4923,7 +4928,6 @@ function openMergeProductFromModal(){
 }
 
 function saveProduct(){
-  // Normalise: replace multiplication sign × (U+00D7) with plain x — autocorrect on mobile can substitute these
   const name=document.getElementById('prod-name').value.trim().replace(/×/g,'x');
   const oldName=document.getElementById('prod-old-name').value;
   if(!name){document.getElementById('prod-err').textContent='Name required.';return;}
