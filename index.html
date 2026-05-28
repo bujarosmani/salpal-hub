@@ -5594,12 +5594,12 @@ function plannerCol(colId,title,orderIds,allOrders,color){
   return`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);flex:1;min-width:180px">
     <div style="padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700;color:${color}">${title} <span style="font-size:11px;color:var(--ink3);font-weight:400">(${orders.length})</span></div>
     <div class="planner-col-list" data-col="${colId}" style="padding:8px;min-height:80px">
-      ${orders.length?orders.map((j,i)=>plannerCard(j,i,colId)).join(''):`<div style="text-align:center;padding:20px;color:var(--ink3);font-size:12px;border:2px dashed var(--line2);border-radius:8px">Drop here</div>`}
+      ${orders.length?orders.map((j,i)=>plannerCard(j,i,colId,orders.length)).join(''):`<div style="text-align:center;padding:20px;color:var(--ink3);font-size:12px;border:2px dashed var(--line2);border-radius:8px">Drop here</div>`}
     </div>
   </div>`;
 }
 
-function plannerCard(j,idx,colId){
+function plannerCard(j,idx,colId,colLen){
   const isD=j.type==='Delivery';
   return`<div class="reorder-item planner-card" draggable="true" data-order="${j.id}" data-col="${colId}" data-idx="${idx}" style="background:var(--panel2);border:1.5px solid ${isD?'var(--brand-dim)':'rgba(245,200,66,.3)'};border-left:3px solid ${isD?'var(--brand)':'var(--amber)'};cursor:grab;margin-bottom:6px">
     <span class="reorder-handle">⠿</span>
@@ -5613,7 +5613,11 @@ function plannerCard(j,idx,colId){
       <div style="font-size:11px;color:var(--ink3)">${esc(palletStr(j.pallets))} · ${fd(j.deliveryDate)}</div>
       <div style="margin-top:4px">${stChip(j.status)}</div>
     </div>
-    <button style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0" onclick="plannerRemove('${j.id}','${colId}')" title="Remove">✕</button>
+    <div style="display:flex;flex-direction:column;gap:2px;margin-right:4px">
+      <button style="background:var(--panel);border:1px solid var(--line2);border-radius:5px;color:${idx===0?'var(--ink3)':'var(--ink)'};cursor:${idx===0?'default':'pointer'};font-size:11px;padding:2px 6px;line-height:1;opacity:${idx===0?'0.3':'1'}" ${idx===0?'disabled':''} onclick="event.stopPropagation();plannerMoveCard('${j.id}','${colId}',-1)" title="Move up">▲</button>
+      <button style="background:var(--panel);border:1px solid var(--line2);border-radius:5px;color:${idx===colLen-1?'var(--ink3)':'var(--ink)'};cursor:${idx===colLen-1?'default':'pointer'};font-size:11px;padding:2px 6px;line-height:1;opacity:${idx===colLen-1?'0.3':'1'}" ${idx===colLen-1?'disabled':''} onclick="event.stopPropagation();plannerMoveCard('${j.id}','${colId}',1)" title="Move down">▼</button>
+    </div>
+    <button style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0" onclick="event.stopPropagation();plannerRemove('${j.id}','${colId}')" title="Remove">✕</button>
   </div>`;
 }
 
@@ -5621,6 +5625,23 @@ function plannerPrevDay(){const d=new Date(window.plannerDate||localIso(new Date
 function plannerNextDay(){const d=new Date(window.plannerDate||localIso(new Date()));d.setDate(d.getDate()+1);window.plannerDate=localIso(d);renderPlanner();}
 function plannerPrevWeek(){const d=new Date(window.plannerWeekStart||localIso(new Date()));d.setDate(d.getDate()-7);window.plannerWeekStart=localIso(d);renderPlanner();}
 function plannerNextWeek(){const d=new Date(window.plannerWeekStart||localIso(new Date()));d.setDate(d.getDate()+7);window.plannerWeekStart=localIso(d);renderPlanner();}
+
+function plannerMoveCard(orderId,colId,dir){
+  const date=window.plannerDate;if(!S.plans?.[date])return;
+  const plan=S.plans[date];
+  const arr=colId==='unassigned'?(plan.unassigned||[]):(plan.drivers[colId]||[]);
+  const idx=arr.indexOf(orderId);
+  if(idx<0)return;
+  const newIdx=idx+dir;
+  if(newIdx<0||newIdx>=arr.length)return;
+  arr.splice(idx,1);
+  arr.splice(newIdx,0,orderId);
+  if(colId!=='unassigned'){
+    arr.forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planSeq=i+1;syncOrder(j);}});
+  }
+  pushRecord('sp_stock','__plans',S.plans||{});
+  persist();renderPlanner();
+}
 
 function plannerRemove(orderId,colId){
   const date=window.plannerDate;if(!S.plans?.[date])return;
