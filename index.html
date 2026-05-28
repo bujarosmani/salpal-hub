@@ -5066,8 +5066,8 @@ function getStock(){
     // Incoming: open Collection orders (not Completed)
     const incoming=(S.orders||[]).filter(j=>j.type==='Collection'&&j.status!=='Completed')
       .reduce((s,j)=>{const p=(j.pallets||[]).find(p=>p.cls===cls);return s+(p?p.qty:0);},0);
-    // Outgoing: open Delivery orders (not Completed)
-    const outgoing=(S.orders||[]).filter(j=>j.type==='Delivery'&&j.status!=='Completed')
+    // Outgoing: only Open Delivery orders (Loaded/In Transit already physically left — deducted from On Hand by stock actions)
+    const outgoing=(S.orders||[]).filter(j=>j.type==='Delivery'&&j.status==='Open')
       .reduce((s,j)=>{const p=(j.pallets||[]).find(p=>p.cls===cls);return s+(p?p.qty:0);},0);
     result[cls]={onHand,incoming,outgoing,free:onHand-outgoing};
   });
