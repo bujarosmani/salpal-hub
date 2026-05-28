@@ -2584,8 +2584,12 @@ function saveOrder(force){
   const pallets=getLines('of-lines');
   if(!pallets.length){document.getElementById('of-err').textContent='Add at least one pallet line.';return;}
   const totalQty=pallets.reduce((s,p)=>s+(p.qty||0),0);
-  // Stock warning for Delivery orders
-  if(type==='Delivery'&&!force){
+  // Stock warning for Delivery orders — skip if already Loaded/In Transit/Completed (stock already deducted)
+  const eidForWarn=document.getElementById('of-edit-id').value;
+  const exForWarn=eidForWarn?(S.orders||[]).find(x=>x.id===eidForWarn):null;
+  const currentStatusForWarn=exForWarn?exForWarn.status:'Open';
+  const stockAlreadyOut=['Loaded','In Transit','Completed'].includes(currentStatusForWarn);
+  if(type==='Delivery'&&!force&&!stockAlreadyOut){
     const stk=getStock();
     const warnings=[];
     pallets.forEach(p=>{
