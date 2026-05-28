@@ -277,8 +277,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <div class="login-sub">Warehouse Operations</div>
     <div id="li-loading" style="text-align:center;padding:20px 0;color:var(--ink3);font-size:13px">
       <div style="font-size:28px;margin-bottom:8px">⏳</div>
-      <div id="li-loading-txt">Loading latest data...</div>
-      <div id="li-loading-sub" style="font-size:11px;color:var(--ink3);margin-top:6px;display:none">Server is waking up, please wait...</div>
+      Loading latest data...
     </div>
     <div id="li-form" style="display:none">
       <div class="fwrap"><label class="flabel">Username</label><input id="li-user" class="inp" type="text" placeholder="username" autocomplete="off"/></div>
@@ -306,7 +305,6 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <button class="sb-btn" data-p="orders" id="snav-orders"><span class="ic">📋</span>Orders</button>
     <button class="sb-btn" data-p="dispatch" id="snav-dispatch"><span class="ic">📤</span>Dispatch</button>
     <button class="sb-btn" data-p="receiving" id="snav-receiving"><span class="ic">📥</span>Receiving</button>
-    <button class="sb-btn" data-p="returns" id="snav-returns"><span class="ic">↩</span>Returns<span id="nav-badge-returns" style="display:none;margin-left:auto;background:rgba(245,200,66,.25);color:var(--amber);font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0;min-width:20px;text-align:center"></span></button>
     <button class="sb-btn" data-p="repairs" id="snav-repairs"><span class="ic">🔧</span>Pallet Repairs<span id="nav-badge-repairs" style="display:none;margin-left:auto;background:rgba(245,107,107,.25);color:var(--red);font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0;min-width:20px;text-align:center"></span></button>
     <button class="sb-btn" data-p="sorting" id="snav-sorting"><span class="ic">📦</span>Sorting<span id="nav-badge-sorting" style="display:none;margin-left:auto;background:rgba(180,120,0,.25);color:var(--amber);font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0;min-width:20px;text-align:center"></span></button>
     <button class="sb-btn" data-p="stock" id="snav-stock"><span class="ic">📊</span>Stock</button>
@@ -395,8 +393,8 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
         <th id="th-driver" data-col="driverId" onclick="thClick('ord-table','driverId',renderOrdTable)" style="cursor:pointer">Driver</th>
         <th id="th-whBy" data-col="whBy" onclick="thClick('ord-table','whBy',renderOrdTable)" style="cursor:pointer">WH By</th>
         <th id="th-whNotes">WH Notes</th>
-        <th id="th-received" title="Whether full qty was received">Received</th>
         <th id="th-status" data-col="status" onclick="thClick('ord-table','status',renderOrdTable)" style="cursor:pointer">Status</th>
+        <th id="th-checked" style="text-align:center;width:44px" title="Mark as checked">✓</th>
         <th class="right">Actions</th>
       </tr></thead><tbody id="ord-tbody"></tbody></table>
     </div>
@@ -422,7 +420,6 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <div><div class="ptitle">Receiving</div><div class="psub">Incoming — collections &amp; drop-offs</div></div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost btn-sm" onclick="exportReceivingExcel()">⬇ Excel</button>
-      <button class="btn btn-ghost btn-sm" onclick="openReturnModal()">↩ Return</button>
       <button class="btn btn-primary" id="btn-dropoff" onclick="openQuickEntry('Collection')">⚡ Quick Entry</button>
     </div>
   </div>
@@ -436,16 +433,6 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <div style="padding:0 0 12px"><input class="inp" id="rec-search" placeholder="🔍 Search AWB, company, driver, ref..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderReceiving()"/></div>
     <div id="rec-body"></div>
   </div>
-</div>
-
-<div class="page" id="page-returns">
-  <div class="phdr">
-    <div><div class="ptitle">Returns</div><div class="psub">All return orders</div></div>
-    <div style="display:flex;gap:8px"><button class="btn btn-primary" onclick="openReturnModal()">↩ New Return</button></div>
-  </div>
-  <div class="stats" id="rtn-stats"></div>
-  <div style="padding:0 0 12px"><input class="inp" id="rtn-search" placeholder="🔍 Search AWB, company, reason..." autocomplete="off" style="width:100%;font-size:14px" oninput="renderReturns()"/></div>
-  <div id="rtn-body"></div>
 </div>
 
 <div class="page" id="page-repairs">
@@ -955,61 +942,6 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
   </div>
 </div>
 
-<!-- RETURN NOTE MODAL -->
-<div class="mbackdrop" id="m-return">
-  <div class="mbox" style="max-width:560px">
-    <div class="mhdr"><span class="mtitle">↩ Return Note</span><button class="mclose" onclick="closeM('m-return')">✕</button></div>
-    <div class="mbody">
-      <div style="margin-bottom:14px">
-        <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Linked to Original Order (optional)</div>
-        <input class="inp" id="rtn-orig-search" placeholder="Search AWB or company..." autocomplete="off" oninput="searchReturnOrders(this.value)" style="width:100%">
-        <div id="rtn-orig-results" style="max-height:160px;overflow-y:auto;margin-top:4px"></div>
-        <div id="rtn-orig-selected" style="display:none;background:var(--panel2);border:1.5px solid var(--brand-dim);border-radius:8px;padding:8px 12px;margin-top:6px;font-size:13px"></div>
-        <input type="hidden" id="rtn-orig-id">
-        <input type="hidden" id="rtn-orig-awb">
-      </div>
-      <div class="fwrap"><label class="flabel">Customer / Company *</label><input class="inp" id="rtn-company" placeholder="Company name" autocomplete="off"></div>
-      <div class="fwrap"><label class="flabel">Return Reason *</label>
-        <select class="inp" id="rtn-reason">
-          <option value="">— Select reason —</option>
-          <option value="Customer rejected">Customer rejected</option>
-          <option value="Damaged in transit">Damaged in transit</option>
-          <option value="Wrong pallets delivered">Wrong pallets delivered</option>
-          <option value="Partial rejection">Partial rejection</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-      <div class="fwrap"><label class="flabel">Pallets Returning *</label>
-        <div id="rtn-lines"></div>
-        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px" id="rtn-add-line-btn" onclick="addPltLine('rtn-lines')">+ Add Line</button>
-      </div>
-      <div class="fwrap"><label class="flabel">Driver</label>
-        <select class="inp" id="rtn-driver"><option value="">— Select driver —</option><option value="3rd-party">3rd Party</option></select>
-      </div>
-      <div class="fwrap"><label class="flabel">Received By (Supervisor)</label>
-        <select class="inp" id="rtn-by"></select>
-      </div>
-      <div style="background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;padding:10px 12px;margin-bottom:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">Type</div>
-        <div style="display:flex;gap:8px">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
-            <input type="radio" name="rtn-flow" value="quick" checked onchange="toggleReturnFlow(this.value)"> Quick Return (pallets already at WH)
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
-            <input type="radio" name="rtn-flow" value="driver"> Driver collecting from customer
-          </label>
-        </div>
-      </div>
-      <div class="fwrap"><label class="flabel">Notes</label><textarea class="inp" id="rtn-notes" rows="2" placeholder="Any additional notes..."></textarea></div>
-      <div id="rtn-err" style="color:var(--red);font-size:12px;margin-top:6px"></div>
-    </div>
-    <div class="mfoot">
-      <button class="btn btn-ghost" onclick="closeM('m-return')">Cancel</button>
-      <button class="btn btn-primary" id="rtn-save-btn" onclick="saveReturn()">↩ Create Return</button>
-    </div>
-  </div>
-</div>
-
 <div class="mbackdrop" id="m-dropoff">
   <div class="mbox wide">
     <div class="mhdr"><span class="mtitle">📥 Direct Drop-off</span><button class="mclose" onclick="closeM('m-dropoff')">✕</button></div>
@@ -1220,7 +1152,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
   <div class="mbox">
     <div class="mhdr"><span class="mtitle" id="prod-modal-title">Add Product</span><button class="mclose" onclick="closeM('m-product')">✕</button></div>
     <div class="mbody">
-      <div class="fwrap"><label class="flabel">Product Name *</label><input class="inp" id="prod-name" placeholder="e.g. EW 120x60" autocorrect="off" autocapitalize="off" spellcheck="false"/></div>
+      <div class="fwrap"><label class="flabel">Product Name *</label><input class="inp" id="prod-name" placeholder="e.g. EW 120x60"/></div>
       <div class="ferr" id="prod-err"></div>
       <input type="hidden" id="prod-old-name"/>
     </div>
@@ -1377,13 +1309,6 @@ function updateNavBadges(){
     if(unsorted>0){sb.textContent=unsorted;sb.style.display='';}
     else sb.style.display='none';
   }
-  // Returns badge
-  const rtnBadge=document.getElementById('nav-badge-returns');
-  if(rtnBadge){
-    const activeReturns=(S.orders||[]).filter(r=>r.isReturn&&r.status!=='Completed').length;
-    if(activeReturns>0){rtnBadge.textContent=activeReturns;rtnBadge.style.display='';}
-    else rtnBadge.style.display='none';
-  }
   // Fleet badge
   const {red,amber}=getFleetAlerts();
   const total=red.length+amber.length;
@@ -1458,20 +1383,6 @@ function scheduleRetry(){
     if(anyFailed){setSS('error');scheduleRetry();}
     else if(_retryQueue.length===0&&_pendingCount===0)setSS('ok');
   },10000); // retry every 10 seconds
-}
-
-// ─────────────────────────────────────────────
-// AUTO REFRESH AFTER SAVE
-// Called after every successful save to pull latest data from server
-// ─────────────────────────────────────────────
-function syncAndRefresh(page){
-  loadCloud().then(()=>{
-    if(page)renderPage(page);
-    else{
-      const cur=document.querySelector('.sb-btn.on')?.dataset?.p;
-      if(cur)renderPage(cur);
-    }
-  }).catch(()=>{});
 }
 
 // ─────────────────────────────────────────────
@@ -1822,24 +1733,6 @@ function renderChangesBox(order){
   const notesRow=hasNotes?`<div class="changes-row" style="margin-top:${hasChanges?'8px':'0'}"><span class="changes-lbl">Notes</span><span class="changes-val">${esc(order.whNotes)}</span></div>`:'';
   return`<div class="changes-box"><div class="changes-box-title">\u26a0 WH Changes</div>${changesRows}${notesRow}</div>`;
 }
-function renderReturnLinksBox(order){
-  const linked=(S.orders||[]).filter(r=>r.isReturn&&r.originalOrderId===order.id);
-  if(!linked.length)return'';
-  const stC=s=>s==='Completed'?'chip-green':s==='In Transit'?'chip-blue':'chip-amber';
-  const rows=linked.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);gap:10px"><div><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--amber);font-size:13px">${esc(r.awb)}</span><span class="chip ${stC(r.status)}" style="font-size:10px">${esc(r.status)}</span></div><div style="font-size:11px;color:var(--ink3);margin-top:3px">${esc(r.returnReason||'—')} · ${esc(palletStr(r.pallets))} · ${fd(r.deliveryDate)}</div></div><button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="viewOrder('${r.id}')">View</button></div>`).join('');
-  return`<div style="background:rgba(245,200,66,.06);border:1.5px solid rgba(245,200,66,.3);border-radius:var(--r);padding:12px 14px;margin-bottom:12px"><div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--amber);margin-bottom:8px">↩ Returns (${linked.length})</div>${rows}</div>`;
-}
-function renderReturns(){
-  const q=(document.getElementById('rtn-search')?.value||'').toLowerCase();
-  let list=(S.orders||[]).filter(r=>r.isReturn);
-  if(q)list=list.filter(r=>(r.awb||'').toLowerCase().includes(q)||(r.companyName||'').toLowerCase().includes(q)||(r.returnReason||'').toLowerCase().includes(q)||(r.originalAwb||'').toLowerCase().includes(q));
-  list=list.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
-  const statsEl=document.getElementById('rtn-stats');
-  if(statsEl)statsEl.innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--amber)">${list.length}</div><div class="stat-lbl">Total Returns</div></div><div class="stat-box"><div class="stat-num" style="color:var(--red)">${list.filter(r=>r.status==='In Transit').length}</div><div class="stat-lbl">In Transit</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${list.filter(r=>r.status==='Completed').length}</div><div class="stat-lbl">Completed</div></div>`;
-  const body=document.getElementById('rtn-body');if(!body)return;
-  if(!list.length){body.innerHTML='<div class="empty">No returns found</div>';return;}
-  body.innerHTML=`<div class="card"><div class="tbl-wrap"><table><thead><tr><th>AWB</th><th>Original Order</th><th>Company</th><th>Reason</th><th>Pallets</th><th>Date</th><th>Driver</th><th>Status</th><th class="right">Actions</th></tr></thead><tbody>${list.map(r=>{const orig=r.originalOrderId?(S.orders||[]).find(x=>x.id===r.originalOrderId):null;const stC=s=>s==='Completed'?'chip-green':s==='In Transit'?'chip-blue':s==='Delivered'?'chip-blue':'chip-amber';return`<tr><td style="font-family:'DM Mono',monospace;font-weight:700;color:var(--amber);font-size:13px;white-space:nowrap">${esc(r.awb)}</td><td style="font-size:12px">${orig?`<button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 8px" onclick="viewOrder('${orig.id}')">${esc(r.originalAwb||'—')}</button>`:r.originalAwb?`<span style="font-family:'DM Mono',monospace;color:var(--ink3)">${esc(r.originalAwb)}</span>`:'<span style="color:var(--ink3)">—</span>'}</td><td style="font-weight:600">${esc(r.companyName||'—')}</td><td style="font-size:12px;color:var(--ink2)">${esc(r.returnReason||'—')}</td><td style="font-size:12px;font-family:'DM Mono',monospace">${esc(palletStr(r.pallets))}</td><td style="font-size:12px;white-space:nowrap">${fd(r.deliveryDate)}</td><td style="font-size:12px">${r.driverId?uname(r.driverId):'<span style="color:var(--ink3)">—</span>'}</td><td><span class="chip ${stC(r.status)}" style="font-size:10px">${esc(r.status)}</span></td><td class="right"><button class="btn btn-ghost btn-sm" onclick="viewOrder('${r.id}')">View</button></td></tr>`;}).join('')}</tbody></table></div></div>`;
-}
 
 /* ── PALLET LINES ── */
 
@@ -2110,7 +2003,7 @@ function goTo(page){
   document.querySelectorAll(`.sb-btn[data-p="${page}"]`).forEach(b=>b.classList.add('on'));
   closeMob();renderPage(page);
 }
-function renderPage(p){if(p==='hub')renderHub();else if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='returns')renderReturns();else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='fleet')renderFleet();else if(p==='stocktake')renderStocktake();else if(p==='driver')renderDriver();}
+function renderPage(p){if(p==='hub')renderHub();else if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='fleet')renderFleet();else if(p==='stocktake')renderStocktake();else if(p==='driver')renderDriver();}
 document.querySelectorAll('.sb-btn[data-p]').forEach(btn=>{btn.onclick=()=>goTo(btn.dataset.p);});
 document.getElementById('ham-btn').onclick=()=>{document.getElementById('sidebar').classList.add('open');document.getElementById('mob-overlay').classList.add('open');};
 document.getElementById('mob-overlay').onclick=closeMob;
@@ -2338,19 +2231,12 @@ function renderOrders(){
       if(wrap&&dd&&!wrap.contains(e.target))dd.style.display='none';
     });
   }
-  // Build column toggles once — restore saved preferences from localStorage
+  // Build column toggles once
   const toggles=document.getElementById('ord-col-toggles');
   if(toggles&&!toggles.hasChildNodes()){
-    const cols=[{k:'orderRef',l:'Order Ref'},{k:'type',l:'Type'},{k:'company',l:'Company'},{k:'date',l:'Date'},{k:'pallets',l:'Pallets'},{k:'driver',l:'Driver'},{k:'whBy',l:'WH By'},{k:'whNotes',l:'WH Notes'},{k:'received',l:'Received'},{k:'status',l:'Status'}];
-    // Load saved prefs — default: all on except whNotes
-    let savedCols={};try{savedCols=JSON.parse(localStorage.getItem('salpal_col_prefs')||'{}');}catch(e){}
+    const cols=[{k:'orderRef',l:'Order Ref'},{k:'type',l:'Type'},{k:'company',l:'Company'},{k:'date',l:'Date'},{k:'pallets',l:'Pallets'},{k:'driver',l:'Driver'},{k:'whBy',l:'WH By'},{k:'whNotes',l:'WH Notes'},{k:'status',l:'Status'}];
     toggles.innerHTML=`<span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px">Columns:</span>`+
-      cols.map(c=>{
-        // Default: whNotes and received off, everything else on
-        const def=!['whNotes','received'].includes(c.k);
-        const checked=savedCols.hasOwnProperty(c.k)?savedCols[c.k]:def;
-        return`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ink2)"><input type="checkbox" id="col-${c.k}" ${checked?'checked':''} onchange="saveColPrefs();renderOrdTable()"/> ${c.l}</label>`;
-      }).join('');
+      cols.map(c=>`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ink2)"><input type="checkbox" id="col-${c.k}" ${c.k==='whNotes'?'':'checked'} onchange="renderOrdTable()"/> ${c.l}</label>`).join('');
   }
   const ords=S.orders||[];
   document.getElementById('ord-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${ords.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${ords.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
@@ -2410,12 +2296,6 @@ function thClick(tableId,col,renderFn){thSort(tableId,col);renderFn();}
  // default newest first
 let ordSortAsc=false;
 function toggleOrdSort(){ordSortAsc=!ordSortAsc;const btn=document.getElementById('ord-sort-btn');if(btn)btn.textContent=ordSortAsc?'A → Z':'Z → A';renderOrdTable();}
-function saveColPrefs(){
-  const cols=['orderRef','type','company','date','pallets','driver','whBy','whNotes','received','status'];
-  const prefs={};
-  cols.forEach(c=>{const el=document.getElementById(`col-${c}`);if(el)prefs[c]=el.checked;});
-  try{localStorage.setItem('salpal_col_prefs',JSON.stringify(prefs));}catch(e){}
-}
 function renderOrdTable(){
   let list=S.orders||[];
   if(ordF.types)list=list.filter(j=>ordF.types.includes(j.type));
@@ -2458,42 +2338,41 @@ function renderOrdTable(){
       :'';
   }
   const tb=document.getElementById('ord-tbody');
-  if(!list.length){tb.innerHTML=`<tr><td colspan="11" class="empty">No orders found</td></tr>`;return;}
+  if(!list.length){tb.innerHTML=`<tr><td colspan="12" class="empty">No orders found</td></tr>`;return;}
   const col=c=>{const el=document.getElementById(`col-${c}`);return!el||el.checked!==false;};
-  ['orderRef','type','company','date','pallets','driver','whBy','whNotes','received','status'].forEach(c=>{
+  ['orderRef','type','company','date','pallets','driver','whBy','whNotes','status'].forEach(c=>{
     const th=document.getElementById(`th-${c}`);if(th)th.style.display=col(c)?'':'none';
   });
   tb.innerHTML=list.map(j=>{
     const ps=palletStr(j.pallets);
     const whn=(j.whChanges||[]).length?(j.whChanges||[]).map(c=>`${c.label}: ${c.value}`).join(' \u00b7 '):'\u2014';
     return`<tr>
-      <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap">${esc(j.awb)}${j.hasReturn?`<span style="font-size:9px;font-weight:800;color:var(--amber);background:var(--amber-bg);border:1px solid rgba(245,200,66,.3);border-radius:4px;padding:0 5px;margin-left:4px">↩</span>`:''}</td>
+      <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap">${esc(j.awb)}</td>
       ${col('orderRef')?`<td style="font-size:12px;color:var(--ink2)">${esc(j.orderRef||'\u2014')}</td>`:''}
-      ${col('type')?`<td>${j.isReturn?'<span class="chip chip-amber" style="font-size:10px">↩ Return</span>':typeChip(j.type)}</td>`:''}
+      ${col('type')?`<td>${typeChip(j.type)}</td>`:''}
       ${col('company')?`<td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td>`:''}
       ${col('date')?`<td>${fd(j.deliveryDate)}</td>`:''}
       ${col('pallets')?`<td style="font-size:12px;font-family:'DM Mono',monospace">${esc(ps)}</td>`:''}
       ${col('driver')?`<td style="font-size:12px">${j.driverId?uname(j.driverId):j.driver||'\u2014'}</td>`:''}
       ${col('whBy')?`<td style="font-size:12px;font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td>`:''}
       ${col('whNotes')?`<td style="font-size:11px;color:var(--ink3);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(whn)}">${esc(whn)}</td>`:''}
-      ${col('received')?(()=>{
-        // Only relevant for completed collections
-        if(j.type!=='Collection'||!['Completed','Pending Sort'].includes(j.status))return'<td>—</td>';
-        const change=(j.whChanges||[]).find(c=>c.label==='Receive check');
-        if(!change)return`<td><span style="font-size:11px;color:var(--brand)">✓ Full</span></td>`;
-        // Parse ordered vs received totals from whChanges
-        const ordM=change.value.match(/Ordered:\s*([\d,]+)/);const recM=change.value.match(/Received:\s*([\d,]+)/);
-        const ordN=ordM?parseInt(ordM[1].replace(',','')):null;const recN=recM?parseInt(recM[1].replace(',','')):null;
-        if(ordN!==null&&recN!==null&&ordN===recN)return`<td><span style="font-size:11px;color:var(--brand)">✓ Full</span></td>`;
-        const diff=ordN!==null&&recN!==null?recN-ordN:null;
-        const diffStr=diff!==null?(diff>0?`+${diff}`:String(diff)):'';
-        return`<td><span style="font-size:11px;font-weight:700;color:var(--red);background:var(--red-bg);border:1px solid rgba(245,107,107,.3);border-radius:5px;padding:1px 7px" title="${esc(change.value)}">⚠ ${diffStr}</span></td>`;
-      })():''}
       ${col('status')?`<td>${stChip(j.status)}</td>`:''}
+      <td style="text-align:center;padding:8px 6px"><button onclick="toggleOrderCheck('${j.id}')" title="${j.checked?'Uncheck':'Mark as checked'}" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px;border-radius:6px;transition:opacity .15s;opacity:${j.checked?'1':'0.25'}" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${j.checked?'1':'0.25'}'">✅</button></td>
       <td class="right" style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>${isAdmin()?`${(()=>{const lk=S.orderLocks&&S.orderLocks[j.id];const age=lk?(Date.now()-new Date(lk.time).getTime())/1000:999;return lk&&age<300?` <span style="font-size:10px;color:var(--amber);font-weight:600">🔒 ${esc(lk.user)}</span> <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="forceUnlockOrder('${j.id}')">Unlock</button>`:(` <button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`);})()}`:''}
       </td>
     </tr>`;
   }).join('');
+}
+
+/* ── ORDER CHECK TOGGLE ── */
+function toggleOrderCheck(id){
+  const j=(S.orders||[]).find(x=>x.id===id);
+  if(!j)return;
+  j.checked=!j.checked;
+  j.updatedAt=new Date().toISOString();
+  syncOrder(j);
+  renderOrdTable();
+  toast(j.checked?'Order marked as checked ✅':'Order unchecked');
 }
 
 /* ── ORDER FORM ── */
@@ -2740,7 +2619,7 @@ function saveOrder(force){
         S.ledger.unshift({id:mkId(),date:new Date().toISOString(),type:'Manual',ref:order.awb,cls:'\u2014',dir:'in',qty:0,balance:0,notes:`\u26a0 Force status override: ${ex.status} \u2192 ${newStatus} by ${ME?ME.firstName:''} \u2014 verify stock manually`});
       } else if(ex.status!=='Completed'&&newStatus==='Completed'){
         // Forward to Completed — use atomic endpoint
-        fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...order,_prevStatus:ex.status}})})
+        fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order})})
         .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);})).then(result=>{if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});persist();}).catch(e=>console.error('saveOrder complete failed',e));
       }
     }
@@ -2748,7 +2627,7 @@ function saveOrder(force){
     const i=(S.orders||[]).findIndex(x=>x.id===eid);if(i>=0)S.orders[i]=order;
     toast('Order updated');
   }
-  syncOrder(order);clearDirty('m-order');forceCloseM('m-order');syncAndRefresh('orders');
+  syncOrder(order);clearDirty('m-order');forceCloseM('m-order');renderOrders();renderDash();
 }
 function confirmDelete(errElId,label,onConfirm){
   const el=document.getElementById(errElId);if(!el)return;
@@ -2774,7 +2653,6 @@ function deleteOrder(){
     persist();renderOrders();renderDash();renderStock();
   }).catch(e=>{toast('Delete failed: '+e.message,'err');});
   toast('Order deleted — stock reversed');closeM('m-order');
-  syncAndRefresh('orders');
   const disTodo=document.getElementById('dis-pane-todo');if(disTodo)renderDisTodo();
   const disPaneAll=document.getElementById('dis-pane-all');if(disPaneAll?.classList.contains('on'))renderDispatch();
   const recTodo=document.getElementById('rec-pane-todo');if(recTodo)renderRecTodo();
@@ -2811,12 +2689,11 @@ function viewOrder(id){
   const pr=(j.pallets||[]).map(p=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">${skuBadge(p.cls,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--brand)">\u00d7${p.qty}</span></div>`).join('');
   const pl=isD?'Customer':'Supplier';
   document.getElementById('det-title').textContent=j.awb;
-  document.getElementById('det-body').innerHTML=`${prog}<div style="display:flex;gap:8px;margin-bottom:14px">${typeChip(j.type)} ${stChip(j.status)}</div><div class="card" style="margin-bottom:12px"><div class="card-body" style="display:grid;gap:7px">${[[pl,j.companyName||'\u2014'],['Address',[j.companyAddress,j.city,j.postcode].filter(Boolean).join(', ')||'\u2014'],['Order Ref',j.orderRef||'\u2014'],['Date',fd(j.deliveryDate)],['Window',j.timeFrom&&j.timeTo?j.timeFrom+'\u2013'+j.timeTo:'Any time'],['Driver',j.driverId?uname(j.driverId):j.driver||'\u2014'],['WH By',j.whBy||'\u2014'],['Notes',j.driverNotes||'\u2014']].map(([l,v])=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;flex-shrink:0">${l}</span><span style="font-weight:600;text-align:right;font-size:13px">${esc(v)}</span></div>`).join('')}</div></div><div class="sec-title" style="margin-bottom:8px">Pallets</div><div class="card" style="margin-bottom:12px"><div class="card-body">${pr}<div style="display:flex;justify-content:space-between;padding:8px 0 0"><strong>TOTAL</strong><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--brand)">${j.totalQty}</span></div></div></div>${renderChangesBox(j)}${renderSortingBox(j)}${j.proof?`<div class="card" style="margin-bottom:12px;background:rgba(61,214,104,.05);border-color:var(--brand-dim)"><div class="card-body"><div style="color:var(--brand);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px">\u2713 Delivered</div><div style="font-weight:600;margin-top:4px">${esc(j.proof.recipientName)} \u00b7 ${esc(j.proof.companyName)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(j.proof.completedAt)}</div></div></div>`:''}  <div class="sec-title" style="margin-bottom:10px">Timeline</div>${renderTL(j)}${renderReturnLinksBox(j)}`;
+  document.getElementById('det-body').innerHTML=`${prog}<div style="display:flex;gap:8px;margin-bottom:14px">${typeChip(j.type)} ${stChip(j.status)}</div><div class="card" style="margin-bottom:12px"><div class="card-body" style="display:grid;gap:7px">${[[pl,j.companyName||'\u2014'],['Address',[j.companyAddress,j.city,j.postcode].filter(Boolean).join(', ')||'\u2014'],['Order Ref',j.orderRef||'\u2014'],['Date',fd(j.deliveryDate)],['Window',j.timeFrom&&j.timeTo?j.timeFrom+'\u2013'+j.timeTo:'Any time'],['Driver',j.driverId?uname(j.driverId):j.driver||'\u2014'],['WH By',j.whBy||'\u2014'],['Notes',j.driverNotes||'\u2014']].map(([l,v])=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;flex-shrink:0">${l}</span><span style="font-weight:600;text-align:right;font-size:13px">${esc(v)}</span></div>`).join('')}</div></div><div class="sec-title" style="margin-bottom:8px">Pallets</div><div class="card" style="margin-bottom:12px"><div class="card-body">${pr}<div style="display:flex;justify-content:space-between;padding:8px 0 0"><strong>TOTAL</strong><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--brand)">${j.totalQty}</span></div></div></div>${renderChangesBox(j)}${renderSortingBox(j)}${j.proof?`<div class="card" style="margin-bottom:12px;background:rgba(61,214,104,.05);border-color:var(--brand-dim)"><div class="card-body"><div style="color:var(--brand);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px">\u2713 Delivered</div><div style="font-weight:600;margin-top:4px">${esc(j.proof.recipientName)} \u00b7 ${esc(j.proof.companyName)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(j.proof.completedAt)}</div></div></div>`:''}  <div class="sec-title" style="margin-bottom:10px">Timeline</div>${renderTL(j)}`;
   const isSup=ME&&(ME.role==='Admin'||ME.role==='Supervisor'||ME.role==='Manager')&&!isViewer();
   let foot=`<button class="btn btn-ghost" onclick="closeM('m-detail')">Close</button>`;
   if(isSup&&isD&&j.status==='Open')foot+=` <button class="btn btn-amber" onclick="closeM('m-detail');openLoadModal('${j.id}')">📦 Mark Loaded</button>`;
-  if(isSup&&isD&&['Completed','Loaded','In Transit'].includes(j.status))foot+=` <button class="btn btn-ghost" onclick="closeM('m-detail');openReturnModal('${j.id}')">↩ Return</button>`;
-  if(isSup&&!isD){if(j.status==='Collected')foot+=` <button class="btn btn-ghost" onclick="setOrdStatus('${j.id}','Delivered')">🏭 At Warehouse</button>`;if(j.status==='Delivered')foot+=` <button class="btn btn-primary" onclick="closeM('m-detail');openCompleteRecModal('${j.id}')">✓ Complete</button>`;if(['Completed','Pending Sort'].includes(j.status))foot+=` <button class="btn btn-ghost" onclick="closeM('m-detail');openReturnModal('${j.id}')">↩ Return</button>`;}
+  if(isSup&&!isD){if(j.status==='Collected')foot+=` <button class="btn btn-ghost" onclick="setOrdStatus('${j.id}','Delivered')">🏭 At Warehouse</button>`;if(j.status==='Delivered')foot+=` <button class="btn btn-primary" onclick="closeM('m-detail');openCompleteRecModal('${j.id}')">✓ Complete</button>`;}
   document.getElementById('det-foot').innerHTML=foot;
   openM('m-detail');
 }
@@ -2986,25 +2863,18 @@ function confirmLoaded(){
     const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};S.stock[e.cls]=(S.stock[e.cls]||0)-(e.qty||0);});
-    // Auto-complete if 3rd party — customer collected themselves, job done
-    const driverDisplayName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
-    const is3rdParty=j.driverId==='3rd-party'||driverDisplayName.includes('3rd')||driverDisplayName.includes('third')||driverDisplayName.trim()==='3rd party .'||driverDisplayName.trim()==='3rd party';
-    if(is3rdParty){
-      // Stock already moved OUT via /order/loaded above
-      // Now just update status to Completed — pass _prevStatus='Loaded' so server skips stock movement
+    // Auto-complete if 3rd party driver
+    const driverName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
+    if(driverName.includes('3rd')||driverName.includes('third')||driverName.includes('3rd party')){
       j.status='Completed';j.completedAt=new Date().toISOString();j.updatedAt=j.completedAt;
-      addTL(j,'Completed — 3rd party collected','status');
-      fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...j,_prevStatus:'Loaded'}})})
-      .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);}))
-      .then(result=>{const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;persist();})
-      .catch(e=>console.error('3rd party auto-complete failed',e));
-    } else {
-      persist();
+      addTL(j,'Auto-completed — 3rd party delivery','status');
+      syncOrder(j);
     }
+    persist();
     if(_loadBtn){_loadBtn.disabled=false;_loadBtn.textContent='✓ Mark Loaded';}
-    toast(`${j.awb} ${is3rdParty?'Completed — 3rd party collected':`Loaded by ${sup}`}`);closeLoadModal();goHome();
+    toast(`${j.awb} Loaded by ${sup}`);closeLoadModal();goHome();
+    renderDispatch();renderOrders();renderDash();
     sendWhatsAppDispatch(j);
-    syncAndRefresh('dispatch');
   })
   .catch(e=>{
     if(_loadBtn){_loadBtn.disabled=false;_loadBtn.textContent='✓ Mark Loaded';}
@@ -3112,10 +2982,6 @@ function renderRecTodoResults(){
   let todo=(S.orders||[]).filter(j=>(j.type==='Collection'||j.type==='Drop-off')&&j.status!=='Completed'&&j.status!=='Pending Sort');
   if(q)todo=todo.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q)||(j.driverId?uname(j.driverId).toLowerCase():'').includes(q)||(j.orderRef||'').toLowerCase().includes(q));
   todo=todo.sort((a,b)=>{
-    // Delivered (driver at WH) always shows first — ready for supervisor to complete
-    const aPri=a.status==='Delivered'?0:a.status==='Collected'?1:2;
-    const bPri=b.status==='Delivered'?0:b.status==='Collected'?1:2;
-    if(aPri!==bPri)return aPri-bPri;
     if(recTodoSort==='date')return(a.deliveryDate||'').localeCompare(b.deliveryDate||'')||(a.companyName||'').localeCompare(b.companyName||'');
     if(recTodoSort==='company')return(a.companyName||'').localeCompare(b.companyName||'');
     if(recTodoSort==='driver')return(a.driverId?uname(a.driverId):'').localeCompare(b.driverId?uname(b.driverId):'');
@@ -3130,14 +2996,14 @@ function renderRecTodoResults(){
     const canAW=j.status==='Collected'&&isSup&&!isViewer();
     const canC=j.status==='Delivered'&&isSup&&!isViewer();
     const driver=j.driver==='Customer Drop Off'?'Drop-off':(j.driverId?uname(j.driverId):j.driver||'—');
-    return`<div style="background:var(--panel);border:1.5px solid var(--line);border-left:4px solid ${j.isReturn?'var(--amber)':j.status==='Delivered'?'var(--blue)':j.status==='Collected'?'var(--amber)':'var(--line)'};border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
+    return`<div style="background:var(--panel);border:1.5px solid var(--line);border-left:4px solid ${j.status==='Delivered'?'var(--blue)':j.status==='Collected'?'var(--amber)':'var(--line)'};border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
         <div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
             <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px">${esc(j.awb)}</span>
             ${j.orderRef?`<span style="font-size:11px;color:var(--ink3)">${esc(j.orderRef)}</span>`:''}
             ${stChip(j.status)}
-            ${j.isReturn?`<span style="background:var(--amber);color:#000;font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px">↩ RETURN${j.originalAwb?' from '+esc(j.originalAwb):''}</span>`:''}
+            ${j.isReturn?`<span style="background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px">↩ RETURN</span>`:''}
           </div>
           <div style="font-weight:700;font-size:14px">${esc(j.companyName||'—')}</div>
           <div style="font-size:12px;color:var(--ink3)">${esc([j.companyAddress,j.city,j.postcode].filter(Boolean).join(', '))}</div>
@@ -3146,7 +3012,7 @@ function renderRecTodoResults(){
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           ${j.status==='Open'&&isSup&&!isViewer()?`<button class="btn btn-primary btn-sm" onclick="openCompleteRecModal('${j.id}')">✓ Receive</button>`:''}
-          
+          ${canAW?`<button class="btn btn-ghost btn-sm" onclick="setOrdStatus('${j.id}','Delivered')">At WH</button>`:''}
           ${canC?`<button class="btn btn-primary btn-sm" onclick="openCompleteRecModal('${j.id}')">✓ Complete</button>`:''}
           <button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>
           ${isAdmin()?`<button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`:''}
@@ -3265,15 +3131,13 @@ function confirmReceived(){
    addTL(j,`Completed by ${sup}`,'status',[...changes,...(notes?[`Notes: ${notes}`]:[])]); 
    const _crecBtn=document.querySelector('#m-crec .btn-primary');
    if(_crecBtn){_crecBtn.disabled=true;_crecBtn.textContent='Saving...';}
-   fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...j,_hasPendingSort:hasUnsortedPallets,_prevStatus:j.status}})})
+   fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...j,_hasPendingSort:hasUnsortedPallets}})})
    .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Server error');});return r.json();})
    .then(result=>{
      const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
      if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
      result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-     persist();toast(`${j.awb} completed`);closeRecModal();goHome();
-     sendWhatsAppReceiving(j);
-     syncAndRefresh('receiving');
+     persist();toast(`${j.awb} completed`);closeRecModal();renderReceiving();renderOrders();renderDash();goHome();
      sendWhatsAppReceiving(j);
    })
    .catch(e=>{
@@ -3372,10 +3236,7 @@ function saveQuickEntry(createOnly){
   } else {
     // Atomic save — order + stock + ledger together
     const hasUnsorted=pallets.some(p=>p.cls==='Unsorted');
-    // 3rd party delivery = Completed immediately (customer collected themselves)
-    const _drvName=(j.driverId?uname(j.driverId):j.driver||'').toLowerCase();
-    const _is3rd=j.driverId==='3rd-party'||_drvName.includes('3rd')||_drvName.includes('third');
-    j.status=type==='Delivery'?(_is3rd?'Completed':'Loaded'):(hasUnsorted?'Pending Sort':'Completed');
+    j.status=type==='Delivery'?'Loaded':(hasUnsorted?'Pending Sort':'Completed');
     fetch(API_URL+'/api/action/quickentry',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j,type})})
     .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Server error');});return r.json();})
     .then(result=>{
@@ -3386,9 +3247,9 @@ function saveQuickEntry(createOnly){
       if(_qBtn){_qBtn.disabled=false;}
       toast(`✓ ${type==='Delivery'?'Loaded':'Received'} — ${awb}`);
       closeM('m-quick');
-      if(type==='Delivery')sendWhatsAppDispatch(j);
-      else sendWhatsAppReceiving(j);
-      goHome();syncAndRefresh(type==='Delivery'?'dispatch':'receiving');
+      if(type==='Delivery'){renderDispatch();sendWhatsAppDispatch(j);}
+      else{renderReceiving();sendWhatsAppReceiving(j);}
+      renderOrders();renderDash();goHome();
     })
     .catch(e=>{
       // Remove from local state on failure
@@ -3429,7 +3290,7 @@ function saveDropoff(){
   .then(result=>{
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-    persist();toast(`Drop-off received — ${awb}`);closeM('m-dropoff');syncAndRefresh('receiving');
+    persist();toast(`Drop-off received — ${awb}`);closeM('m-dropoff');renderReceiving();renderOrders();renderDash();
   })
   .catch(e=>{toast('Save failed: '+e.message+' — please try again','err');});
 }
@@ -3582,20 +3443,7 @@ function renderRepTab(name){
         <div class="stat-box"><div class="stat-num">${rlist.length}</div><div class="stat-lbl">Entries</div></div>
       </div>
       ${byw.length?`<div class="sec-title" style="margin-bottom:10px">By Worker</div><div class="card" style="margin-bottom:16px">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)"><span style="font-weight:600">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join('')}</div>`:''}
-      ${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card" style="margin-bottom:16px">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${x.t}</span></div>`).join('')}</div>`:''}
-      ${(()=>{
-        const allDates=[...new Set(rlist.map(r=>r.date.slice(0,10)))].sort((a,b)=>b.localeCompare(a));
-        const allRepairers=[...new Set(rlist.map(r=>r.repairer||'—'))].sort();
-        if(!allDates.length)return'';
-        const rows=allDates.map(day=>{
-          const dayRecs=rlist.filter(r=>r.date.slice(0,10)===day);
-          const dayTotal=dayRecs.reduce((s,r)=>s+(r.qty||0),0);
-          const cells=allRepairers.map(rep=>{const qt=dayRecs.filter(r=>(r.repairer||'—')===rep).reduce((s,r)=>s+(r.qty||0),0);return`<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:${qt>0?'var(--brand)':'var(--ink3)'}">${qt>0?qt:'—'}</td>`;}).join('');
-          return`<tr><td style="font-size:12px;white-space:nowrap;font-weight:700">${fd(day)}</td>${cells}<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:var(--brand);border-left:2px solid var(--line2)">${dayTotal}</td></tr>`;
-        }).join('');
-        const totCells=allRepairers.map(rep=>{const t=rlist.filter(r=>(r.repairer||'—')===rep).reduce((s,r)=>s+(r.qty||0),0);return`<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:var(--brand);border-top:2px solid var(--line2)">${t}</td>`;}).join('');
-        return`<div class="sec-title" style="margin-bottom:10px">Daily Breakdown — Pallets Repaired</div><div class="card" style="margin-bottom:16px"><div class="tbl-wrap"><table><thead><tr><th style="white-space:nowrap">Date</th>${allRepairers.map(r=>`<th class="right" style="white-space:nowrap">${esc(r)}</th>`).join('')}<th class="right" style="border-left:2px solid var(--line2)">Total</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td style="font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;color:var(--ink3)">Total</td>${totCells}<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:var(--brand);border-left:2px solid var(--line2);border-top:2px solid var(--line2)">${tot}</td></tr></tfoot></table></div></div>`;
-      })()}
+      ${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${x.t}</span></div>`).join('')}</div>`:''}
     `;
   }
 }
@@ -3629,7 +3477,7 @@ async function confirmDeleteRepair(id){
     S.repairs=(S.repairs||[]).filter(x=>x.id!==id);
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-    persist();toast('Repair entry deleted');syncAndRefresh('repairs');
+    persist();toast('Repair entry deleted');renderRepairs();
   }catch(e){toast('Delete failed: '+e.message,'err');}
 }
 
@@ -3655,7 +3503,7 @@ function saveRepairEdit(id,force){
   .then(result=>{
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-    persist();clearDirty('m-repair');toast('Repair updated');forceCloseM('m-repair');syncAndRefresh('repairs');
+    persist();clearDirty('m-repair');toast('Repair updated');forceCloseM('m-repair');renderRepairs();
   })
   .catch(e=>{
     if(btn){btn.disabled=false;btn.textContent='✓ Save';}
@@ -3669,12 +3517,11 @@ function addRepLine(cls,qty){
   cls=cls||'';
   const c=document.getElementById('rep-lines');if(!c)return;
   const repairableClasses=getSKUS().filter(x=>!x.toLowerCase().includes('defect')&&!x.toLowerCase().includes('new')&&x!=='Unsorted');
-  const allClasses=(cls&&!repairableClasses.includes(cls))?[cls,...repairableClasses]:repairableClasses;
   const autoQty=(cls&&REP_DEFAULT_QTY_CLASSES.includes(cls))?REP_DEFAULT_QTY:'';
   const finalQty=(qty!==undefined&&qty!=='')?qty:autoQty;
   const d=document.createElement('div');d.className='plt-line';
   d.style.flexWrap='nowrap';
-  d.innerHTML=`<button type="button" class="rm-btn" style="flex-shrink:0" onclick="this.closest('.plt-line').remove();updateRepTotal()">−</button><select class="inp" onchange="onRepLineChange(this)" style="flex:1;min-width:0;max-width:100%"><option value="">— Class —</option>${allClasses.map(s=>`<option value="${esc(s)}"${s===cls?' selected':''}>${esc(s)}${(s===cls&&!repairableClasses.includes(s))?' ⚠':''}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${finalQty}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:68px;flex-shrink:0" oninput="updateRepTotal()"/><button type="button" style="padding:0 10px;height:38px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;color:var(--ink2);font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0" onclick="this.previousElementSibling.value=15;updateRepTotal()">15</button>`;
+  d.innerHTML=`<button type="button" class="rm-btn" style="flex-shrink:0" onclick="this.closest('.plt-line').remove();updateRepTotal()">−</button><select class="inp" onchange="onRepLineChange(this)" style="flex:1;min-width:0;max-width:100%"><option value="">— Class —</option>${repairableClasses.map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${finalQty}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:68px;flex-shrink:0" oninput="updateRepTotal()"/><button type="button" style="padding:0 10px;height:38px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;color:var(--ink2);font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0" onclick="this.previousElementSibling.value=15;updateRepTotal()">15</button>`;
   c.appendChild(d);
   updateRepTotal();
 }
@@ -3763,7 +3610,7 @@ async function saveRepair(force){
     S.stock[RF.src]=(S.stock[RF.src]||0)-totalQty;
     persist();clearDirty('m-repair');
     toast(`${totalQty} pallets repaired across ${lines.length} class${lines.length>1?'es':''} — saved ✓`);
-    forceCloseM('m-repair');goHome();syncAndRefresh('repairs');
+    forceCloseM('m-repair');renderRepairs();renderDash();goHome();
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='✓ Save';}
     if(_rErr){_rErr.style.display='';_rErr.textContent='⚠ Save failed: '+e.message+' — please try again';_rErr.scrollIntoView({behavior:'smooth',block:'center'});}
@@ -3890,7 +3737,6 @@ function viewDrvTask(id){
         foot+=` <button class="btn btn-primary" onclick="markCollected('${j.id}')">📦 Pallets Collected</button>`;
       }
     }
-    if(j.status==='Collected')foot+=` <button class="btn btn-primary" onclick="markDeliveredToWH('${j.id}')">🏭 Delivered to WH</button>`;
   }
   document.getElementById('det-foot').innerHTML=foot;openM('m-detail');
 }
@@ -3904,198 +3750,6 @@ function markReturnArrived(id){
 }
 
 function markCollected(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Collected';j.updatedAt=new Date().toISOString();addTL(j,'Pallets collected — returning to warehouse','status');syncOrder(j);toast('Pallets collected');closeM('m-detail');renderDriver();}
-// ─────────────────────────────────────────────
-// RETURN NOTES MODULE
-// Creates return orders linked to original delivery
-// Two flows: Quick Return (already at WH) or Driver collecting
-// ─────────────────────────────────────────────
-
-function openReturnModal(origOrderId){
-  // Reset form
-  document.getElementById('rtn-orig-search').value='';
-  document.getElementById('rtn-orig-results').innerHTML='';
-  document.getElementById('rtn-orig-selected').style.display='none';
-  document.getElementById('rtn-orig-id').value='';
-  document.getElementById('rtn-orig-awb').value='';
-  document.getElementById('rtn-company').value='';
-  document.getElementById('rtn-reason').value='';
-  document.getElementById('rtn-notes').value='';
-  document.getElementById('rtn-err').textContent='';
-  document.getElementById('rtn-lines').innerHTML='';
-  // Populate dropdowns
-  const drvSel=document.getElementById('rtn-driver');
-  drvSel.innerHTML='<option value="">— Select driver —</option>'+drvs().map(d=>`<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
-  const bySel=document.getElementById('rtn-by');
-  bySel.innerHTML=supSelectHtml();
-  bySel.disabled=ME&&ME.role==='Supervisor';
-  if(ME&&ME.role==='Supervisor')bySel.value=`${ME.firstName} ${ME.lastName}`.trim();
-  // Reset radio to quick
-  document.querySelectorAll('input[name="rtn-flow"]').forEach(r=>r.checked=r.value==='quick');
-  if(origOrderId){
-    const j=(S.orders||[]).find(x=>x.id===origOrderId);
-    if(j){
-      document.getElementById('rtn-orig-id').value=j.id;
-      document.getElementById('rtn-orig-awb').value=j.awb;
-      document.getElementById('rtn-company').value=j.companyName||'';
-      document.getElementById('rtn-orig-selected').style.display='';
-      document.getElementById('rtn-orig-selected').innerHTML=
-        `<span style="color:var(--brand);font-weight:700">${esc(j.awb)}</span> — ${esc(j.companyName||'')} · ${fd(j.deliveryDate)} · ${esc(palletStr(j.pallets))}
-        <button type="button" class="btn btn-ghost btn-sm" style="margin-left:8px;padding:2px 8px" onclick="clearReturnLink()">✕</button>`;
-      if(j.driverId)document.getElementById('rtn-driver').value=j.driverId;
-      fillRtnLines(j);
-    } else { fillRtnLines(null); }
-  } else { fillRtnLines(null); }
-  const btn=document.getElementById('rtn-save-btn');
-  if(btn){btn.disabled=false;btn.textContent='↩ Create Return';}
-  openM('m-return');
-}
-
-function clearReturnLink(){
-  document.getElementById('rtn-orig-id').value='';
-  document.getElementById('rtn-orig-awb').value='';
-  document.getElementById('rtn-orig-selected').style.display='none';
-  document.getElementById('rtn-orig-search').value='';
-  fillRtnLines(null);
-}
-
-function searchReturnOrders(q){
-  const results=document.getElementById('rtn-orig-results');
-  if(!q||q.length<2){results.innerHTML='';return;}
-  const ql=q.toLowerCase();
-  // Search completed delivery orders
-  const matches=(S.orders||[])
-    .filter(j=>j.type==='Delivery'&&['Completed','Loaded','In Transit'].includes(j.status))
-    .filter(j=>(j.awb||'').toLowerCase().includes(ql)||(j.companyName||'').toLowerCase().includes(ql))
-    .slice(0,6);
-  if(!matches.length){results.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:6px">No matching delivery orders</div>';return;}
-  results.innerHTML=matches.map(j=>`
-    <div onclick="selectReturnOrder('${j.id}')" style="cursor:pointer;padding:7px 10px;border-radius:6px;font-size:13px;border:1px solid var(--line2);margin-bottom:3px;background:var(--panel2)">
-      <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--brand)">${esc(j.awb)}</span>
-      — ${esc(j.companyName||'')} · ${fd(j.deliveryDate)} · <span style="color:var(--ink3)">${esc(palletStr(j.pallets))}</span>
-    </div>`).join('');
-}
-
-function selectReturnOrder(id){
-  const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
-  document.getElementById('rtn-orig-id').value=j.id;
-  document.getElementById('rtn-orig-awb').value=j.awb;
-  document.getElementById('rtn-company').value=j.companyName||'';
-  document.getElementById('rtn-orig-results').innerHTML='';
-  document.getElementById('rtn-orig-search').value='';
-  document.getElementById('rtn-orig-selected').style.display='';
-  document.getElementById('rtn-orig-selected').innerHTML=
-    `<span style="color:var(--brand);font-weight:700">${esc(j.awb)}</span> — ${esc(j.companyName||'')} · ${fd(j.deliveryDate)} · ${esc(palletStr(j.pallets))}
-    <button type="button" class="btn btn-ghost btn-sm" style="margin-left:8px;padding:2px 8px" onclick="clearReturnLink()">✕</button>`;
-  if(j.driverId)document.getElementById('rtn-driver').value=j.driverId;
-  fillRtnLines(j);
-}
-
-function toggleReturnFlow(val){
-  // Show/hide driver field based on flow type
-  const drvRow=document.getElementById('rtn-driver').closest('.fwrap');
-  if(drvRow)drvRow.style.display=val==='driver'?'':'none';
-}
-
-async function saveReturn(){
-  const origId=document.getElementById('rtn-orig-id').value;
-  const origAwb=document.getElementById('rtn-orig-awb').value;
-  const company=document.getElementById('rtn-company').value.trim();
-  const reason=document.getElementById('rtn-reason').value;
-  const pallets=getLines('rtn-lines');
-  const flow=document.querySelector('input[name="rtn-flow"]:checked')?.value||'quick';
-  const driverId=document.getElementById('rtn-driver').value;
-  const by=document.getElementById('rtn-by').value;
-  const notes=document.getElementById('rtn-notes').value.trim();
-  const errEl=document.getElementById('rtn-err');
-
-  if(!company){errEl.textContent='Company name required.';return;}
-  if(!reason){errEl.textContent='Select a return reason.';return;}
-  if(!pallets.length){errEl.textContent='Add at least one pallet line.';return;}
-  if(flow==='quick'&&!by){errEl.textContent='Received by (supervisor) required for quick return.';return;}
-
-  const totalQty=pallets.reduce((s,p)=>s+(p.qty||0),0);
-  const now=new Date().toISOString();
-  const awb=`RTN-${origAwb||makeAWB().replace('WMS-','')}`;
-
-  const returnOrder={
-    id:mkId(),
-    awb,
-    orderRef:origAwb||'',
-    type:'Collection',
-    isReturn:true,
-    returnReason:reason,
-    originalAwb:origAwb||null,
-    originalOrderId:origId||null,
-    companyName:company,
-    driverId:driverId||'',
-    deliveryDate:localIso(new Date()),
-    orderDate:localIso(new Date()),
-    pallets,
-    totalQty,
-    driverNotes:notes||(origAwb?`Return from ${origAwb} — ${reason}`:`Return — ${reason}`),
-    whChanges:[],
-    history:[],
-    createdAt:now,
-    updatedAt:now,
-  };
-
-  if(flow==='quick'){
-    // Pallets already at WH — complete immediately, stock IN
-    returnOrder._prevStatus='Open';
-    returnOrder.status='Completed';
-    returnOrder.whBy=by;
-    returnOrder.completedAt=now;
-    addTL(returnOrder,`Quick return received by ${by} — ${reason}`,'create');
-  } else {
-    // Driver collecting from customer — start In Transit
-    returnOrder.status='In Transit';
-    addTL(returnOrder,`Return note created — driver collecting from customer — ${reason}`,'create');
-  }
-
-  // Flag original order as having a return
-  if(origId){
-    const orig=(S.orders||[]).find(x=>x.id===origId);
-    if(orig){
-      if(!orig.returns)orig.returns=[];
-      orig.returns.push({awb,reason,qty:totalQty,createdAt:now});
-      orig.hasReturn=true;
-      syncOrder(orig);
-    }
-  }
-
-  const btn=document.getElementById('rtn-save-btn');
-  if(btn){btn.disabled=true;btn.textContent='Saving...';}
-
-  try{
-    if(flow==='quick'){
-      // Atomic — stock IN immediately
-      const r=await fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:returnOrder})});
-      if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||'Server error');}
-      const result=await r.json();
-      if(!S.orders)S.orders=[];
-      S.orders.unshift(result.order||returnOrder);
-      if(!S.ledger)S.ledger=[];
-      result.ledger.forEach(e=>S.ledger.unshift(e));
-      result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-      persist();
-      toast(`↩ Return received — ${awb} · ${totalQty} pallets back in stock`);
-    } else {
-      // Driver flow — just save order, no stock yet
-      if(!S.orders)S.orders=[];
-      S.orders.unshift(returnOrder);
-      syncOrder(returnOrder);
-      persist();
-      toast(`↩ Return note created — ${awb} · driver collecting from customer`);
-    }
-    closeM('m-return');
-    syncAndRefresh('receiving');
-  }catch(e){
-    errEl.textContent='⚠ Save failed: '+e.message;
-    if(btn){btn.disabled=false;btn.textContent='↩ Create Return';}
-  }
-}
-
-function markDeliveredToWH(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Delivered';j.updatedAt=new Date().toISOString();addTL(j,'Driver delivered pallets to warehouse — awaiting receiving','status');syncOrder(j);toast('Delivered to WH ✓ — supervisor will complete receiving');closeM('m-detail');renderDriver();}
 
 /* ── WHATSAPP FORMS ── */
 let _waMsg='';
@@ -4615,7 +4269,7 @@ async function confirmDeleteSorting(id){
     S.sortings=(S.sortings||[]).filter(x=>x.id!==id);
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-    persist();toast('Sorting entry deleted — stock reversed');syncAndRefresh('sorting');
+    persist();toast('Sorting entry deleted — stock reversed');renderSorting();renderDash();
     document.querySelectorAll('.srt-del-confirm').forEach(c=>c.remove());
   }catch(e){toast('Delete failed: '+e.message,'err');}
 }
@@ -4664,7 +4318,7 @@ function saveSortingEdit(id,force){
   r.sorters=[...SF.sorters];
   // Keep original orderRef and pallets — never overwrite
   if(r&&r.id)syncSorting(r);
-  persist();clearDirty('m-sort');toast('Sorting updated');forceCloseM('m-sort');syncAndRefresh('sorting');
+  persist();clearDirty('m-sort');toast('Sorting updated');forceCloseM('m-sort');renderSorting();renderDash();
 }
 function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se.style.display='none';const _sb=document.querySelector('#m-sort .btn-primary');if(_sb){_sb.disabled=false;_sb.textContent='✓ Save';}
   SF={sup:ME&&ME.role==='Supervisor'?ME.firstName:'',sorters:[]};
@@ -4839,7 +4493,7 @@ async function saveSorting(force){
     }
     persist();clearDirty('m-sort');
     toast(`${totalQty} pallets sorted — saved ✓`);
-    forceCloseM('m-sort');goHome();syncAndRefresh('sorting');
+    forceCloseM('m-sort');renderSorting();renderDash();goHome();
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='✓ Save';}
     if(_sErr){_sErr.style.display='';_sErr.textContent='⚠ Save failed: '+e.message+' — please try again';_sErr.scrollIntoView({behavior:'smooth',block:'center'});}
@@ -4928,7 +4582,7 @@ function openMergeProductFromModal(){
 }
 
 function saveProduct(){
-  const name=document.getElementById('prod-name').value.trim().replace(/×/g,'x');
+  const name=document.getElementById('prod-name').value.trim();
   const oldName=document.getElementById('prod-old-name').value;
   if(!name){document.getElementById('prod-err').textContent='Name required.';return;}
   if(!S.products)S.products=[...DEFAULT_SKUS];
@@ -5047,7 +4701,7 @@ async function saveStockAdjTab(){
     document.getElementById('adj-ref').value='';
     document.getElementById('adj-note').value='';
     toast(`Adjustment saved — ${cls} ${qty>0?'+'+qty:qty}`);
-    syncAndRefresh('stock');
+    renderAdjTab();renderStock();
   }catch(e){
     err.textContent='⚠ Save failed: '+e.message+' — please try again';
   }
@@ -5199,23 +4853,19 @@ function updateDoTotal(){
   const total=getLines('do-lines').reduce((s,p)=>s+p.qty,0);
   const el=document.getElementById('do-total');if(el)el.textContent=total;
 }
-function addPltLine(cid,cls,qty,maxQty){
+function addPltLine(cid,cls,qty){
   cls=cls||'';qty=qty||'';
   const c=document.getElementById(cid);if(!c)return;
   const d=document.createElement('div');d.className='plt-line';
+  // Filter classes based on context
   let skuList=getSKUS();
   if(cid==='srt-lines') skuList=getSKUS().filter(s=>s!=='Unsorted'&&!s.toLowerCase().includes('new'));
   const rmCb=`this.closest('.plt-line').remove();${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}`;
-  const inpCb=`${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}${cid==='rtn-lines'?'clampRtnQty(this);':''}`;
-  const isLocked=cid==='rtn-lines'&&maxQty!=null;
-  if(isLocked){
-    d.innerHTML=`<div class="inp" style="flex:1;display:flex;align-items:center;gap:6px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:9px;padding:10px 12px;font-weight:700">${esc(cls)}</div><div style="display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0"><input class="inp" type="number" min="0" max="${maxQty}" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:80px" oninput="${inpCb}"/><span style="font-size:10px;color:var(--ink3);margin-top:2px;font-weight:700">max ${maxQty}</span></div>`;
-    const fakeSelect=document.createElement('select');fakeSelect.style.display='none';fakeSelect.innerHTML=`<option value="${esc(cls)}" selected>${esc(cls)}</option>`;d.appendChild(fakeSelect);
-  } else {
-    d.innerHTML=`<select class="inp"><option value="">— Class —</option>${skuList.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="${inpCb}"/><button type="button" class="rm-btn" onclick="${rmCb}">−</button>`;
-  }
+  const inpCb=`${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}`;
+  d.innerHTML=`<select class="inp"><option value="">— Class —</option>${skuList.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="${inpCb}"/><button type="button" class="rm-btn" onclick="${rmCb}">−</button>`;
   c.appendChild(d);
-  if(cls&&!isLocked){const sel=d.querySelector('select');if(sel)sel.value=cls;}
+  // Set selected class after DOM insertion to ensure match
+  if(cls){const sel=d.querySelector('select');if(sel)sel.value=cls;}
   if(cid==='srt-lines'){
     d.querySelector('select').addEventListener('change',onSrtLinesChange);
     d.querySelector('input').addEventListener('input',onSrtLinesChange);
@@ -5228,23 +4878,6 @@ function addPltLine(cid,cls,qty,maxQty){
   if(cid==='qk-lines'){
     d.querySelector('select').addEventListener('change',updateQkTotal);
     d.querySelector('input').addEventListener('input',updateQkTotal);
-  }
-}
-function clampRtnQty(inp){
-  const max=parseInt(inp.getAttribute('max'));
-  if(!isNaN(max)&&parseInt(inp.value)>max)inp.value=max;
-  if(parseInt(inp.value)<0)inp.value=0;
-}
-function fillRtnLines(order){
-  const c=document.getElementById('rtn-lines');if(!c)return;
-  c.innerHTML='';
-  const btn=document.getElementById('rtn-add-line-btn');
-  if(order){
-    (order.pallets||[]).forEach(p=>{if(p.cls&&p.qty)addPltLine('rtn-lines',p.cls,'',p.qty);});
-    if(btn)btn.style.display='none';
-  } else {
-    addPltLine('rtn-lines');
-    if(btn)btn.style.display='';
   }
 }
 function updateQkTotal(){
@@ -6411,9 +6044,8 @@ async function approveStocktake(id){
     const idx=(S.stocktakes||[]).findIndex(x=>x.id===id);if(idx>=0)S.stocktakes[idx]=result.stocktake;
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-    persist();
+    persist();renderStocktake();renderDash();
     toast(`${t.adjRef} approved — ${result.ledger.length} adjustments saved ✓`);
-    syncAndRefresh('stocktake');
   }catch(e){toast('Approval failed: '+e.message+' — please try again','err');}
 }
 
@@ -6936,26 +6568,11 @@ try{
   oldKeys.forEach(k=>localStorage.removeItem(k));
 }catch(e){}
 loadState();
+// Try to restore session from stored token, then load data
 if(!tryRestoreSession()){
   showLoginForm();
 } else {
-  const _startupTimeout=setTimeout(()=>{
-    if(document.getElementById('login-screen').style.display!=='none'){
-      document.getElementById('li-loading').style.display='none';
-      document.getElementById('li-form').style.display='';
-      document.getElementById('li-err').textContent='Server took too long to respond. Please log in again.';
-    }
-  },10000);
-  const _wakeMsg=setTimeout(()=>{
-    const sub=document.getElementById('li-loading-sub');
-    if(sub&&document.getElementById('li-loading').style.display!=='none')sub.style.display='';
-  },4000);
-  loadCloud().catch(()=>{
-    clearTimeout(_startupTimeout);clearTimeout(_wakeMsg);
-    document.getElementById('li-loading').style.display='none';
-    document.getElementById('li-form').style.display='';
-    document.getElementById('li-err').textContent='Could not connect to server. Please log in again.';
-  }).then(()=>{clearTimeout(_startupTimeout);clearTimeout(_wakeMsg);});
+  loadCloud().catch(()=>{});
 }
 </script>
 </body>
