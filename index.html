@@ -394,7 +394,6 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
         <th id="th-whBy" data-col="whBy" onclick="thClick('ord-table','whBy',renderOrdTable)" style="cursor:pointer">WH By</th>
         <th id="th-whNotes">WH Notes</th>
         <th id="th-status" data-col="status" onclick="thClick('ord-table','status',renderOrdTable)" style="cursor:pointer">Status</th>
-        <th id="th-checked" style="text-align:center;width:44px" title="Mark as checked">✓</th>
         <th class="right">Actions</th>
       </tr></thead><tbody id="ord-tbody"></tbody></table>
     </div>
@@ -772,6 +771,10 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
         <div class="co-dd" id="of-co-dd"></div>
         <input type="hidden" id="of-co-id"/>
       </div>
+      <div class="fwrap" id="of-addr-picker-wrap" style="display:none">
+        <label class="flabel">Delivery Address</label>
+        <select class="inp" id="of-addr-picker" onchange="applyCoAddress(this.value)"></select>
+      </div>
       <div class="frow">
         <div class="fwrap"><label class="flabel">Address</label><input class="inp" id="of-addr" placeholder="Street"/></div>
         <div class="fwrap"><label class="flabel">City</label><input class="inp" id="of-city" placeholder="City"/></div>
@@ -1086,10 +1089,16 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <div class="mbody">
       <div class="fwrap"><label class="flabel">Company Name *</label><input class="inp" id="cf-name" placeholder="Name"/></div>
       <div class="frow">
-        <div class="fwrap"><label class="flabel">Address</label><input class="inp" id="cf-addr" placeholder="Street"/></div>
+        <div class="fwrap"><label class="flabel">Default Address</label><input class="inp" id="cf-addr" placeholder="Street"/></div>
         <div class="fwrap"><label class="flabel">City</label><input class="inp" id="cf-city" placeholder="City"/></div>
         <div class="fwrap"><label class="flabel">Postcode</label><input class="inp" id="cf-post" placeholder="Postcode"/></div>
       </div>
+      <div class="div" style="margin:14px 0 10px"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span class="flabel" style="margin:0">Delivery Addresses</span>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="addCoAddress()">+ Add Address</button>
+      </div>
+      <div id="cf-addr-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px"></div>
       <div class="ferr" id="cf-err"></div>
       <input type="hidden" id="cf-id"/>
     </div>
@@ -1859,6 +1868,7 @@ function openCompanyModalInline(prefill,cb){
   document.getElementById('cf-id').value='';
   document.getElementById('cf-del').style.display='none';
   document.getElementById('co-modal-title').textContent='Add Company';
+  renderCoAddrList([]);
   openM('m-company');
 }
 
@@ -2338,7 +2348,7 @@ function renderOrdTable(){
       :'';
   }
   const tb=document.getElementById('ord-tbody');
-  if(!list.length){tb.innerHTML=`<tr><td colspan="12" class="empty">No orders found</td></tr>`;return;}
+  if(!list.length){tb.innerHTML=`<tr><td colspan="11" class="empty">No orders found</td></tr>`;return;}
   const col=c=>{const el=document.getElementById(`col-${c}`);return!el||el.checked!==false;};
   ['orderRef','type','company','date','pallets','driver','whBy','whNotes','status'].forEach(c=>{
     const th=document.getElementById(`th-${c}`);if(th)th.style.display=col(c)?'':'none';
@@ -2357,22 +2367,10 @@ function renderOrdTable(){
       ${col('whBy')?`<td style="font-size:12px;font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td>`:''}
       ${col('whNotes')?`<td style="font-size:11px;color:var(--ink3);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(whn)}">${esc(whn)}</td>`:''}
       ${col('status')?`<td>${stChip(j.status)}</td>`:''}
-      <td style="text-align:center;padding:8px 6px"><button onclick="toggleOrderCheck('${j.id}')" title="${j.checked?'Uncheck':'Mark as checked'}" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px;border-radius:6px;transition:opacity .15s;opacity:${j.checked?'1':'0.25'}" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${j.checked?'1':'0.25'}'">✅</button></td>
       <td class="right" style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>${isAdmin()?`${(()=>{const lk=S.orderLocks&&S.orderLocks[j.id];const age=lk?(Date.now()-new Date(lk.time).getTime())/1000:999;return lk&&age<300?` <span style="font-size:10px;color:var(--amber);font-weight:600">🔒 ${esc(lk.user)}</span> <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="forceUnlockOrder('${j.id}')">Unlock</button>`:(` <button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`);})()}`:''}
       </td>
     </tr>`;
   }).join('');
-}
-
-/* ── ORDER CHECK TOGGLE ── */
-function toggleOrderCheck(id){
-  const j=(S.orders||[]).find(x=>x.id===id);
-  if(!j)return;
-  j.checked=!j.checked;
-  j.updatedAt=new Date().toISOString();
-  syncOrder(j);
-  renderOrdTable();
-  toast(j.checked?'Order marked as checked ✅':'Order unchecked');
 }
 
 /* ── ORDER FORM ── */
@@ -2399,7 +2397,16 @@ function openOrderModal(){
   ['of-co-search','of-addr','of-city','of-post','of-driver','of-ddate','of-odate','of-tfrom','of-tto','of-type'].forEach(f=>{const el=document.getElementById(f);if(el)el.disabled=false;});
   const existingLock=document.getElementById('of-lock-msg');if(existingLock)existingLock.remove();
   document.getElementById('of-lines').innerHTML='';addPltLine('of-lines');
-  bindCoSearch('of-co-search','of-co-dd',co=>{document.getElementById('of-co-id').value=co.id;document.getElementById('of-addr').value=co.address||'';document.getElementById('of-city').value=co.city||'';document.getElementById('of-post').value=co.postcode||'';});
+  document.getElementById('of-addr-picker-wrap').style.display='none';
+  bindCoSearch('of-co-search','of-co-dd',co=>{
+    document.getElementById('of-co-id').value=co.id;
+    populateCoAddrPicker(co.id,null);
+    const addrs=(co.addresses||[]);
+    const first=addrs[0]||co;
+    document.getElementById('of-addr').value=first.address||co.address||'';
+    document.getElementById('of-city').value=first.city||co.city||'';
+    document.getElementById('of-post').value=first.postcode||co.postcode||'';
+  });
   openM('m-order');
 }
 function onOrderTypeChange(){const t=document.getElementById('of-type').value;document.getElementById('of-addr-lbl').textContent=t==='Collection'?'Collect From':'Ship To';document.getElementById('of-ddate-lbl').textContent=t==='Collection'?'Collection Date *':'Delivery Date *';}
@@ -2433,6 +2440,8 @@ function editOrder(id){
   document.getElementById('of-co-search').value=j.companyName||'';document.getElementById('of-co-id').value=j.companyId||'';
   document.getElementById('of-addr').value=j.companyAddress||'';document.getElementById('of-city').value=j.city||'';document.getElementById('of-post').value=j.postcode||'';
   document.getElementById('of-co-dd').classList.remove('open');
+  // Populate address picker — pre-select the address already on this order
+  populateCoAddrPicker(j.companyId,j.companyAddress);
   document.getElementById('of-err').textContent='';
   document.getElementById('of-addr-lbl').textContent=j.type==='Collection'?'Collect From':'Ship To';
   document.getElementById('of-ddate-lbl').textContent=j.type==='Collection'?'Collection Date *':'Delivery Date *';
@@ -2499,7 +2508,16 @@ function editOrder(id){
   } else {
     cb.style.display='none';cb.innerHTML='';
   }
-  bindCoSearch('of-co-search','of-co-dd',co=>{document.getElementById('of-co-id').value=co.id;document.getElementById('of-addr').value=co.address||'';document.getElementById('of-city').value=co.city||'';document.getElementById('of-post').value=co.postcode||'';});
+  document.getElementById('of-addr-picker-wrap').style.display='none';
+  bindCoSearch('of-co-search','of-co-dd',co=>{
+    document.getElementById('of-co-id').value=co.id;
+    populateCoAddrPicker(co.id,null);
+    const addrs=(co.addresses||[]);
+    const first=addrs[0]||co;
+    document.getElementById('of-addr').value=first.address||co.address||'';
+    document.getElementById('of-city').value=first.city||co.city||'';
+    document.getElementById('of-post').value=first.postcode||co.postcode||'';
+  });
   openM('m-order');
 }
 function applyNormalStatus(newVal){
@@ -4022,9 +4040,73 @@ function viewCompanyOrders(id){
   document.body.appendChild(m);
 }
 
-function openCompanyModal(){document.getElementById('cf-name').value='';document.getElementById('cf-addr').value='';document.getElementById('cf-city').value='';document.getElementById('cf-post').value='';document.getElementById('cf-id').value='';document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display='none';const mb=document.getElementById('cf-merge-btn');if(mb)mb.style.display='none';document.getElementById('co-modal-title').textContent='Add Company';_inlineCoCb=null;openM('m-company');}
-function editCompany(id){const c=(S.companies||[]).find(x=>x.id===id);if(!c)return;document.getElementById('cf-name').value=c.name;document.getElementById('cf-addr').value=c.address||'';document.getElementById('cf-city').value=c.city||'';document.getElementById('cf-post').value=c.postcode||'';document.getElementById('cf-id').value=c.id;document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display=canDelete()?'':'none';const mb=document.getElementById('cf-merge-btn');if(mb)mb.style.display=canDelete()?'':'none';document.getElementById('co-modal-title').textContent='Edit Company';_inlineCoCb=null;openM('m-company');}
-function openMergeCompanyModal(){
+function openCompanyModal(){document.getElementById('cf-name').value='';document.getElementById('cf-addr').value='';document.getElementById('cf-city').value='';document.getElementById('cf-post').value='';document.getElementById('cf-id').value='';document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display='none';const mb=document.getElementById('cf-merge-btn');if(mb)mb.style.display='none';document.getElementById('co-modal-title').textContent='Add Company';_inlineCoCb=null;renderCoAddrList([]);openM('m-company');}
+function editCompany(id){const c=(S.companies||[]).find(x=>x.id===id);if(!c)return;document.getElementById('cf-name').value=c.name;document.getElementById('cf-addr').value=c.address||'';document.getElementById('cf-city').value=c.city||'';document.getElementById('cf-post').value=c.postcode||'';document.getElementById('cf-id').value=c.id;document.getElementById('cf-err').textContent='';document.getElementById('cf-del').style.display=canDelete()?'':'none';const mb=document.getElementById('cf-merge-btn');if(mb)mb.style.display=canDelete()?'':'none';document.getElementById('co-modal-title').textContent='Edit Company';_inlineCoCb=null;renderCoAddrList(c.addresses||[]);openM('m-company');}
+
+/* ── COMPANY DELIVERY ADDRESSES ── */
+let _cfAddresses=[];
+function renderCoAddrList(addrs){
+  _cfAddresses=addrs.map(a=>({...a}));
+  const el=document.getElementById('cf-addr-list');if(!el)return;
+  if(!_cfAddresses.length){el.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:6px 0">No saved addresses yet — the default address above will be used.</div>';return;}
+  el.innerHTML=_cfAddresses.map((a,i)=>`
+    <div style="display:flex;gap:8px;align-items:center;background:var(--panel2);border:1.5px solid var(--line2);border-radius:9px;padding:8px 10px">
+      <div style="flex:1;display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px">
+        <input class="inp" style="padding:6px 8px;font-size:12px" placeholder="Street" value="${esc(a.address||'')}" oninput="_cfAddresses[${i}].address=this.value"/>
+        <input class="inp" style="padding:6px 8px;font-size:12px" placeholder="City" value="${esc(a.city||'')}" oninput="_cfAddresses[${i}].city=this.value"/>
+        <input class="inp" style="padding:6px 8px;font-size:12px" placeholder="Postcode" value="${esc(a.postcode||'')}" oninput="_cfAddresses[${i}].postcode=this.value"/>
+      </div>
+      <button class="btn btn-danger btn-sm" style="padding:5px 8px;flex-shrink:0" onclick="removeCoAddress(${i})" title="Remove">✕</button>
+    </div>`).join('');
+}
+function addCoAddress(){
+  _cfAddresses.push({id:mkId(),address:'',city:'',postcode:''});
+  renderCoAddrList(_cfAddresses);
+  // Focus first empty input of last row
+  const rows=document.querySelectorAll('#cf-addr-list > div');
+  if(rows.length){const inp=rows[rows.length-1].querySelector('input');if(inp)inp.focus();}
+}
+function removeCoAddress(i){_cfAddresses.splice(i,1);renderCoAddrList(_cfAddresses);}
+
+/* ── ADDRESS PICKER IN ORDER FORM ── */
+function populateCoAddrPicker(companyId, currentAddr){
+  const co=(S.companies||[]).find(c=>c.id===companyId);
+  const wrap=document.getElementById('of-addr-picker-wrap');
+  const sel=document.getElementById('of-addr-picker');
+  if(!co){if(wrap)wrap.style.display='none';return;}
+  const addrs=co.addresses||[];
+  if(!addrs.length){if(wrap)wrap.style.display='none';return;}
+  // Build options: default address + all saved addresses
+  const options=[];
+  if(co.address||co.city)options.push({label:`Default — ${[co.address,co.city,co.postcode].filter(Boolean).join(', ')}`,address:co.address||'',city:co.city||'',postcode:co.postcode||''});
+  addrs.forEach(a=>options.push({label:`${[a.address,a.city,a.postcode].filter(Boolean).join(', ')}`,address:a.address||'',city:a.city||'',postcode:a.postcode||''}));
+  options.push({label:'— Enter manually —',address:'_manual',city:'',postcode:''});
+  sel.innerHTML=options.map((o,i)=>`<option value="${i}">${esc(o.label)}</option>`).join('');
+  sel.dataset.options=JSON.stringify(options);
+  // Try to pre-select the address already on the order
+  if(currentAddr){
+    const idx=options.findIndex(o=>o.address===currentAddr);
+    if(idx>=0)sel.value=idx;
+  }
+  wrap.style.display='';
+}
+function applyCoAddress(idx){
+  const sel=document.getElementById('of-addr-picker');
+  const options=JSON.parse(sel.dataset.options||'[]');
+  const o=options[parseInt(idx)];
+  if(!o)return;
+  if(o.address==='_manual'){
+    // Clear fields and let user type freely
+    document.getElementById('of-addr').value='';
+    document.getElementById('of-city').value='';
+    document.getElementById('of-post').value='';
+    document.getElementById('of-addr').focus();
+    return;
+  }
+  document.getElementById('of-addr').value=o.address;
+  document.getElementById('of-city').value=o.city;
+  document.getElementById('of-post').value=o.postcode;
+}
   const id=document.getElementById('cf-id').value;if(!id)return;
   closeM('m-company');
   const current=(S.companies||[]).find(c=>c.id===id);if(!current)return;
@@ -4058,7 +4140,7 @@ function saveCompany(){
     document.getElementById('cf-err').innerHTML=`⚠ "<strong>${esc(name)}</strong>" already exists in ${esc(city)}. <button class="btn btn-ghost btn-sm" onclick="editCompany('${duplicate.id}');closeM('m-company')">View existing</button>`;
     return;
   }
-  const co={id:id||mkId(),name,address:document.getElementById('cf-addr').value.trim(),city,postcode:post};
+  const co={id:id||mkId(),name,address:document.getElementById('cf-addr').value.trim(),city,postcode:post,addresses:_cfAddresses.filter(a=>a.address||a.city||a.postcode)};
   if(id){
     const i=(S.companies||[]).findIndex(x=>x.id===id);
     const oldName=i>=0?S.companies[i].name:'';
