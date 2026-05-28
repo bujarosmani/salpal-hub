@@ -4107,6 +4107,7 @@ function applyCoAddress(idx){
   document.getElementById('of-city').value=o.city;
   document.getElementById('of-post').value=o.postcode;
 }
+function openMergeCompanyModal(){
   const id=document.getElementById('cf-id').value;if(!id)return;
   closeM('m-company');
   const current=(S.companies||[]).find(c=>c.id===id);if(!current)return;
