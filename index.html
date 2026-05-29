@@ -5748,7 +5748,9 @@ function plannerCard(j,idx,colId,colLen){
 }
 
 function bindMobPlannerDnd(date){
-  let dragEl=null,dragCol=null,dragOrderId=null,ghost=null,startY=0,lastOver=null;
+  let dragEl=null,dragCol=null,dragOrderId=null,ghost=null,lastOver=null;
+  let longPressTimer=null,isDragging=false;
+  const LONG_PRESS_MS=400;
 
   function getArr(colId){
     const plan=S.plans[date];
@@ -5763,73 +5765,84 @@ function bindMobPlannerDnd(date){
     const to=getArr(targetColId);
     const clampedIdx=Math.max(0,Math.min(targetIdx,to.length));
     to.splice(clampedIdx,0,dragOrderId);
-    // Sync driverId on the order
     const order=(S.orders||[]).find(j=>j.id===dragOrderId);
     if(order){order.driverId=targetColId==='unassigned'?null:targetColId;syncOrder(order);}
     persist();renderPlanner();
+  }
+
+  function cancelDrag(){
+    clearTimeout(longPressTimer);longPressTimer=null;
+    if(ghost){ghost.remove();ghost=null;}
+    if(dragEl){dragEl.style.opacity='1';dragEl.style.transform='';}
+    if(lastOver){lastOver.style.borderTop='';}
+    dragEl=null;dragCol=null;dragOrderId=null;lastOver=null;isDragging=false;
   }
 
   function cardAt(el){return el.closest('.mob-plan-card');}
   function listAt(el){return el.closest('.mob-plan-list');}
 
   document.querySelectorAll('.mob-plan-card').forEach(card=>{
-    // Touch drag
     card.addEventListener('touchstart',e=>{
       if(e.target.closest('select')||e.target.closest('button'))return;
-      dragEl=card;dragCol=card.dataset.col;dragOrderId=card.dataset.order;
-      startY=e.touches[0].clientY;
-      ghost=card.cloneNode(true);
-      ghost.style.cssText=`position:fixed;left:${card.getBoundingClientRect().left}px;top:${card.getBoundingClientRect().top}px;width:${card.offsetWidth}px;opacity:.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.4);transform:scale(1.02);transition:none`;
-      document.body.appendChild(ghost);
-      card.style.opacity='0.3';
-      e.preventDefault();
-    },{passive:false});
+      const touch=e.touches[0];
+      // Start long-press timer — only begin drag after hold
+      longPressTimer=setTimeout(()=>{
+        isDragging=true;
+        dragEl=card;dragCol=card.dataset.col;dragOrderId=card.dataset.order;
+        ghost=card.cloneNode(true);
+        ghost.style.cssText=`position:fixed;left:${card.getBoundingClientRect().left}px;top:${card.getBoundingClientRect().top}px;width:${card.offsetWidth}px;opacity:.9;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.5);transform:scale(1.03);transition:none`;
+        document.body.appendChild(ghost);
+        card.style.opacity='0.3';
+        // Haptic feedback if available
+        if(navigator.vibrate)navigator.vibrate(40);
+      },LONG_PRESS_MS);
+    },{passive:true});
 
     card.addEventListener('touchmove',e=>{
+      if(!isDragging){
+        // Cancel long press if finger moved too much before drag started
+        clearTimeout(longPressTimer);longPressTimer=null;
+        return;
+      }
       if(!ghost)return;
       const t=e.touches[0];
       ghost.style.top=(t.clientY-(ghost.offsetHeight/2))+'px';
-      // Highlight target
       ghost.style.pointerEvents='none';
       const below=document.elementFromPoint(t.clientX,t.clientY);
-      ghost.style.pointerEvents='none';
       const targetCard=below?cardAt(below):null;
       const targetList=below?listAt(below):null;
       if(lastOver&&lastOver!==dragEl)lastOver.style.borderTop='';
       if(targetCard&&targetCard!==dragEl){lastOver=targetCard;targetCard.style.borderTop='2px solid var(--brand)';}
-      else if(targetList){lastOver=null;}
+      else{lastOver=null;}
       e.preventDefault();
     },{passive:false});
 
     card.addEventListener('touchend',e=>{
-      if(!ghost){return;}
+      clearTimeout(longPressTimer);longPressTimer=null;
+      if(!isDragging){return;}
       const t=e.changedTouches[0];
-      ghost.remove();ghost=null;
+      if(ghost){ghost.remove();ghost=null;}
       if(dragEl)dragEl.style.opacity='1';
-      if(lastOver){lastOver.style.borderTop='';};
+      if(lastOver)lastOver.style.borderTop='';
       const below=document.elementFromPoint(t.clientX,t.clientY);
       const targetCard=below?cardAt(below):null;
       const targetList=below?listAt(below):null;
       if(targetCard&&targetCard!==dragEl){
-        const tCol=targetCard.dataset.col;
-        const tIdx=parseInt(targetCard.dataset.idx);
-        commitDrop(tCol,tIdx);
+        commitDrop(targetCard.dataset.col,parseInt(targetCard.dataset.idx));
       } else if(targetList){
-        const tCol=targetList.dataset.col;
-        commitDrop(tCol,getArr(tCol).length);
+        commitDrop(targetList.dataset.col,getArr(targetList.dataset.col).length);
       }
-      dragEl=null;dragCol=null;dragOrderId=null;lastOver=null;
+      dragEl=null;dragCol=null;dragOrderId=null;lastOver=null;isDragging=false;
     });
+
+    card.addEventListener('touchcancel',cancelDrag);
   });
 
-  // Empty dropzone
   document.querySelectorAll('.mob-plan-dropzone').forEach(zone=>{
     zone.addEventListener('touchend',e=>{
-      if(!dragOrderId)return;
-      const tCol=zone.dataset.col;
-      commitDrop(tCol,0);
-      dragEl=null;dragCol=null;dragOrderId=null;
-      if(ghost){ghost.remove();ghost=null;}
+      if(!isDragging||!dragOrderId)return;
+      commitDrop(zone.dataset.col,0);
+      cancelDrag();
     });
   });
 }
