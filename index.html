@@ -1304,7 +1304,10 @@ function getFleetAlerts(){
     if(e.passExp)check(name,'Passport',e.passExp,e.passWarn||90);
     if(e.wpExp)check(name,'Work Permit',e.wpExp,e.wpWarn||60);
   });
-  return{red,amber};
+  // Filter out alerts marked as completed
+  const as=S.fleetAlertStatus||{};
+  const filterDone=arr=>arr.filter(a=>as[`${a.name}__${a.doc}`]!=='completed');
+  return{red:filterDone(red),amber:filterDone(amber)};
 }
 
 function updateNavBadges(){
@@ -5663,7 +5666,7 @@ function renderPlanner(){
     const colDefs=[
       {id:'unassigned',label:'📋 Unassigned',color:'var(--amber)',ids:plan.unassigned||[]},
       ...drivers.map(d=>({id:d.id,label:`🚛 ${d.firstName} ${d.lastName}`,color:'var(--brand)',ids:plan.drivers[d.id]||[]}))
-    ];
+    ].filter(col=>col.id==='unassigned'||(col.ids.map(id=>allOrders.find(j=>j.id===id)).filter(Boolean).length>0));
     const renderMobPlanner=()=>{
       body.innerHTML=colDefs.map(col=>{
         const orders=col.ids.map(id=>allOrders.find(j=>j.id===id)).filter(Boolean);
