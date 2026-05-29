@@ -5660,7 +5660,6 @@ function renderPlanner(){
   const body=document.getElementById('planner-body');
   const isMob=currentView==='mobile'||window.innerWidth<768;
   if(isMob){
-    // Mobile: stacked sections, tap job to reassign
     const colDefs=[
       {id:'unassigned',label:'📋 Unassigned',color:'var(--amber)',ids:plan.unassigned||[]},
       ...drivers.map(d=>({id:d.id,label:`🚛 ${d.firstName} ${d.lastName}`,color:'var(--brand)',ids:plan.drivers[d.id]||[]}))
@@ -5668,13 +5667,18 @@ function renderPlanner(){
     const renderMobPlanner=()=>{
       body.innerHTML=colDefs.map(col=>{
         const orders=col.ids.map(id=>allOrders.find(j=>j.id===id)).filter(Boolean);
+        const otherCols=colDefs.filter(c=>c.id!==col.id);
         const cards=orders.length?orders.map((j,i)=>{
           const isD=j.type==='Delivery';
-          const otherCols=colDefs.filter(c=>c.id!==col.id);
           const moveOpts=otherCols.map(c=>`<option value="${c.id}">${c.label.replace(/^[^ ]+ /,'')}</option>`).join('');
-          return`<div style="background:var(--panel2);border:1.5px solid var(--line2);border-left:3px solid ${isD?'var(--brand)':'var(--amber)'};border-radius:8px;padding:10px 12px;margin-bottom:6px">
+          return`<div class="mob-plan-card" draggable="true" data-order="${j.id}" data-col="${col.id}" data-idx="${i}"
+            style="background:var(--panel2);border:1.5px solid var(--line2);border-left:3px solid ${isD?'var(--brand)':'var(--amber)'};border-radius:8px;padding:10px 12px;margin-bottom:6px;touch-action:none;user-select:none">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
-              <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span class="mob-plan-handle" style="font-size:18px;color:var(--ink3);cursor:grab;padding:0 4px 0 0;touch-action:none">⠿</span>
+                <span style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;color:var(--ink3)">#${i+1}</span>
+                <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</span>
+              </div>
               ${stChip(j.status)}
             </div>
             <div style="font-weight:600;font-size:13px;margin-bottom:2px">${esc(j.companyName||'')}</div>
@@ -5683,15 +5687,16 @@ function renderPlanner(){
               <select onchange="plannerMobMove('${j.id}','${col.id}',this.value,this)" style="flex:1;background:var(--panel);border:1px solid var(--line2);border-radius:6px;color:var(--ink2);padding:4px 6px;font-size:11px">
                 <option value="">Move to...</option>${moveOpts}
               </select>
-              <button onclick="plannerRemove('${j.id}','${col.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:2px 4px">✕</button>
+              <button onclick="plannerRemove('${j.id}','${col.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 6px">✕</button>
             </div>
           </div>`;
-        }).join(''):`<div style="text-align:center;padding:16px;color:var(--ink3);font-size:12px;border:2px dashed var(--line2);border-radius:8px">Empty</div>`;
+        }).join(''):`<div class="mob-plan-dropzone" data-col="${col.id}" style="text-align:center;padding:20px;color:var(--ink3);font-size:12px;border:2px dashed var(--line2);border-radius:8px">Drop here</div>`;
         return`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);margin-bottom:10px">
           <div style="padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700;color:${col.color}">${col.label} <span style="font-size:11px;color:var(--ink3);font-weight:400">(${orders.length})</span></div>
-          <div style="padding:8px">${cards}</div>
+          <div class="mob-plan-list" data-col="${col.id}" style="padding:8px;min-height:60px">${cards}</div>
         </div>`;
       }).join('');
+      bindMobPlannerDnd(date);
     };
     window._mobPlannerColDefs=colDefs;
     window._mobPlannerAllOrders=allOrders;
@@ -5736,6 +5741,93 @@ function plannerCard(j,idx,colId,colLen){
     </div>
     <button style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0" onclick="event.stopPropagation();plannerRemove('${j.id}','${colId}')" title="Remove">✕</button>
   </div>`;
+}
+
+function bindMobPlannerDnd(date){
+  let dragEl=null,dragCol=null,dragOrderId=null,ghost=null,startY=0,lastOver=null;
+
+  function getArr(colId){
+    const plan=S.plans[date];
+    return colId==='unassigned'?plan.unassigned:(plan.drivers[colId]||(plan.drivers[colId]=[]));
+  }
+
+  function commitDrop(targetColId,targetIdx){
+    if(!dragOrderId||!dragCol)return;
+    const from=getArr(dragCol);
+    const fromIdx=from.indexOf(dragOrderId);
+    if(fromIdx>-1)from.splice(fromIdx,1);
+    const to=getArr(targetColId);
+    const clampedIdx=Math.max(0,Math.min(targetIdx,to.length));
+    to.splice(clampedIdx,0,dragOrderId);
+    // Sync driverId on the order
+    const order=(S.orders||[]).find(j=>j.id===dragOrderId);
+    if(order){order.driverId=targetColId==='unassigned'?null:targetColId;syncOrder(order);}
+    persist();renderPlanner();
+  }
+
+  function cardAt(el){return el.closest('.mob-plan-card');}
+  function listAt(el){return el.closest('.mob-plan-list');}
+
+  document.querySelectorAll('.mob-plan-card').forEach(card=>{
+    // Touch drag
+    card.addEventListener('touchstart',e=>{
+      if(e.target.closest('select')||e.target.closest('button'))return;
+      dragEl=card;dragCol=card.dataset.col;dragOrderId=card.dataset.order;
+      startY=e.touches[0].clientY;
+      ghost=card.cloneNode(true);
+      ghost.style.cssText=`position:fixed;left:${card.getBoundingClientRect().left}px;top:${card.getBoundingClientRect().top}px;width:${card.offsetWidth}px;opacity:.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.4);transform:scale(1.02);transition:none`;
+      document.body.appendChild(ghost);
+      card.style.opacity='0.3';
+      e.preventDefault();
+    },{passive:false});
+
+    card.addEventListener('touchmove',e=>{
+      if(!ghost)return;
+      const t=e.touches[0];
+      ghost.style.top=(t.clientY-(ghost.offsetHeight/2))+'px';
+      // Highlight target
+      ghost.style.pointerEvents='none';
+      const below=document.elementFromPoint(t.clientX,t.clientY);
+      ghost.style.pointerEvents='none';
+      const targetCard=below?cardAt(below):null;
+      const targetList=below?listAt(below):null;
+      if(lastOver&&lastOver!==dragEl)lastOver.style.borderTop='';
+      if(targetCard&&targetCard!==dragEl){lastOver=targetCard;targetCard.style.borderTop='2px solid var(--brand)';}
+      else if(targetList){lastOver=null;}
+      e.preventDefault();
+    },{passive:false});
+
+    card.addEventListener('touchend',e=>{
+      if(!ghost){return;}
+      const t=e.changedTouches[0];
+      ghost.remove();ghost=null;
+      if(dragEl)dragEl.style.opacity='1';
+      if(lastOver){lastOver.style.borderTop='';};
+      const below=document.elementFromPoint(t.clientX,t.clientY);
+      const targetCard=below?cardAt(below):null;
+      const targetList=below?listAt(below):null;
+      if(targetCard&&targetCard!==dragEl){
+        const tCol=targetCard.dataset.col;
+        const tIdx=parseInt(targetCard.dataset.idx);
+        commitDrop(tCol,tIdx);
+      } else if(targetList){
+        const tCol=targetList.dataset.col;
+        commitDrop(tCol,getArr(tCol).length);
+      }
+      dragEl=null;dragCol=null;dragOrderId=null;lastOver=null;
+    });
+  });
+
+  // Empty dropzone
+  document.querySelectorAll('.mob-plan-dropzone').forEach(zone=>{
+    zone.addEventListener('touchend',e=>{
+      if(!dragOrderId)return;
+      const tCol=zone.dataset.col;
+      commitDrop(tCol,0);
+      dragEl=null;dragCol=null;dragOrderId=null;
+      if(ghost){ghost.remove();ghost=null;}
+    });
+  });
 }
 
 function plannerMobMove(orderId,fromColId,toColId,sel){
