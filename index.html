@@ -5807,7 +5807,6 @@ function renderStocktake(){
                 ${t.status==='pending'?'⏳ Pending':t.status==='approved'?'✓ Approved':t.status==='draft'?'✏ Draft':'✕ Rejected'}
               </span>
               ${t.status==='pending'?`
-                ${(()=>{const moved=t.counts?.filter(c=>c.counted!==null&&(S.stock?.[c.cls]??0)!==c.systemQty);return moved?.length?`<div style="width:100%;margin-top:6px;padding:7px 10px;background:var(--amber-bg);border:1.5px solid rgba(245,200,66,.4);border-radius:8px;font-size:11px;color:var(--amber);font-weight:700">⚠ Stock moved since count: ${moved.map(c=>`${esc(c.cls)} (was ${c.systemQty}, now ${S.stock?.[c.cls]??0})`).join(', ')} — adjustment will use current stock</div>`:''})()}
                 <button class="btn btn-ghost btn-sm" onclick="editStocktakeCounts('${t.id}')">✏ Edit Counts</button>
                 <button class="btn btn-danger btn-sm" onclick="rejectStocktake('${t.id}')">✕ Reject</button>
                 <button class="btn btn-primary btn-sm" onclick="approveStocktake('${t.id}')">✓ Approve</button>`:''}
@@ -6628,17 +6627,43 @@ function renderBin(){
     <td style="font-size:12px;color:var(--ink3)">${esc(e.deletedBy||'—')}</td>
     <td style="font-size:12px;color:var(--ink3)">${fdt(e.deletedAt)}</td>
     <td class="right" style="white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="viewBinItem('${e.id}')">👁 View</button>
       <button class="btn btn-ghost btn-sm" onclick="restoreFromBin('${e.id}')">↩ Restore</button>
       <button class="btn btn-danger btn-sm" onclick="permanentDelete('${e.id}')">✕ Delete</button>
     </td>
   </tr>`).join('');
 }
 
+
+function viewBinItem(binId){
+  const entry=(S.bin||[]).find(e=>e.id===binId);if(!entry)return;
+  const d=entry.data||{};
+  const existing=document.getElementById("m-bin-view");if(existing)existing.remove();
+  const m=document.createElement("div");m.className="mbackdrop open";m.id="m-bin-view";
+  let body="";
+  if(entry.type==="stocktake"){
+    const counts=(d.counts||[]).filter(c=>c.counted!==null);
+    const rows=counts.map(c=>{const diff=c.counted-(c.systemQty||0);return`<tr style="border-bottom:1px solid var(--line2)"><td style="padding:6px 8px;font-weight:600">${esc(c.cls)}</td><td style="padding:6px 8px;text-align:right;color:var(--ink3)">${c.systemQty||0}</td><td style="padding:6px 8px;text-align:right">${c.counted}</td><td style="padding:6px 8px;text-align:right;font-weight:700;color:${diff===0?"var(--brand)":diff>0?"var(--blue)":"var(--red)"}">${diff>0?"+":""}${diff}</td></tr>`;}).join("");
+    body=`<div style="font-size:12px;color:var(--ink3);margin-bottom:12px">By ${esc(d.userName||"—")} · ${fd(d.createdAt?.slice(0,10))} · Status: <strong style="color:var(--ink)">${esc(d.status||"—")}</strong>${d.approvedBy?" · Approved by "+esc(d.approvedBy):""}</div>${counts.length?`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="border-bottom:1.5px solid var(--line)"><th style="text-align:left;padding:6px 8px;color:var(--ink3)">Product</th><th style="text-align:right;padding:6px 8px;color:var(--ink3)">System</th><th style="text-align:right;padding:6px 8px;color:var(--ink3)">Counted</th><th style="text-align:right;padding:6px 8px;color:var(--ink3)">Difference</th></tr></thead><tbody>${rows}</tbody></table>`:"<div style='color:var(--ink3);font-size:13px'>No counts recorded.</div>"}`;
+  } else if(entry.type==="order"){
+    const pallets=(d.pallets||[]).map(p=>`<tr style="border-bottom:1px solid var(--line2)"><td style="padding:6px 8px;font-weight:600">${esc(p.cls)}</td><td style="padding:6px 8px;text-align:right">${p.qty}</td></tr>`).join("");
+    body=`<div style="display:grid;gap:6px;font-size:13px;margin-bottom:12px">${[["Reference",d.awb],["Type",d.type],["Status",d.status],["Company",d.companyName],["Date",fd(d.deliveryDate)]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700">${l}</span><span style="font-weight:600;text-align:right">${esc(v||"—")}</span></div>`).join("")}</div>${pallets?`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="border-bottom:1.5px solid var(--line)"><th style="text-align:left;padding:6px 8px;color:var(--ink3)">Class</th><th style="text-align:right;padding:6px 8px;color:var(--ink3)">Qty</th></tr></thead><tbody>${pallets}</tbody></table>`:""}`;
+  } else if(entry.type==="user"){
+    body=`<div style="display:grid;gap:6px;font-size:13px">${[["Name",`${d.firstName||""} ${d.lastName||""}`],["Username",d.username],["Role",d.role],["Phone",d.phone||"—"]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700">${l}</span><span style="font-weight:600;text-align:right">${esc(v||"—")}</span></div>`).join("")}</div>`;
+  } else if(entry.type==="company"){
+    body=`<div style="display:grid;gap:6px;font-size:13px">${[["Name",d.name],["Address",d.address||"—"],["Phone",d.phone||"—"],["Email",d.email||"—"]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700">${l}</span><span style="font-weight:600;text-align:right">${esc(v||"—")}</span></div>`).join("")}</div>`;
+  } else {
+    body=`<pre style="font-size:11px;color:var(--ink2);white-space:pre-wrap;word-break:break-all">${esc(JSON.stringify(d,null,2))}</pre>`;
+  }
+  m.innerHTML=`<div class="mbox"><div class="mhdr"><span class="mtitle">${esc(entry.name||entry.type)}</span><button class="mclose" onclick="document.getElementById('m-bin-view').remove()">✕</button></div><div class="mbody">${body}</div><div class="mfoot"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('m-bin-view').remove();restoreFromBin('${binId}')">↩ Restore</button><button class="btn btn-ghost" onclick="document.getElementById('m-bin-view').remove()">Close</button></div></div>`;
+  document.body.appendChild(m);
+}
 function restoreFromBin(binId){
   const entry=(S.bin||[]).find(e=>e.id===binId);if(!entry)return;
   if(entry.type==='order'){if(!S.orders)S.orders=[];S.orders.unshift(entry.data);sbUpsert('sp_orders',entry.data.id,entry.data).catch(()=>{});toast(`Order ${entry.name} restored`);}
   else if(entry.type==='user'){if(!S.users)S.users=[];S.users.push(entry.data);sbUpsert('sp_users',entry.data.id,entry.data).catch(()=>{});toast(`User ${entry.name} restored`);}
   else if(entry.type==='company'){if(!S.companies)S.companies=[];S.companies.push(entry.data);sbUpsert('sp_companies',entry.data.id,entry.data).catch(()=>{});toast(`Company ${entry.name} restored`);}
+  else if(entry.type==='stocktake'){if(!S.stocktakes)S.stocktakes=[];S.stocktakes.unshift(entry.data);sbUpsert('sp_stocktakes',entry.data.id,entry.data).catch(()=>{});toast(`Stocktake ${entry.name} restored`);}
   S.bin=S.bin.filter(e=>e.id!==binId);
   apiDelete('sp_deleted',binId).catch(()=>{});
   persist();renderBin();
