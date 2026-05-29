@@ -3696,6 +3696,40 @@ function renderCalendar(){
     }).join('');
     return`<div class="day-row${isT?' day-row-today':''}"><div class="day-label${isT?' day-label-today':''}"><span class="day-num">${dn}</span><span class="day-dow">${dow}</span></div>${cols}</div>`;
   }).join('');
+  const isMob=currentView==='mobile'||window.innerWidth<768;
+  if(isMob){
+    // Mobile: date-grouped list with driver labels
+    const mobRows=dates.map(date=>{
+      const dow=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(date).getDay()];
+      const dn=parseInt(date.split('-')[2],10);
+      const mon=String(parseInt(date.split('-')[1],10)).padStart(2,'0');
+      const isT=date===ts;
+      const allJobs=drivers.flatMap(dr=>(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id).map(t=>({...t,_drv:dr})));
+      if(!allJobs.length)return'';
+      const jobCards=allJobs.map(t=>{
+        const isCol=t.type==='Collection';
+        return`<div onclick="viewOrder('${t.id}')" style="background:var(--panel2);border:1.5px solid var(--line2);border-left:3px solid ${isCol?'var(--amber)':'var(--brand)'};border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+            <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px;color:${isCol?'var(--amber)':'var(--brand)'}">${esc(t.awb)}</div>
+            ${stChip(t.status)}
+          </div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:2px">${esc(t.companyName||'—')}</div>
+          <div style="font-size:11px;color:var(--ink3)">${esc(t._drv.firstName)} ${esc(t._drv.lastName)} · ${t.totalQty||0} plt${t.timeFrom?' · '+t.timeFrom:''}</div>
+        </div>`;
+      }).join('');
+      return`<div style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 0 6px;border-bottom:1px solid var(--line);margin-bottom:8px">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:${isT?'var(--brand)':'var(--ink)'};line-height:1">${dn}</div>
+          <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${isT?'var(--brand)':'var(--ink3)'}">${dow} ${mon}</div><div style="font-size:10px;color:var(--ink3)">${allJobs.length} job${allJobs.length!==1?'s':''}</div></div>
+        </div>
+        ${jobCards}
+      </div>`;
+    }).filter(Boolean).join('');
+    cont.innerHTML=toolbar+(mobRows||'<div class="empty" style="padding:32px">No jobs in this period</div>');
+    bindCalToolbar(drvOpts);
+    cont.querySelectorAll('[onclick]');
+    return;
+  }
   cont.innerHTML=toolbar+`<div class="day-cal-wrap" style="min-width:${64+drivers.length*160}px">${header}<div>${rows}</div></div>`;
   cont.querySelectorAll('[data-vid]').forEach(btn=>{btn.onclick=()=>viewOrder(btn.dataset.vid);});
   bindCalToolbar(drvOpts);
@@ -5624,6 +5658,47 @@ function renderPlanner(){
   });
 
   const body=document.getElementById('planner-body');
+  const isMob=currentView==='mobile'||window.innerWidth<768;
+  if(isMob){
+    // Mobile: stacked sections, tap job to reassign
+    const colDefs=[
+      {id:'unassigned',label:'📋 Unassigned',color:'var(--amber)',ids:plan.unassigned||[]},
+      ...drivers.map(d=>({id:d.id,label:`🚛 ${d.firstName} ${d.lastName}`,color:'var(--brand)',ids:plan.drivers[d.id]||[]}))
+    ];
+    const renderMobPlanner=()=>{
+      body.innerHTML=colDefs.map(col=>{
+        const orders=col.ids.map(id=>allOrders.find(j=>j.id===id)).filter(Boolean);
+        const cards=orders.length?orders.map((j,i)=>{
+          const isD=j.type==='Delivery';
+          const otherCols=colDefs.filter(c=>c.id!==col.id);
+          const moveOpts=otherCols.map(c=>`<option value="${c.id}">${c.label.replace(/^[^ ]+ /,'')}</option>`).join('');
+          return`<div style="background:var(--panel2);border:1.5px solid var(--line2);border-left:3px solid ${isD?'var(--brand)':'var(--amber)'};border-radius:8px;padding:10px 12px;margin-bottom:6px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+              <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:12px">${esc(j.awb)}</span>
+              ${stChip(j.status)}
+            </div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:2px">${esc(j.companyName||'')}</div>
+            <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">${esc(palletStr(j.pallets))} · ${fd(j.deliveryDate)}</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <select onchange="plannerMobMove('${j.id}','${col.id}',this.value,this)" style="flex:1;background:var(--panel);border:1px solid var(--line2);border-radius:6px;color:var(--ink2);padding:4px 6px;font-size:11px">
+                <option value="">Move to...</option>${moveOpts}
+              </select>
+              <button onclick="plannerRemove('${j.id}','${col.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:2px 4px">✕</button>
+            </div>
+          </div>`;
+        }).join(''):`<div style="text-align:center;padding:16px;color:var(--ink3);font-size:12px;border:2px dashed var(--line2);border-radius:8px">Empty</div>`;
+        return`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);margin-bottom:10px">
+          <div style="padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700;color:${col.color}">${col.label} <span style="font-size:11px;color:var(--ink3);font-weight:400">(${orders.length})</span></div>
+          <div style="padding:8px">${cards}</div>
+        </div>`;
+      }).join('');
+    };
+    window._mobPlannerColDefs=colDefs;
+    window._mobPlannerAllOrders=allOrders;
+    window._mobPlannerDate=date;
+    renderMobPlanner();
+    return;
+  }
   body.innerHTML=`<div style="display:flex;gap:8px;align-items:flex-start;padding:4px;width:100%" id="planner-cols">
     ${plannerCol('unassigned','📋 Unassigned',plan.unassigned||[],allOrders,'#f5c843')}
     ${drivers.map(d=>plannerCol(d.id,`🚛 ${d.firstName} ${d.lastName}`,plan.drivers[d.id]||[],allOrders,'var(--brand)')).join('')}
@@ -5661,6 +5736,24 @@ function plannerCard(j,idx,colId,colLen){
     </div>
     <button style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0" onclick="event.stopPropagation();plannerRemove('${j.id}','${colId}')" title="Remove">✕</button>
   </div>`;
+}
+
+function plannerMobMove(orderId,fromColId,toColId,sel){
+  if(!toColId)return;
+  const date=window._mobPlannerDate||window.plannerDate;
+  if(!S.plans)S.plans={};
+  if(!S.plans[date])S.plans[date]={unassigned:[],drivers:{}};
+  const plan=S.plans[date];
+  // Remove from source
+  if(fromColId==='unassigned'){plan.unassigned=(plan.unassigned||[]).filter(id=>id!==orderId);}
+  else{if(plan.drivers[fromColId])plan.drivers[fromColId]=plan.drivers[fromColId].filter(id=>id!==orderId);}
+  // Add to target
+  if(toColId==='unassigned'){if(!plan.unassigned)plan.unassigned=[];plan.unassigned.push(orderId);}
+  else{if(!plan.drivers[toColId])plan.drivers[toColId]=[];plan.drivers[toColId].push(orderId);}
+  // Update order driverId if moved to a driver column
+  const order=(S.orders||[]).find(j=>j.id===orderId);
+  if(order){order.driverId=toColId==='unassigned'?null:toColId;syncOrder(order);}
+  persist();renderPlanner();
 }
 
 function plannerPrevDay(){const d=new Date(window.plannerDate||localIso(new Date()));d.setDate(d.getDate()-1);window.plannerDate=localIso(d);renderPlanner();}
