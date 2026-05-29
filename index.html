@@ -1125,7 +1125,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="fwrap"><label class="flabel">Supervisor *</label><div class="pick-grid c2" id="srt-sup"></div></div>
       <div class="fwrap"><label class="flabel">Sorters * (select one or more)</label><div class="pick-grid c3" id="srt-rep"></div></div>
       <div class="fwrap">
-        <label class="flabel">Order Reference (optional)</label>
+        <label class="flabel" id="srt-order-ref-label">Order Reference (optional)</label>
         <select class="inp" id="srt-order-ref" onchange="onSrtOrderChange()"><option value="">— No specific order —</option></select>
       </div>
       <div id="srt-order-info" style="display:none;margin-bottom:14px">
@@ -3466,21 +3466,6 @@ function renderRepTab(name){
       </div>
       ${byw.length?`<div class="sec-title" style="margin-bottom:10px">By Worker</div><div class="card" style="margin-bottom:16px">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)"><span style="font-weight:600">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join('')}</div>`:''}
       ${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${x.t}</span></div>`).join('')}</div>`:''}
-      ${(()=>{
-        const workers=byw.map(r=>r.n);
-        if(!workers.length)return'';
-        const days=[...new Set(rlist.map(r=>r.date?.slice(0,10)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
-        if(!days.length)return'';
-        const hdr='<tr><th style="text-align:left;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line);white-space:nowrap">Date</th>'+workers.map(w=>'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line);white-space:nowrap">'+esc(w)+'</th>').join('')+'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line)">Total</th></tr>';
-        const bodyRows=days.map(day=>{
-          const dr=rlist.filter(r=>r.date?.slice(0,10)===day);
-          const cells=workers.map(w=>{const q=dr.filter(r=>r.repairer===w).reduce((s,r)=>s+(r.qty||0),0);return'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;color:'+(q>0?'var(--brand)':'var(--ink4)')+';border-bottom:1px solid var(--line2)">'+(q>0?q:'—')+'</td>';}).join('');
-          const dt=dr.reduce((s,r)=>s+(r.qty||0),0);
-          return'<tr><td style="padding:7px 10px;font-size:12px;font-weight:600;color:var(--ink2);border-bottom:1px solid var(--line2);white-space:nowrap">'+fd(day)+'</td>'+cells+'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line2)">'+dt+'</td></tr>';
-        }).join('');
-        const totRow='<tr><td style="padding:7px 10px;font-size:11px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:1px">Total</td>'+workers.map(w=>{const q=rlist.filter(r=>r.repairer===w).reduce((s,r)=>s+(r.qty||0),0);return'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--brand)">'+q+'</td>';}).join('')+'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--brand)">'+tot+'</td></tr>';
-        return'<div class="sec-title" style="margin-bottom:10px">Daily Breakdown</div><div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r)"><thead>'+hdr+'</thead><tbody>'+bodyRows+totRow+'</tbody></table></div>';
-      })()}
     `;
   }
 }
@@ -4448,6 +4433,8 @@ function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se
       const qty=(j.pallets||[]).find(p=>p.cls==='Unsorted')?.qty||0;
       return`<option value="${j.awb}">${esc(j.awb)} — ${esc(j.companyName||'')} (${qty}× Unsorted)</option>`;
     }).join('');
+  sel.disabled=false;
+  const lbl=document.getElementById('srt-order-ref-label');if(lbl)lbl.textContent='Order Reference (optional)';
   const warn=document.getElementById('srt-warn');if(warn){warn.style.display='none';warn.innerHTML='';}
   const info=document.getElementById('srt-order-info');if(info)info.style.display='none';
   const srtDate=document.getElementById('srt-date');if(srtDate)srtDate.value=localIso(new Date());
@@ -4463,7 +4450,13 @@ function renderSrtPickers(){
 function openSortModalForOrder(awb,remaining){
   openSortModal();
   const sel=document.getElementById('srt-order-ref');
-  if(sel){sel.value=awb;onSrtOrderChange();}
+  if(sel){
+    sel.value=awb;
+    sel.disabled=true;
+    const lbl=document.getElementById('srt-order-ref-label');
+    if(lbl)lbl.textContent='Order Reference';
+    onSrtOrderChange();
+  }
 }
 
 function onSrtLinesChange(){
