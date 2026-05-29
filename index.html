@@ -4451,6 +4451,13 @@ function openSortModalForOrder(awb,remaining){
   openSortModal();
   const sel=document.getElementById('srt-order-ref');
   if(sel){
+    if(!Array.from(sel.options).find(o=>o.value===awb)){
+      const j=(S.orders||[]).find(x=>x.awb===awb);
+      const opt=document.createElement('option');
+      opt.value=awb;
+      opt.textContent=awb+(j?' — '+(j.companyName||''):'')+' ('+remaining+'× remaining)';
+      sel.appendChild(opt);
+    }
     sel.value=awb;
     sel.disabled=true;
     const lbl=document.getElementById('srt-order-ref-label');
