@@ -337,7 +337,11 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <div class="mob-topbar">
   <button class="ham" id="ham-btn">☰</button>
   <div class="mob-logo">Sal<span>Pal</span> Hub</div>
-  <div id="mob-vt"></div>
+  <div style="display:flex;align-items:center;gap:6px">
+    <div class="sync-row" id="sync-row-mob" style="font-size:10px"><div class="sync-dot"></div><span id="sync-txt-mob">Sync</span></div>
+    <button onclick="forceSyncNow()" title="Force Sync" style="background:none;border:1px solid var(--line2);border-radius:8px;color:var(--ink3);cursor:pointer;padding:4px 7px;font-size:13px">↺</button>
+    <div id="mob-vt"></div>
+  </div>
 </div>
 
 <div class="page" id="page-hub">
@@ -1125,7 +1129,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="fwrap"><label class="flabel">Supervisor *</label><div class="pick-grid c2" id="srt-sup"></div></div>
       <div class="fwrap"><label class="flabel">Sorters * (select one or more)</label><div class="pick-grid c3" id="srt-rep"></div></div>
       <div class="fwrap">
-        <label class="flabel" id="srt-order-ref-label">Order Reference (optional)</label>
+        <label class="flabel">Order Reference (optional)</label>
         <select class="inp" id="srt-order-ref" onchange="onSrtOrderChange()"><option value="">— No specific order —</option></select>
       </div>
       <div id="srt-order-info" style="display:none;margin-bottom:14px">
@@ -1595,20 +1599,26 @@ setInterval(async()=>{
 
 function setSS(s){
   const row=document.getElementById('sync-row'),txt=document.getElementById('sync-txt');
+  const mobRow=document.getElementById('sync-row-mob'),mobTxt=document.getElementById('sync-txt-mob');
   if(!row)return;
   row.className='sync-row '+s;
+  if(mobRow)mobRow.className='sync-row '+s;
   if(s==='ok'){
     const now=new Date();
     const t=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     txt.textContent=`Synced ${t}`;
+    if(mobTxt)mobTxt.textContent=`${t}`;
     if(!S.lastSync)S.lastSync={};
     S.lastSync[ME?.id||'anon']={user:ME?`${ME.firstName} ${ME.lastName}`.trim():'',time:now.toISOString()};
     localStorage.setItem(SKEY,JSON.stringify(S));
   } else if(s==='syncing'){
     txt.textContent='Saving...';
+    if(mobTxt)mobTxt.textContent='Saving...';
   } else {
     txt.textContent='Sync error — tap to retry';
+    if(mobTxt)mobTxt.textContent='Error';
     row.onclick=()=>{syncCloud();loadCloud().catch(()=>{});};
+    if(mobRow)mobRow.onclick=()=>{syncCloud();loadCloud().catch(()=>{});};
   }
 }
 
@@ -1973,6 +1983,7 @@ function setupNav(){
   });
 
   const mvt=document.getElementById('mob-vt');
+  if(r==='Supervisor'){currentView='mobile';}
   if((r==='Admin'||r==='Manager')&&mvt)mvt.innerHTML=`<div class="view-toggle"><button class="vt-btn on" id="vt-d" onclick="setView('desktop')">🖥</button><button class="vt-btn" id="vt-m" onclick="setView('mobile')">📱</button></div>`;
   const svt=document.getElementById('sb-vt');
   if((r==='Admin'||r==='Manager')&&svt)svt.innerHTML=`<div style="margin-bottom:10px"><div class="flabel" style="margin-bottom:6px">View Mode</div><div class="view-toggle" style="width:100%"><button class="vt-btn on" style="flex:1" id="vt-d2" onclick="setView('desktop')">🖥 Desktop</button><button class="vt-btn" style="flex:1" id="vt-m2" onclick="setView('mobile')">📱 Mobile</button></div></div>`;
@@ -4306,7 +4317,7 @@ function renderSrtTab(name){
     return filterSrt(r);
   };
   if(name==='today'){
-    const tr=(S.sortings||[]).filter(r=>isToday(r.date)&&filterSrt(r));
+    const tr=(S.sortings||[]).filter(r=>isToday(r.date)&&filterSrt(r)).sort((a,b)=>b.date.localeCompare(a.date));
     document.getElementById('srt-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div><div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} · ${esc(r.supervisor)}${r.orderRef?` · ${esc(r.orderRef)}`:''}</div></div>
@@ -4433,8 +4444,6 @@ function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se
       const qty=(j.pallets||[]).find(p=>p.cls==='Unsorted')?.qty||0;
       return`<option value="${j.awb}">${esc(j.awb)} — ${esc(j.companyName||'')} (${qty}× Unsorted)</option>`;
     }).join('');
-  sel.disabled=false;
-  const lbl=document.getElementById('srt-order-ref-label');if(lbl)lbl.textContent='Order Reference (optional)';
   const warn=document.getElementById('srt-warn');if(warn){warn.style.display='none';warn.innerHTML='';}
   const info=document.getElementById('srt-order-info');if(info)info.style.display='none';
   const srtDate=document.getElementById('srt-date');if(srtDate)srtDate.value=localIso(new Date());
@@ -4450,20 +4459,7 @@ function renderSrtPickers(){
 function openSortModalForOrder(awb,remaining){
   openSortModal();
   const sel=document.getElementById('srt-order-ref');
-  if(sel){
-    if(!Array.from(sel.options).find(o=>o.value===awb)){
-      const j=(S.orders||[]).find(x=>x.awb===awb);
-      const opt=document.createElement('option');
-      opt.value=awb;
-      opt.textContent=awb+(j?' — '+(j.companyName||''):'')+' ('+remaining+'× remaining)';
-      sel.appendChild(opt);
-    }
-    sel.value=awb;
-    sel.disabled=true;
-    const lbl=document.getElementById('srt-order-ref-label');
-    if(lbl)lbl.textContent='Order Reference';
-    onSrtOrderChange();
-  }
+  if(sel){sel.value=awb;onSrtOrderChange();}
 }
 
 function onSrtLinesChange(){
