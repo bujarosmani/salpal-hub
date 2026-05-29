@@ -3543,8 +3543,7 @@ function addRepLine(cls,qty){
   const finalQty=(qty!==undefined&&qty!=='')?qty:autoQty;
   const d=document.createElement('div');d.className='plt-line';
   d.style.flexWrap='nowrap';
-  d.innerHTML=`<button type="button" class="rm-btn" style="flex-shrink:0" onclick="this.closest('.plt-line').remove();updateRepTotal()">−</button><select class="inp" onchange="onRepLineChange(this)" style="flex:1;min-width:0;max-width:100%"><option value="">— Class —</option>${repairableClasses.map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${finalQty}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:68px;flex-shrink:0" oninput="updateRepTotal()"/>`;
-
+  d.innerHTML=`<button type="button" class="rm-btn" style="flex-shrink:0" onclick="this.closest('.plt-line').remove();updateRepTotal()">−</button><select class="inp" onchange="onRepLineChange(this)" style="flex:1;min-width:0;max-width:100%"><option value="">— Class —</option>${repairableClasses.map(s=>`<option${s===cls?' selected':''}>${s}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${finalQty}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:68px;flex-shrink:0" oninput="updateRepTotal()"/><button type="button" style="padding:0 10px;height:38px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;color:var(--ink2);font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0" onclick="this.previousElementSibling.value=15;updateRepTotal()">15</button>`;
   c.appendChild(d);
   updateRepTotal();
 }
@@ -5808,6 +5807,7 @@ function renderStocktake(){
                 ${t.status==='pending'?'⏳ Pending':t.status==='approved'?'✓ Approved':t.status==='draft'?'✏ Draft':'✕ Rejected'}
               </span>
               ${t.status==='pending'?`
+                ${(()=>{const moved=t.counts?.filter(c=>c.counted!==null&&(S.stock?.[c.cls]??0)!==c.systemQty);return moved?.length?`<div style="width:100%;margin-top:6px;padding:7px 10px;background:var(--amber-bg);border:1.5px solid rgba(245,200,66,.4);border-radius:8px;font-size:11px;color:var(--amber);font-weight:700">⚠ Stock moved since count: ${moved.map(c=>`${esc(c.cls)} (was ${c.systemQty}, now ${S.stock?.[c.cls]??0})`).join(', ')} — adjustment will use current stock</div>`:''})()}
                 <button class="btn btn-ghost btn-sm" onclick="editStocktakeCounts('${t.id}')">✏ Edit Counts</button>
                 <button class="btn btn-danger btn-sm" onclick="rejectStocktake('${t.id}')">✕ Reject</button>
                 <button class="btn btn-primary btn-sm" onclick="approveStocktake('${t.id}')">✓ Approve</button>`:''}
