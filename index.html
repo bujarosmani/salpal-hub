@@ -3476,7 +3476,22 @@ function renderRepTab(name){
         <div class="stat-box"><div class="stat-num">${rlist.length}</div><div class="stat-lbl">Entries</div></div>
       </div>
       ${byw.length?`<div class="sec-title" style="margin-bottom:10px">By Worker</div><div class="card" style="margin-bottom:16px">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)"><span style="font-weight:600">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join('')}</div>`:''}
-      ${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${x.t}</span></div>`).join('')}</div>`:''}
+      ${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card" style="margin-bottom:16px">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${x.t}</span></div>`).join('')}</div>`:''}
+      ${(()=>{
+        const workers=byw.map(r=>r.n);
+        if(!workers.length)return'';
+        const days=[...new Set(rlist.map(r=>r.date?.slice(0,10)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+        if(!days.length)return'';
+        const hdr='<tr><th style="text-align:left;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line);white-space:nowrap">Date</th>'+workers.map(w=>'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line);white-space:nowrap">'+esc(w)+'</th>').join('')+'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line)">Total</th></tr>';
+        const bodyRows=days.map(day=>{
+          const dr=rlist.filter(r=>r.date?.slice(0,10)===day);
+          const cells=workers.map(w=>{const q=dr.filter(r=>r.repairer===w).reduce((s,r)=>s+(r.qty||0),0);return'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;color:'+(q>0?'var(--brand)':'var(--ink4)')+';border-bottom:1px solid var(--line2)">'+(q>0?q:'—')+'</td>';}).join('');
+          const dt=dr.reduce((s,r)=>s+(r.qty||0),0);
+          return'<tr><td style="padding:7px 10px;font-size:12px;font-weight:600;color:var(--ink2);border-bottom:1px solid var(--line2);white-space:nowrap">'+fd(day)+'</td>'+cells+'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line2)">'+dt+'</td></tr>';
+        }).join('');
+        const totRow='<tr><td style="padding:7px 10px;font-size:11px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:1px">Total</td>'+workers.map(w=>{const q=rlist.filter(r=>r.repairer===w).reduce((s,r)=>s+(r.qty||0),0);return'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--brand)">'+q+'</td>';}).join('')+'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--brand)">'+tot+'</td></tr>';
+        return'<div class="sec-title" style="margin-bottom:10px">Daily Repairs by Worker</div><div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r)"><thead>'+hdr+'</thead><tbody>'+bodyRows+totRow+'</tbody></table></div>';
+      })()}
     `;
   }
 }
@@ -4341,7 +4356,23 @@ function renderSrtTab(name){
     document.getElementById('srt-manager').innerHTML=`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px"><div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Total Sorted</div></div><div class="stat-box"><div class="stat-num">${(S.sortings||[]).length}</div><div class="stat-lbl">Total Entries</div></div></div>
       ${byw.length?`<div class="sec-title" style="margin-bottom:10px">By Sorter</div><div class="card" style="margin-bottom:16px">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)"><span style="font-weight:600">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--blue)">${r.t}</span></div>`).join('')}</div>`:''}
-      ${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--blue)">${x.t}</span></div>`).join('')}</div>`:''}
+      ${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card" style="margin-bottom:16px">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--blue)">${x.t}</span></div>`).join('')}</div>`:''}
+      ${(()=>{
+        const workers=byw.map(r=>r.n);
+        if(!workers.length)return'';
+        const slist=S.sortings||[];
+        const days=[...new Set(slist.map(r=>r.date?.slice(0,10)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+        if(!days.length)return'';
+        const hdr='<tr><th style="text-align:left;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line);white-space:nowrap">Date</th>'+workers.map(w=>'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line);white-space:nowrap">'+esc(w)+'</th>').join('')+'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line)">Total</th></tr>';
+        const bodyRows=days.map(day=>{
+          const dr=slist.filter(r=>r.date?.slice(0,10)===day);
+          const cells=workers.map(w=>{const q=dr.filter(r=>(r.sorters||[]).includes(w)).reduce((s,r)=>s+totQty(r),0);return'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;color:'+(q>0?'var(--blue)':'var(--ink4)')+';border-bottom:1px solid var(--line2)">'+(q>0?q:'—')+'</td>';}).join('');
+          const dt=dr.reduce((s,r)=>s+totQty(r),0);
+          return'<tr><td style="padding:7px 10px;font-size:12px;font-weight:600;color:var(--ink2);border-bottom:1px solid var(--line2);white-space:nowrap">'+fd(day)+'</td>'+cells+'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line2)">'+dt+'</td></tr>';
+        }).join('');
+        const totRow='<tr><td style="padding:7px 10px;font-size:11px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:1px">Total</td>'+workers.map(w=>{const q=slist.filter(r=>(r.sorters||[]).includes(w)).reduce((s,r)=>s+totQty(r),0);return'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--blue)">'+q+'</td>';}).join('')+'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--blue)">'+tot+'</td></tr>';
+        return'<div class="sec-title" style="margin-bottom:10px">Daily Sorting by Worker</div><div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r)"><thead>'+hdr+'</thead><tbody>'+bodyRows+totRow+'</tbody></table></div>';
+      })()}
     `;
   }
 }
