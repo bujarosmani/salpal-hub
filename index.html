@@ -6710,4 +6710,50 @@ if(!tryRestoreSession()){
 }
 </script>
 </body>
-</html>
+</html><script>
+// Patch permanentDelete to handle approved stocktakes differently
+const _origPermanentDelete = permanentDelete;
+permanentDelete = function(binId) {
+  const entry = (S.bin || []).find(e => e.id === binId);
+  if (!entry) return;
+  if (entry.type === 'stocktake' && entry.data && entry.data.status === 'approved' && entry.data.adjRef) {
+    const tb = document.getElementById('bin-tbody');
+    const rows = tb ? Array.from(tb.querySelectorAll('tr')) : [];
+    const row = rows.find(r => r.innerHTML.includes(binId));
+    if (row) {
+      if (row.nextSibling && row.nextSibling.dataset && row.nextSibling.dataset.confirm) row.nextSibling.remove();
+      const newRow = document.createElement('tr'); newRow.dataset.confirm = '1';
+      const td = document.createElement('td'); td.colSpan = 5;
+      td.innerHTML = `<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px;margin:4px">
+        <div style="color:var(--red);font-weight:700;margin-bottom:4px">⚠ "${esc(entry.name)}" is an approved stocktake</div>
+        <div style="font-size:12px;color:var(--ink2);margin-bottom:10px">Deleting will reverse the stock adjustments it made. This cannot be undone.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-danger btn-sm" onclick="reverseDeleteStocktake('${binId}')">↩ Delete &amp; Reverse Stock</button>
+          <button class="btn btn-ghost btn-sm" onclick="confirmPermanentDelete('${binId}')">🗑 Delete Only (keep stock)</button>
+          <button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove()">✕ Cancel</button>
+        </div></div>`;
+      newRow.appendChild(td); row.after(newRow);
+    }
+  } else {
+    _origPermanentDelete(binId);
+  }
+};
+
+async function reverseDeleteStocktake(binId) {
+  const entry = (S.bin || []).find(e => e.id === binId); if (!entry) return;
+  try {
+    const res = await fetch(API_URL + '/api/action/stocktake/reverse-delete', {
+      method: 'POST', headers: apiHeaders(),
+      body: JSON.stringify({ stocktake: entry.data, binId })
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Server error'); }
+    const result = await res.json();
+    S.bin = (S.bin || []).filter(e => e.id !== binId);
+    if (!S.ledger) S.ledger = [];
+    result.ledger.forEach(e => S.ledger.unshift(e));
+    result.ledger.forEach(e => { if (!S.stock) S.stock = {}; if (e.dir === 'in') S.stock[e.cls] = (S.stock[e.cls] || 0) + e.qty; else S.stock[e.cls] = (S.stock[e.cls] || 0) - e.qty; });
+    persist(); renderBin(); renderDash();
+    toast(`${entry.data.adjRef} reversed — ${result.ledger.length} stock adjustments undone`);
+  } catch (e) { toast('Reversal failed: ' + e.message, 'err'); }
+}
+</script>
