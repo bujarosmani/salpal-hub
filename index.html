@@ -1527,7 +1527,8 @@ async function loadCloud(){
     const lkr=stock.find(r=>r.id==='__locks');if(lkr&&lkr.data)S.orderLocks=lkr.data;
     const adjr=stock.find(r=>r.id==='__adjustments');if(adjr&&adjr.data)S.adjustments=adjr.data;
     const ddr=stock.find(r=>r.id==='__dismissedDups');if(ddr&&ddr.data)S.dismissedDups=ddr.data;
-    const dpR=stock.find(r=>r.id==='__deletedProducts');if(dpR&&dpR.data)S.deletedProducts=dpR.data;}
+    const dpR=stock.find(r=>r.id==='__deletedProducts');if(dpR&&dpR.data)S.deletedProducts=dpR.data;
+    const farR=stock.find(r=>r.id==='__fleetAlertStatus');if(farR&&farR.data)S.fleetAlertStatus=farR.data;}
     if(products&&products.length){
       const pr=products.find(r=>r.id==='__products');
       if(pr&&pr.data){
@@ -6398,6 +6399,7 @@ function setFleetAlertStatus(key,val){
   if(!S.fleetAlertStatus)S.fleetAlertStatus={};
   S.fleetAlertStatus[key]=val;
   pushRecord('sp_stock','__fleet',S.fleet||{});
+  pushRecord('sp_stock','__fleetAlertStatus',S.fleetAlertStatus);
   persist();
   renderFleetOverview();
   renderDash();
