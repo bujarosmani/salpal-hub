@@ -405,7 +405,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       </div>
     </div>
     <div id="ord-active-tags" style="display:flex;gap:6px;flex-wrap:wrap;padding:6px 16px 4px"></div>
-    <div id="ord-tbl-container" style="position:relative;overflow:hidden">
+    <div id="ord-tbl-container" style="position:relative">
     <div class="tbl-wrap">
       <table id="ord-table"><thead id="ord-thead"><tr>
         <th data-col="awb" onclick="thClick('ord-table','awb',renderOrdTable)" style="cursor:pointer">AWB</th>
@@ -423,8 +423,8 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       </tr></thead><tbody id="ord-tbody"></tbody></table>
     </div>
     </div>
-    <div id="ord-tbl-resize-handle" style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:col-resize;background:var(--line2);z-index:10;opacity:0;transition:opacity .2s" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0'" title="Drag to resize table"></div>
     </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0 2px"><div style="flex:1;height:1px;background:var(--line2)"></div><div id="ord-tbl-resize-handle" style="display:flex;align-items:center;gap:3px;cursor:col-resize;padding:4px 8px;border-radius:6px;border:1px solid var(--line2);background:var(--panel2)" onmouseenter="this.style.borderColor='var(--brand)';this.style.color='var(--brand)'" onmouseleave="this.style.borderColor='var(--line2)';this.style.color='var(--ink3)'" title="Drag left/right to resize table width"><span style="font-size:10px;color:inherit;pointer-events:none">⟷ drag to resize</span></div><div style="flex:1;height:1px;background:var(--line2)"></div></div>
     <div id="ord-pagination" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 0;font-size:13px"></div>
   </div>
 </div>
@@ -2433,28 +2433,21 @@ function renderOrdTable(){
       handle.addEventListener('mousedown',e=>{
         e.preventDefault();
         const startX=e.clientX;
-        const startW=container.offsetWidth;
+        const wrap=container.querySelector('.tbl-wrap');
+        const startW=wrap?wrap.offsetWidth:container.offsetWidth;
+        handle.style.borderColor='var(--brand)';
         const onMove=ev=>{
           const newW=Math.max(400,startW+(ev.clientX-startX));
-          container.style.width=newW+'px';
+          if(wrap)wrap.style.minWidth=newW+'px';
         };
         const onUp=()=>{
+          handle.style.borderColor='var(--line2)';
           document.removeEventListener('mousemove',onMove);
           document.removeEventListener('mouseup',onUp);
         };
         document.addEventListener('mousemove',onMove);
         document.addEventListener('mouseup',onUp);
       });
-      // Touch support
-      handle.addEventListener('touchstart',e=>{
-        e.preventDefault();
-        const startX=e.touches[0].clientX;
-        const startW=container.offsetWidth;
-        const onMove=ev=>{const newW=Math.max(400,startW+(ev.touches[0].clientX-startX));container.style.width=newW+'px';};
-        const onUp=()=>{handle.removeEventListener('touchmove',onMove);handle.removeEventListener('touchend',onUp);};
-        handle.addEventListener('touchmove',onMove,{passive:false});
-        handle.addEventListener('touchend',onUp);
-      },{passive:false});
     }
   },100);
   // Apply saved table width
