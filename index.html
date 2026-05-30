@@ -1585,12 +1585,13 @@ async function loadCloud(){
         const ltTime=new Date(lt.updatedAt||lt.submittedAt||lt.createdAt||0).getTime();
         return ltTime>rtTime?lt:rt;
       });
-      // Add any local records not in remote (drafts in progress on this device)
-      // AND any remote records not yet in local (drafts from other devices)
+      // Add local records not in remote, BUT skip any that are in the bin or discarded
+      const binIds=new Set((S.bin||[]).filter(e=>e.type==='stocktake').map(e=>e.originalId||e.data?.id));
       local.forEach(lt=>{
-        if(!merged.find(x=>x.id===lt.id))merged.unshift(lt);
+        if(!merged.find(x=>x.id===lt.id)&&lt.status!=='discarded'&&!binIds.has(lt.id))merged.unshift(lt);
       });
-      S.stocktakes=merged;
+      // Also clean up any local discarded drafts
+      S.stocktakes=merged.filter(t=>t.status!=='discarded');
     }
     localStorage.setItem(SKEY,JSON.stringify(S));
     // Re-push any local drafts that may not have reached the server
