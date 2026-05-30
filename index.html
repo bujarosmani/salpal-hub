@@ -2426,36 +2426,41 @@ function renderOrdTable(){
   // Bind table container resize handle
   setTimeout(()=>{
     const handle=document.getElementById('ord-tbl-resize-handle');
-    const container=document.getElementById('ord-tbl-container');
-    if(handle&&container&&!handle._bound){
-      handle._bound=true;
-      handle.addEventListener('mousedown',e=>{
-        e.preventDefault();
-        const startX=e.clientX;
-        const wrap=container.querySelector('.tbl-wrap');
-        const startW=wrap?wrap.offsetWidth:container.offsetWidth;
-        handle.style.borderColor='var(--brand)';
-        const onMove=ev=>{
-          const newW=Math.max(400,startW+(ev.clientX-startX));
-          if(wrap)wrap.style.minWidth=newW+'px';
-        };
-        const onUp=()=>{
-          handle.style.borderColor='var(--line2)';
-          document.removeEventListener('mousemove',onMove);
-          document.removeEventListener('mouseup',onUp);
-        };
-        document.addEventListener('mousemove',onMove);
-        document.addEventListener('mouseup',onUp);
-      });
-    }
+    if(!handle)return;
+    // Always re-bind (remove old listener by cloning)
+    const newHandle=handle.cloneNode(true);
+    handle.parentNode.replaceChild(newHandle,handle);
+    // Re-apply hover styles
+    newHandle.addEventListener('mouseenter',()=>{newHandle.style.borderColor='var(--brand)';newHandle.style.color='var(--brand)';});
+    newHandle.addEventListener('mouseleave',()=>{newHandle.style.borderColor='var(--line2)';newHandle.style.color='var(--ink3)';});
+    newHandle.addEventListener('mousedown',e=>{
+      e.preventDefault();
+      const startX=e.clientX;
+      const page=document.getElementById('page-orders');
+      const card=page?page.querySelector('.card'):null;
+      const startW=card?card.offsetWidth:800;
+      newHandle.style.borderColor='var(--brand)';
+      const onMove=ev=>{
+        const newW=Math.max(600,startW+(ev.clientX-startX));
+        if(card){card.style.maxWidth=newW+'px';card.style.width=newW+'px';}
+      };
+      const onUp=()=>{
+        newHandle.style.borderColor='var(--line2)';
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+      };
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
   },100);
   // Apply saved table width
   const savedTblWidth=(S.ordTablePrefs&&S.ordTablePrefs.tableWidth)||null;
   const tblEl=document.getElementById('ord-table');
   const wSlider=document.getElementById('ord-tbl-width');
   const wLbl=document.getElementById('ord-tbl-width-lbl');
-  const contElR=document.getElementById('ord-tbl-container');
-  if(contElR){if(savedTblWidth){contElR.style.width=savedTblWidth+'px';}else{contElR.style.width='';}} if(wSlider)wSlider.value=savedTblWidth||600;if(wLbl)wLbl.textContent=savedTblWidth?savedTblWidth+'px':'Auto';
+  const pageOrdEl=document.getElementById('page-orders');
+  const cardSaved=pageOrdEl?pageOrdEl.querySelector('.card'):null;
+  if(cardSaved){if(savedTblWidth){cardSaved.style.maxWidth=savedTblWidth+'px';cardSaved.style.width=savedTblWidth+'px';}else{cardSaved.style.maxWidth='';cardSaved.style.width='';}} if(wSlider)wSlider.value=savedTblWidth||600;if(wLbl)wLbl.textContent=savedTblWidth?savedTblWidth+'px':'Auto';
   // Apply saved column widths
   const savedWidths=(S.ordTablePrefs&&S.ordTablePrefs.widths)||{};
   const allThs=document.querySelectorAll('#ord-table th');
@@ -2844,8 +2849,9 @@ function saveOrdColPrefs(){
     const c=th.dataset.col||th.id?.replace('th-','');
     if(c&&th.offsetWidth>0)widths[c]=th.offsetWidth;
   });
-  const contEl=document.getElementById('ord-tbl-container');
-  const tblWidth=contEl&&contEl.style.width?parseInt(contEl.style.width):null;
+  const pageOrd=document.getElementById('page-orders');
+  const cardEl=pageOrd?pageOrd.querySelector('.card'):null;
+  const tblWidth=cardEl&&cardEl.style.width?parseInt(cardEl.style.width):null;
   if(!S.ordTablePrefs)S.ordTablePrefs={};
   S.ordTablePrefs={cols,pageSize:ps,widths,tableWidth:tblWidth&&tblWidth>400?tblWidth:null};
   pushRecord('sp_stock','__ordTablePrefs',S.ordTablePrefs);
@@ -2856,7 +2862,7 @@ function saveOrdColPrefs(){
 
 function resetOrdColPrefs(){
   S.ordTablePrefs={cols:{},pageSize:25,widths:{},tableWidth:null};
-  const contElReset=document.getElementById('ord-tbl-container');if(contElReset)contElReset.style.width='';
+  const pageOrdReset=document.getElementById('page-orders');const cardReset=pageOrdReset?pageOrdReset.querySelector('.card'):null;if(cardReset){cardReset.style.maxWidth='';cardReset.style.width='';}
   pushRecord('sp_stock','__ordTablePrefs',S.ordTablePrefs);
   persist();
   toast('Column preferences reset');
