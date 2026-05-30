@@ -371,7 +371,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     </div>
   </div>
   <div style="padding:0 0 12px">
-    <input class="inp" id="ord-search" placeholder="🔍 Search AWB, company, driver, ref..." autocomplete="off" style="width:100%;font-size:14px" oninput="ordF.search=this.value;renderOrdTable()"/>
+    <input class="inp" id="ord-search" placeholder="🔍 Search AWB, company, driver, ref..." autocomplete="off" style="width:100%;font-size:14px" oninput="ordF.search=this.value;ordPage=1;renderOrdTable()"/>
   </div>
   <div class="stats" id="ord-stats"></div>
   <div class="card">
@@ -380,8 +380,19 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1" id="ord-filters"></div>
       <div style="position:relative" id="ord-col-dd-wrap">
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ord-col-dd').style.display=document.getElementById('ord-col-dd').style.display==='none'?'block':'none'">⚙ Columns</button>
-        <div id="ord-col-dd" style="display:none;position:absolute;right:0;top:110%;background:var(--panel2);border:1.5px solid var(--line2);border-radius:10px;padding:10px 14px;z-index:200;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,.5)">
-          <div id="ord-col-toggles"></div>
+        <div id="ord-col-dd" style="display:none;position:absolute;right:0;top:110%;background:var(--panel2);border:1.5px solid var(--line2);border-radius:10px;padding:14px 16px;z-index:200;min-width:220px;box-shadow:0 8px 24px rgba(0,0,0,.5)">
+          <div style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Visible Columns</div>
+          <div id="ord-col-toggles" style="display:grid;gap:6px;margin-bottom:12px"></div>
+          <div style="border-top:1px solid var(--line2);padding-top:10px;margin-bottom:10px">
+            <div style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Rows Per Page</div>
+            <select id="ord-page-size" onchange="saveOrdPageSize(this.value)" style="background:var(--panel);border:1px solid var(--line2);border-radius:7px;color:var(--ink);padding:5px 8px;font-size:12px;width:100%">
+              <option value="25">25 rows</option>
+              <option value="50">50 rows</option>
+              <option value="100">100 rows</option>
+            </select>
+          </div>
+          <button onclick="saveOrdColPrefs()" style="width:100%;background:var(--brand);border:none;border-radius:8px;color:#fff;font-weight:700;font-size:12px;padding:7px;cursor:pointer">💾 Save as Default</button>
+          <button onclick="resetOrdColPrefs()" style="width:100%;background:none;border:1px solid var(--line2);border-radius:8px;color:var(--ink3);font-size:11px;padding:5px;cursor:pointer;margin-top:6px">↺ Reset to Default</button>
         </div>
       </div>
     </div>
@@ -401,6 +412,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
         <th class="right">Actions</th>
       </tr></thead><tbody id="ord-tbody"></tbody></table>
     </div>
+    <div id="ord-pagination" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 0;font-size:13px"></div>
   </div>
 </div>
 
@@ -1528,7 +1540,8 @@ async function loadCloud(){
     const adjr=stock.find(r=>r.id==='__adjustments');if(adjr&&adjr.data)S.adjustments=adjr.data;
     const ddr=stock.find(r=>r.id==='__dismissedDups');if(ddr&&ddr.data)S.dismissedDups=ddr.data;
     const dpR=stock.find(r=>r.id==='__deletedProducts');if(dpR&&dpR.data)S.deletedProducts=dpR.data;
-    const farR=stock.find(r=>r.id==='__fleetAlertStatus');if(farR&&farR.data)S.fleetAlertStatus=farR.data;}
+    const farR=stock.find(r=>r.id==='__fleetAlertStatus');if(farR&&farR.data)S.fleetAlertStatus=farR.data;
+    const otpR=stock.find(r=>r.id==='__ordTablePrefs');if(otpR&&otpR.data)S.ordTablePrefs=otpR.data;}
     if(products&&products.length){
       const pr=products.find(r=>r.id==='__products');
       if(pr&&pr.data){
@@ -2000,7 +2013,7 @@ function setView(v){
   if(pg)renderPage(pg.id.replace('page-',''));
 }
 function resetPageFilters(page){
-  if(page==='orders'){ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('ord-search');if(s)s.value='';tableSort['ord-table']=null;}
+  if(page==='orders'){ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:'',search:''};ordPage=1;const s=document.getElementById('ord-search');if(s)s.value='';tableSort['ord-table']=null;}
   if(page==='dispatch'){disF={statuses:null,drivers:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('dis-search');if(s)s.value='';tableSort['dis-table']={col:'awb',asc:false};disTodoSort='date';const tp=document.getElementById('dis-pane-todo');if(tp)tp.innerHTML='';}
   if(page==='receiving'){recF={statuses:null,drivers:null,dateFrom:'',dateTo:'',search:''};const s=document.getElementById('rec-search');if(s)s.value='';tableSort['rec-table']=null;tableSort['rec-table']=null;}
   if(page==='repairs'){const s=document.getElementById('rep-search');if(s)s.value='';window.rmfDateFrom='';window.rmfDateTo='';window.rhfDateFrom='';window.rhfDateTo='';}
@@ -2246,6 +2259,8 @@ function renderDash(){
 
 /* ── ORDERS PAGE ── */
 let ordF={types:null,statuses:null,drivers:null,company:'',source:null,dateFrom:'',dateTo:'',search:''};
+let ordPage=1;
+const ORD_PAGE_SIZE=25;
 function renderOrders(){
   // Close col dropdown on outside click
   if(!document._colDdListener){
@@ -2256,13 +2271,22 @@ function renderOrders(){
       if(wrap&&dd&&!wrap.contains(e.target))dd.style.display='none';
     });
   }
-  // Build column toggles once
+  // Build column toggles with saved prefs
   const toggles=document.getElementById('ord-col-toggles');
-  if(toggles&&!toggles.hasChildNodes()){
-    const cols=[{k:'orderRef',l:'Order Ref'},{k:'type',l:'Type'},{k:'company',l:'Company'},{k:'date',l:'Date'},{k:'pallets',l:'Pallets'},{k:'driver',l:'Driver'},{k:'whBy',l:'WH By'},{k:'whNotes',l:'WH Notes'},{k:'status',l:'Status'},{k:'checked',l:'✓ Checked'}];
-    toggles.innerHTML=`<span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px">Columns:</span>`+
-      cols.map(c=>`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ink2)"><input type="checkbox" id="col-${c.k}" ${(c.k==='whNotes'||c.k==='checked')?'':'checked'} onchange="renderOrdTable()"/> ${c.l}</label>`).join('');
+  const prefs=S.ordTablePrefs||{};
+  const savedCols=prefs.cols||{};
+  const savedSize=prefs.pageSize||25;
+  if(typeof ORD_PAGE_SIZE!=='undefined')window._ordPageSizeVar=savedSize;
+  const colDefs=[{k:'orderRef',l:'Order Ref'},{k:'type',l:'Type'},{k:'company',l:'Company'},{k:'date',l:'Date'},{k:'pallets',l:'Pallets'},{k:'driver',l:'Driver'},{k:'whBy',l:'WH By'},{k:'whNotes',l:'WH Notes'},{k:'status',l:'Status'},{k:'checked',l:'✓ Checked'}];
+  if(toggles){
+    toggles.innerHTML=colDefs.map(c=>{
+      const defaultOn=c.k!=='whNotes'&&c.k!=='checked';
+      const isOn=c.k in savedCols?savedCols[c.k]:defaultOn;
+      return`<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:var(--ink2);padding:2px 0"><input type="checkbox" id="col-${c.k}" ${isOn?'checked':''} onchange="renderOrdTable()"/> ${c.l}</label>`;
+    }).join('');
   }
+  const psSel=document.getElementById('ord-page-size');
+  if(psSel)psSel.value=String(savedSize);
   const ords=S.orders||[];
   document.getElementById('ord-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${ords.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${ords.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
   const typeOpts=[{value:'Delivery',label:'Delivery'},{value:'Collection',label:'Collection'}];
@@ -2277,10 +2301,10 @@ function renderOrders(){
     `<button class="dp-btn${ordF.dateFrom?' active':''}" onclick="openDatePicker(ordF.dateFrom,ordF.dateTo,(f,t)=>{ordF.dateFrom=f;ordF.dateTo=t;renderOrders()})">📅 ${esc(dlabel)}</button>`+
     (ordF.dateFrom?`<button class="dp-clear" onclick="ordF.dateFrom='';ordF.dateTo='';renderOrders()">✕</button>`:'')+
     (drvOpts.length?' '+buildCbDropdown('ordDrv',drvOpts,ordF.drivers,'All Drivers'):'');
-  bindCbDropdown('ordType',typeOpts,v=>{ordF.types=v;renderOrdTable();});
-  bindCbDropdown('ordStat',statOpts,v=>{ordF.statuses=v;renderOrdTable();});
-  bindCbDropdown('ordSrc',sourceOpts,v=>{ordF.source=v;renderOrdTable();});
-  if(drvOpts.length)bindCbDropdown('ordDrv',drvOpts,v=>{ordF.drivers=v;renderOrdTable();});
+  bindCbDropdown('ordType',typeOpts,v=>{ordF.types=v;ordPage=1;renderOrdTable();});
+  bindCbDropdown('ordStat',statOpts,v=>{ordF.statuses=v;ordPage=1;renderOrdTable();});
+  bindCbDropdown('ordSrc',sourceOpts,v=>{ordF.source=v;ordPage=1;renderOrdTable();});
+  if(drvOpts.length)bindCbDropdown('ordDrv',drvOpts,v=>{ordF.drivers=v;ordPage=1;renderOrdTable();});
 
   renderOrdTable();
   const srch=document.getElementById('ord-search');if(srch)srch.value=ordF.search||'';
@@ -2321,6 +2345,18 @@ function thClick(tableId,col,renderFn){thSort(tableId,col);renderFn();}
  // default newest first
 let ordSortAsc=false;
 function toggleOrdSort(){ordSortAsc=!ordSortAsc;const btn=document.getElementById('ord-sort-btn');if(btn)btn.textContent=ordSortAsc?'A → Z':'Z → A';renderOrdTable();}
+function renderOrdPagination(page,total,count){
+  const el=document.getElementById('ord-pagination');if(!el)return;
+  if(total<=1){el.innerHTML='';return;}
+  const btn=(label,pg,disabled,active)=>`<button onclick="ordPage=${pg};renderOrdTable()" style="background:${active?'var(--brand)':'var(--panel2)'};border:1.5px solid ${active?'var(--brand)':'var(--line2)'};border-radius:7px;color:${active?'#fff':'var(--ink2)'};cursor:${disabled?'default':'pointer'};padding:5px 11px;font-size:12px;font-weight:700;opacity:${disabled?'0.4':'1'}" ${disabled?'disabled':''}>${label}</button>`;
+  let pages='';
+  for(let i=1;i<=total;i++){
+    if(i===1||i===total||Math.abs(i-page)<=1){pages+=btn(i,i,false,i===page);}
+    else if(Math.abs(i-page)===2){pages+='<span style="color:var(--ink3);padding:0 2px">…</span>';}
+  }
+  el.innerHTML=btn('←',page-1,page===1,false)+pages+btn('→',page+1,page===total,false)+`<span style="color:var(--ink3);font-size:11px;margin-left:6px">Page ${page} of ${total} · ${count} orders</span>`;
+}
+
 function renderOrdTable(){
   let list=S.orders||[];
   if(ordF.types)list=list.filter(j=>ordF.types.includes(j.type));
@@ -2363,12 +2399,34 @@ function renderOrdTable(){
       :'';
   }
   const tb=document.getElementById('ord-tbody');
-  if(!list.length){tb.innerHTML=`<tr><td colspan="11" class="empty">No orders found</td></tr>`;return;}
+  if(!list.length){tb.innerHTML=`<tr><td colspan="11" class="empty">No orders found</td></tr>`;renderOrdPagination(0,0);return;}
   const col=c=>{const el=document.getElementById(`col-${c}`);return!el||el.checked!==false;};
   ['orderRef','type','company','date','pallets','driver','whBy','whNotes','status','checked'].forEach(c=>{
     const th=document.getElementById(`th-${c}`);if(th)th.style.display=col(c)?'':'none';
   });
-  tb.innerHTML=list.map(j=>{
+  const _ps=(S.ordTablePrefs&&S.ordTablePrefs.pageSize)||25;
+  const totalPages=Math.ceil(list.length/_ps);
+  if(ordPage>totalPages)ordPage=totalPages;
+  if(ordPage<1)ordPage=1;
+  const pageList=list.slice((ordPage-1)*_ps,ordPage*_ps);
+  renderOrdPagination(ordPage,totalPages,list.length);
+  // Apply saved column widths
+  const savedWidths=(S.ordTablePrefs&&S.ordTablePrefs.widths)||{};
+  const allThs=document.querySelectorAll('#ord-table th');
+  allThs.forEach(th=>{const c=th.dataset.col||th.id?.replace('th-','');if(c&&savedWidths[c])th.style.width=savedWidths[c]+'px';});
+  // Add resize handles to headers
+  setTimeout(()=>{
+    document.querySelectorAll('#ord-table th').forEach(th=>{
+      if(th.querySelector('.col-resize-handle'))return;
+      const handle=document.createElement('div');
+      handle.className='col-resize-handle';
+      handle.style.cssText='position:absolute;right:0;top:0;width:6px;height:100%;cursor:col-resize;z-index:1;background:transparent';
+      handle.addEventListener('mousedown',initColResize(th));
+      th.style.position='relative';
+      th.appendChild(handle);
+    });
+  },50);
+  tb.innerHTML=pageList.map(j=>{
     const ps=palletStr(j.pallets);
     const whn=(j.whChanges||[]).length?(j.whChanges||[]).map(c=>`${c.label}: ${c.value}`).join(' \u00b7 '):'\u2014';
     return`<tr>
@@ -2718,6 +2776,51 @@ function closeOrderModal(){
   const dc=document.getElementById('of-del-confirm');if(dc)dc.style.display='none';
   closeM('m-order');
 }
+function saveOrdColPrefs(){
+  const colDefs=['orderRef','type','company','date','pallets','driver','whBy','whNotes','status','checked'];
+  const cols={};
+  colDefs.forEach(k=>{const el=document.getElementById('col-'+k);if(el)cols[k]=el.checked;});
+  const ps=parseInt(document.getElementById('ord-page-size')?.value||'25');
+  const widths={};
+  document.querySelectorAll('#ord-table th').forEach(th=>{
+    const c=th.dataset.col||th.id?.replace('th-','');
+    if(c&&th.offsetWidth>0)widths[c]=th.offsetWidth;
+  });
+  if(!S.ordTablePrefs)S.ordTablePrefs={};
+  S.ordTablePrefs={cols,pageSize:ps,widths};
+  pushRecord('sp_stock','__ordTablePrefs',S.ordTablePrefs);
+  persist();
+  toast('Column preferences saved');
+  document.getElementById('ord-col-dd').style.display='none';
+}
+
+function resetOrdColPrefs(){
+  S.ordTablePrefs={cols:{},pageSize:25,widths:{}};
+  pushRecord('sp_stock','__ordTablePrefs',S.ordTablePrefs);
+  persist();
+  toast('Column preferences reset');
+  renderOrders();
+}
+
+function saveOrdPageSize(val){
+  if(!S.ordTablePrefs)S.ordTablePrefs={};
+  S.ordTablePrefs.pageSize=parseInt(val);
+  ordPage=1;
+  renderOrdTable();
+}
+
+function initColResize(th){
+  return function(e){
+    e.preventDefault();
+    const startX=e.clientX;
+    const startW=th.offsetWidth;
+    const onMove=ev=>{const newW=Math.max(40,startW+(ev.clientX-startX));th.style.width=newW+'px';};
+    const onUp=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  };
+}
+
 function toggleOrderChecked(id,cb){
   const j=(S.orders||[]).find(o=>o.id===id);if(!j)return;
   j.checked=cb.checked;
