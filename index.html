@@ -1364,8 +1364,9 @@ function updateNavBadges(){
     if(totalDefected>0){rb.textContent=totalDefected;rb.style.display='';}
     else rb.style.display='none';
   }
-  // Total unsorted stock on hand (all products with 'unsorted' in name)
-  const totalUnsortedStock=Object.entries(S.stock||{}).filter(([k])=>k.toLowerCase().includes('unsorted')).reduce((s,[,v])=>s+(v||0),0);
+  // Total unsorted stock on hand — use getStockMap to include incoming
+  const _stkMap=getStockMap();
+  const totalUnsortedStock=Object.entries(_stkMap).filter(([k])=>k.toLowerCase().includes('unsorted')).reduce((s,[,v])=>s+(v.onHand||0),0);
   const sb=document.getElementById('nav-badge-sorting');
   if(sb){
     if(totalUnsortedStock>0){sb.textContent=totalUnsortedStock;sb.style.display='';}
@@ -4581,7 +4582,7 @@ function renderSorting(){
       taskSection.innerHTML='';
     }
     // Show unsorted stock banner if there's unsorted stock not covered by Pending Sort orders
-    const unsortedOnHand=Object.entries(S.stock||{}).filter(([k])=>k.toLowerCase().includes('unsorted')).reduce((s,[,v])=>s+(v||0),0);
+    const _sm=getStockMap();const unsortedOnHand=Object.entries(_sm).filter(([k])=>k.toLowerCase().includes('unsorted')).reduce((s,[,v])=>s+(v.onHand||0),0);
     if(unsortedOnHand>0){
       const existingBanner=document.getElementById('srt-stock-banner');
       if(!existingBanner){
