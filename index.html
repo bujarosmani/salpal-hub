@@ -3703,8 +3703,10 @@ function renderRepTab(name){
         <div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Total Repaired</div></div>
         <div class="stat-box"><div class="stat-num">${rlist.length}</div><div class="stat-lbl">Entries</div></div>
       </div>
-      ${byw.length?`<div class="sec-title" style="margin-bottom:10px">By Worker</div><div class="card" style="margin-bottom:16px">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)"><span style="font-weight:600">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join('')}</div>`:''}
-      ${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card" style="margin-bottom:16px">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--brand)">${x.t}</span></div>`).join('')}</div>`:''}
+      ${(byw.length||byc.length)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        ${byw.length?`<div><div class="sec-title" style="margin-bottom:8px">By Worker</div><div class="card">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line)"><span style="font-size:13px">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join('')}</div></div>`:'<div></div>'}
+        ${byc.length?`<div><div class="sec-title" style="margin-bottom:8px">By Class</div><div class="card">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--brand)">${x.t}</span></div>`).join('')}</div></div>`:'<div></div>'}
+      </div>`:''}
       ${(()=>{
         const workers=byw.map(r=>r.n);
         if(!workers.length)return'';
@@ -4619,8 +4621,10 @@ function renderSrtTab(name){
     const byc=getSKUS().map(c=>({c,t:(S.sortings||[]).reduce((s,r)=>s+(r.pallets||[]).filter(p=>p.cls===c).reduce((a,p)=>a+(p.qty||0),0),0)})).filter(x=>x.t>0);
     document.getElementById('srt-manager').innerHTML=`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px"><div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Total Sorted</div></div><div class="stat-box"><div class="stat-num">${(S.sortings||[]).length}</div><div class="stat-lbl">Total Entries</div></div></div>
-      ${byw.length?`<div class="sec-title" style="margin-bottom:10px">By Sorter</div><div class="card" style="margin-bottom:16px">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)"><span style="font-weight:600">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--blue)">${r.t}</span></div>`).join('')}</div>`:''}
-      ${byc.length?`<div class="sec-title" style="margin-bottom:10px">By Class</div><div class="card" style="margin-bottom:16px">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--blue)">${x.t}</span></div>`).join('')}</div>`:''}
+      ${(byw.length||byc.length)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        ${byw.length?`<div><div class="sec-title" style="margin-bottom:8px">By Sorter</div><div class="card">${byw.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line)"><span style="font-size:13px">${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--blue)">${r.t}</span></div>`).join('')}</div></div>`:'<div></div>'}
+        ${byc.length?`<div><div class="sec-title" style="margin-bottom:8px">By Class</div><div class="card">${byc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line)">${skuBadge(x.c,true)}<span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--blue)">${x.t}</span></div>`).join('')}</div></div>`:'<div></div>'}
+      </div>`:''}
       ${(()=>{
         const workers=byw.map(r=>r.n);
         if(!workers.length)return'';
