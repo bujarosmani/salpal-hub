@@ -1787,10 +1787,10 @@ function addTL(order,action,type,changes){
   order.history.unshift({id:mkId(),at:new Date().toISOString(),actor:ME?`${ME.firstName} ${ME.lastName}`:'System',action,type:type||'status',changes:changes||[]});
 }
 function renderSortingBox(order){
-  const hasUnsorted=(order.pallets||[]).some(p=>p.cls==='Unsorted');
+  const hasUnsorted=(order.pallets||[]).some(p=>p.cls&&p.cls.toLowerCase().includes('unsorted'));
   if(!hasUnsorted)return '';
   const entries=(S.sortings||[]).filter(r=>r.orderRef===order.awb);
-  const orderedQty=(order.pallets||[]).find(p=>p.cls==='Unsorted')?.qty||0;
+  const orderedQty=(order.pallets||[]).filter(p=>p.cls&&p.cls.toLowerCase().includes('unsorted')).reduce((s,p)=>s+(p.qty||0),0);
   const sortedQty=entries.reduce((s,r)=>s+(r.totalQty||0),0);
   const remaining=Math.max(0,orderedQty-sortedQty);
   // Build sorted classes summary
@@ -4775,8 +4775,7 @@ function onSrtLinesChange(){
   const awb=document.getElementById('srt-order-ref').value;
   if(!awb)return;
   const j=(S.orders||[]).find(x=>x.awb===awb);if(!j)return;
-  const unsortedPlt=(j.pallets||[]).find(p=>p.cls==='Unsorted');
-  const ordered=unsortedPlt?unsortedPlt.qty:0;
+  const ordered=(j.pallets||[]).filter(p=>p.cls&&p.cls.toLowerCase().includes('unsorted')).reduce((s,p)=>s+(p.qty||0),0);
   const alreadySorted=(S.sortings||[]).filter(r=>r.orderRef===awb).reduce((s,r)=>s+(r.totalQty||0),0);
   const currentQty=getLines('srt-lines').reduce((s,p)=>s+p.qty,0);
   const totalSorted=alreadySorted+currentQty;
@@ -4798,8 +4797,7 @@ function onSrtOrderChange(){
   if(!j){info.style.display='none';return;}
   // Calculate already sorted against this order
   const sortedByOrder=(S.sortings||[]).filter(r=>r.orderRef===awb).reduce((s,r)=>s+(r.totalQty||0),0);
-  const unsortedPlt=(j.pallets||[]).find(p=>p.cls==='Unsorted');
-  const ordered=unsortedPlt?unsortedPlt.qty:0;
+  const ordered=(j.pallets||[]).filter(p=>p.cls&&p.cls.toLowerCase().includes('unsorted')).reduce((s,p)=>s+(p.qty||0),0);
   const remaining=ordered-sortedByOrder;
   body.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
@@ -4849,7 +4847,7 @@ async function saveSorting(force){
   if(orderRef&&!force){
     const linkedOrder=(S.orders||[]).find(j=>j.awb===orderRef);
     if(linkedOrder){
-      const orderedQty=(linkedOrder.pallets||[]).find(p=>p.cls==='Unsorted')?.qty||0;
+      const orderedQty=(linkedOrder.pallets||[]).filter(p=>p.cls&&p.cls.toLowerCase().includes('unsorted')).reduce((s,p)=>s+(p.qty||0),0);
       if(orderedQty>0){
         const alreadySorted=(S.sortings||[]).filter(r=>r.orderRef===orderRef&&!r._deleted).reduce((s,r)=>s+(r.totalQty||0),0);
         const remaining=orderedQty-alreadySorted;
