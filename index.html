@@ -564,8 +564,8 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
   </div>
   <div class="tpane" id="stk-adj-pane">
     <div class="card" style="margin-bottom:14px">
-      <div class="card-hdr"><span class="card-hdr-title">➕ New Adjustment</span></div>
-      <div class="card-body">
+      <div class="card-hdr" style="cursor:pointer" onclick="const b=document.getElementById('adj-form-body');b.style.display=b.style.display==='none'?''  :'none'"><span class="card-hdr-title">➕ New Adjustment</span><span style="font-size:11px;color:var(--ink3);margin-left:8px">click to expand</span></div>
+      <div class="card-body" id="adj-form-body" style="display:none">
         <div class="frow c3" style="margin-bottom:12px">
           <div class="fwrap">
             <label class="flabel">Product *</label>
