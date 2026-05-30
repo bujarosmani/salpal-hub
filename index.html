@@ -1364,16 +1364,11 @@ function updateNavBadges(){
     if(totalDefected>0){rb.textContent=totalDefected;rb.style.display='';}
     else rb.style.display='none';
   }
-  const sortedByOrd={};
-  (S.sortings||[]).forEach(r=>{if(r.orderRef){if(!sortedByOrd[r.orderRef])sortedByOrd[r.orderRef]=0;sortedByOrd[r.orderRef]+=(r.totalQty||0);}});
-  const pendingSortQty=(S.orders||[]).filter(o=>o.status==='Pending Sort').reduce((s,o)=>{
-    const ordered=(o.pallets||[]).filter(p=>p.cls&&p.cls.toLowerCase().includes('unsorted')).reduce((a,p)=>a+(p.qty||0),0);
-    const sorted=sortedByOrd[o.awb]||0;
-    return s+Math.max(0,ordered-sorted);
-  },0);
+  // Total unsorted stock on hand (all products with 'unsorted' in name)
+  const totalUnsortedStock=Object.entries(S.stock||{}).filter(([k])=>k.toLowerCase().includes('unsorted')).reduce((s,[,v])=>s+(v||0),0);
   const sb=document.getElementById('nav-badge-sorting');
   if(sb){
-    if(pendingSortQty>0){sb.textContent=pendingSortQty;sb.style.display='';}
+    if(totalUnsortedStock>0){sb.textContent=totalUnsortedStock;sb.style.display='';}
     else sb.style.display='none';
   }
   // Fleet badge
@@ -4584,6 +4579,20 @@ function renderSorting(){
       </div>`;
     } else {
       taskSection.innerHTML='';
+    }
+    // Show unsorted stock banner if there's unsorted stock not covered by Pending Sort orders
+    const unsortedOnHand=Object.entries(S.stock||{}).filter(([k])=>k.toLowerCase().includes('unsorted')).reduce((s,[,v])=>s+(v||0),0);
+    if(unsortedOnHand>0){
+      const existingBanner=document.getElementById('srt-stock-banner');
+      if(!existingBanner){
+        const banner=document.createElement('div');
+        banner.id='srt-stock-banner';
+        banner.style.cssText='margin-bottom:16px;background:var(--panel);border:1.5px solid rgba(245,200,66,.4);border-left:4px solid var(--amber);border-radius:var(--r);padding:12px 14px;display:flex;justify-content:space-between;align-items:center';
+        banner.innerHTML=`<div><div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--amber);font-weight:700;margin-bottom:4px">🔶 Unsorted Stock On Hand</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--amber)">${unsortedOnHand}<span style="font-size:13px;color:var(--ink3);font-weight:400;margin-left:6px">pallets to sort</span></div></div><button class="btn btn-amber btn-sm" onclick="openSortModal()">+ Log Sorting</button>`;
+        taskSection.insertAdjacentElement('afterbegin',banner);
+      }
+    } else {
+      const b=document.getElementById('srt-stock-banner');if(b)b.remove();
     }
   }
   renderSrtTab('today');
