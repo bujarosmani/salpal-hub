@@ -1591,6 +1591,13 @@ async function loadCloud(){
       S.stocktakes=merged;
     }
     localStorage.setItem(SKEY,JSON.stringify(S));
+    // Re-push any local drafts that may not have reached the server
+    (S.stocktakes||[]).filter(t=>t.status==='draft').forEach(t=>{
+      if(!stocktakes||!stocktakes.find(r=>r.id===t.id)){
+        t.updatedAt=new Date().toISOString();
+        pushRecord('sp_stocktakes',t.id,t).catch(()=>{});
+      }
+    });
     setSS('ok');
     // Run integrity check to fix any missing ledger entries
     setTimeout(runIntegrityCheck, 500);
