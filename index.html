@@ -1583,9 +1583,10 @@ async function loadCloud(){
         const ltTime=new Date(lt.updatedAt||lt.submittedAt||lt.createdAt||0).getTime();
         return ltTime>rtTime?lt:rt;
       });
-      // Only add local records that are drafts not yet pushed (have no remote copy)
+      // Add any local records not in remote (drafts in progress on this device)
+      // AND any remote records not yet in local (drafts from other devices)
       local.forEach(lt=>{
-        if(!merged.find(x=>x.id===lt.id)&&lt.status==='draft')merged.unshift(lt);
+        if(!merged.find(x=>x.id===lt.id))merged.unshift(lt);
       });
       S.stocktakes=merged;
     }
