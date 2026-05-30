@@ -1170,9 +1170,9 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <div class="mbackdrop" id="m-sort">
   <div class="mbox">
     <div class="mhdr"><span class="mtitle">Log Sorting</span><button class="mclose" onclick="closeM('m-sort')">✕</button></div>
+    <div id="srt-err" style="display:none;background:var(--red-bg);border-left:4px solid var(--red);padding:10px 16px;font-size:13px;font-weight:700;color:var(--red);flex-shrink:0"></div>
+    <div id="srt-warn" style="display:none;flex-shrink:0"></div>
     <div class="mbody">
-      <div id="srt-err" style="display:none;background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px;margin-bottom:12px;font-size:13px;font-weight:700;color:var(--red)"></div>
-      <div id="srt-warn" style="display:none;margin-bottom:12px"></div>
       <div class="fwrap"><label class="flabel">Supervisor *</label><div class="pick-grid c2" id="srt-sup"></div></div>
       <div class="fwrap"><label class="flabel">Sorters * (select one or more)</label><div class="pick-grid c3" id="srt-rep"></div></div>
       <div class="fwrap">
