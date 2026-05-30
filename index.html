@@ -1570,7 +1570,7 @@ async function loadCloud(){
       }
     }
     if(stocktakes&&stocktakes.length){
-      const remote=stocktakes.map(r=>r.data).filter(Boolean);
+      const remote=stocktakes.map(r=>r.data).filter(Boolean).filter(t=>t.status!=='discarded');
       const local=S.stocktakes||[];
       // Merge by id — use updatedAt for drafts, submittedAt/approvedAt for others
       const merged=remote.map(rt=>{
@@ -6432,11 +6432,10 @@ function submitStocktake(id){
 
 function discardStocktake(id){
   const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
-  // Move to bin instead of permanent delete — preserves history
   sendToBin('stocktake',id,t.adjRef||'Stocktake',t);
   S.stocktakes=(S.stocktakes||[]).filter(x=>x.id!==id);
-  t.status='discarded';
-  syncStocktake(t);
+  // Delete from server so it doesn't come back on next sync
+  apiDelete('sp_stocktakes',id).catch(()=>{});
   persist();renderStocktake();toast('Stock take discarded');
 }
 function deleteStocktake(id){
