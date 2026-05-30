@@ -6337,6 +6337,9 @@ function renderStocktake(){
 
 function startStocktake(){
   if(!S.stocktakes)S.stocktakes=[];
+  // If admin already has a draft, open it instead of creating a new one
+  const existing=S.stocktakes.find(t=>t.status==='draft'&&t.userId===ME?.id);
+  if(existing){continueStocktake(existing.id);return;}
   const skus=getSKUS();
   const counts=skus.map(cls=>({cls,systemQty:(S.stock&&S.stock[cls])||0,counted:null}));
   const t={id:mkId(),userId:ME?.id,userName:ME?`${ME.firstName} ${ME.lastName}`.trim():'',status:'draft',createdAt:new Date().toISOString(),counts};
@@ -6350,6 +6353,7 @@ function renderStocktakeForm(t){
   const actions=document.getElementById('st-actions');
   actions.innerHTML=`
     <div style="display:flex;gap:8px;align-items:center">
+      ${(isAdmin()||ME?.role==='Manager')?`<button class="btn btn-ghost btn-sm" onclick="renderStocktake()">← Back</button>`:''}
       <button class="btn btn-ghost btn-sm" onclick="discardStocktake('${t.id}')">✕ Discard</button>
       <button class="btn btn-primary" onclick="submitStocktake('${t.id}')">📤 Submit for Approval</button>
     </div>`;
@@ -6594,12 +6598,10 @@ function reopenStocktake(id){
   persist();renderStocktake();toast('Stocktake reopened — pending approval');
 }
 function continueStocktake(id){
-  // Open the counting form for a draft stocktake
   const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
-  const form=document.getElementById('st-form-wrap');
-  if(form){form.style.display='';renderStocktakeForm(t);}
-  // Scroll to form
-  form?.scrollIntoView({behavior:'smooth'});
+  // Render the counting form directly into the stocktake body
+  renderStocktakeForm(t);
+  document.getElementById('stocktake-body')?.scrollIntoView({behavior:'smooth'});
 }
 /**
  * approveStocktake — Approve a stocktake
