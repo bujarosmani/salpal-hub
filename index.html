@@ -1172,6 +1172,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <div class="mhdr"><span class="mtitle">Log Sorting</span><button class="mclose" onclick="closeM('m-sort')">✕</button></div>
     <div class="mbody">
       <div id="srt-err" style="display:none;background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px;margin-bottom:12px;font-size:13px;font-weight:700;color:var(--red)"></div>
+      <div id="srt-warn" style="display:none;margin-bottom:12px"></div>
       <div class="fwrap"><label class="flabel">Supervisor *</label><div class="pick-grid c2" id="srt-sup"></div></div>
       <div class="fwrap"><label class="flabel">Sorters * (select one or more)</label><div class="pick-grid c3" id="srt-rep"></div></div>
       <div class="fwrap">
@@ -1188,7 +1189,6 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="sec-row"><div class="sec-title">Pallets</div><button class="btn btn-ghost btn-sm" type="button" onclick="addPltLine('srt-lines')">+ Add Line</button></div>
       <div id="srt-lines"></div>
       <div class="fwrap" id="srt-date-wrap"><label class="flabel">Date *</label><input class="inp" type="date" id="srt-date"/></div>
-      <div id="srt-warn" style="display:none;margin-bottom:10px"></div>
     </div>
     <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-sort')">Cancel</button><button class="btn btn-primary" onclick="saveSorting(false)">✓ Save</button></div>
   </div>
@@ -4877,7 +4877,7 @@ async function saveSorting(force){
     }
   }
   if(!force){
-    const unsortedStock=(S.stock&&S.stock['Unsorted'])||0;
+    const unsortedStock=Object.entries(S.stock||{}).filter(([k])=>k.toLowerCase().includes('unsorted')).reduce((s,[,v])=>s+(v||0),0);
     if(totalQty>unsortedStock){
       const short=totalQty-unsortedStock;
       const warn=document.getElementById('srt-warn');
