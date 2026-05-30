@@ -384,8 +384,16 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
           <div style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Visible Columns</div>
           <div id="ord-col-toggles" style="display:grid;gap:6px;margin-bottom:12px"></div>
           <div style="border-top:1px solid var(--line2);padding-top:10px;margin-bottom:10px">
+            <div style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Table Width</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="range" id="ord-tbl-width" min="600" max="2400" step="50" value="100" oninput="applyOrdTableWidth(this.value)" style="flex:1;accent-color:var(--brand)"/>
+              <span id="ord-tbl-width-lbl" style="font-size:11px;color:var(--ink2);min-width:36px;text-align:right">Auto</span>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--line2);padding-top:10px;margin-bottom:10px">
             <div style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Rows Per Page</div>
             <select id="ord-page-size" onchange="saveOrdPageSize(this.value)" style="background:var(--panel);border:1px solid var(--line2);border-radius:7px;color:var(--ink);padding:5px 8px;font-size:12px;width:100%">
+              <option value="15">15 rows</option>
               <option value="25">25 rows</option>
               <option value="50">50 rows</option>
               <option value="100">100 rows</option>
@@ -2410,6 +2418,12 @@ function renderOrdTable(){
   if(ordPage<1)ordPage=1;
   const pageList=list.slice((ordPage-1)*_ps,ordPage*_ps);
   renderOrdPagination(ordPage,totalPages,list.length);
+  // Apply saved table width
+  const savedTblWidth=(S.ordTablePrefs&&S.ordTablePrefs.tableWidth)||null;
+  const tblEl=document.getElementById('ord-table');
+  const wSlider=document.getElementById('ord-tbl-width');
+  const wLbl=document.getElementById('ord-tbl-width-lbl');
+  if(tblEl){if(savedTblWidth){tblEl.style.width=savedTblWidth+'px';tblEl.style.tableLayout='fixed';if(wSlider)wSlider.value=savedTblWidth;if(wLbl)wLbl.textContent=savedTblWidth+'px';}else{tblEl.style.width='';tblEl.style.tableLayout='';if(wSlider)wSlider.value=600;if(wLbl)wLbl.textContent='Auto';}}
   // Apply saved column widths
   const savedWidths=(S.ordTablePrefs&&S.ordTablePrefs.widths)||{};
   const allThs=document.querySelectorAll('#ord-table th');
@@ -2776,6 +2790,15 @@ function closeOrderModal(){
   const dc=document.getElementById('of-del-confirm');if(dc)dc.style.display='none';
   closeM('m-order');
 }
+function applyOrdTableWidth(val){
+  const tbl=document.getElementById('ord-table');
+  const lbl=document.getElementById('ord-tbl-width-lbl');
+  if(!tbl)return;
+  val=parseInt(val);
+  if(val<=600){tbl.style.width='';tbl.style.tableLayout='';if(lbl)lbl.textContent='Auto';}
+  else{tbl.style.width=val+'px';tbl.style.tableLayout='fixed';if(lbl)lbl.textContent=val+'px';}
+}
+
 function saveOrdColPrefs(){
   const colDefs=['orderRef','type','company','date','pallets','driver','whBy','whNotes','status','checked'];
   const cols={};
@@ -2786,8 +2809,9 @@ function saveOrdColPrefs(){
     const c=th.dataset.col||th.id?.replace('th-','');
     if(c&&th.offsetWidth>0)widths[c]=th.offsetWidth;
   });
+  const tblWidth=parseInt(document.getElementById('ord-tbl-width')?.value||'600');
   if(!S.ordTablePrefs)S.ordTablePrefs={};
-  S.ordTablePrefs={cols,pageSize:ps,widths};
+  S.ordTablePrefs={cols,pageSize:ps,widths,tableWidth:tblWidth>600?tblWidth:null};
   pushRecord('sp_stock','__ordTablePrefs',S.ordTablePrefs);
   persist();
   toast('Column preferences saved');
@@ -2795,7 +2819,8 @@ function saveOrdColPrefs(){
 }
 
 function resetOrdColPrefs(){
-  S.ordTablePrefs={cols:{},pageSize:25,widths:{}};
+  S.ordTablePrefs={cols:{},pageSize:25,widths:{},tableWidth:null};
+  const tblEl=document.getElementById('ord-table');if(tblEl){tblEl.style.width='';tblEl.style.tableLayout='';}
   pushRecord('sp_stock','__ordTablePrefs',S.ordTablePrefs);
   persist();
   toast('Column preferences reset');
