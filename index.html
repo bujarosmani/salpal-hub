@@ -535,10 +535,28 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="card-hdr">
         <span class="card-hdr-title">Stock Ledger</span><button class="btn btn-ghost btn-sm" onclick="exportLedgerExcel()">⬇ Excel</button>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="ledger-filters"></div>
+        <div style="position:relative" id="led-col-dd-wrap">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('led-col-dd').style.display=document.getElementById('led-col-dd').style.display==='none'?'block':'none'">⚙ Columns</button>
+          <div id="led-col-dd" style="display:none;position:absolute;right:0;top:110%;background:var(--panel2);border:1.5px solid var(--line2);border-radius:10px;padding:14px 16px;z-index:200;min-width:220px;box-shadow:0 8px 24px rgba(0,0,0,.5)">
+            <div style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Visible Columns</div>
+            <div id="led-col-toggles" style="display:grid;gap:6px;margin-bottom:12px"></div>
+            <div style="border-top:1px solid var(--line2);padding-top:10px;margin-bottom:10px">
+              <div style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Rows Per Page</div>
+              <select id="led-page-size" onchange="saveLedgerPageSize(this.value)" style="background:var(--panel);border:1px solid var(--line2);border-radius:7px;color:var(--ink);padding:5px 8px;font-size:12px;width:100%">
+                <option value="15">15 rows</option>
+                <option value="25">25 rows</option>
+                <option value="50">50 rows</option>
+                <option value="100">100 rows</option>
+              </select>
+            </div>
+            <button onclick="saveLedgerColPrefs()" style="width:100%;background:var(--brand);border:none;border-radius:8px;color:#fff;font-weight:700;font-size:12px;padding:7px;cursor:pointer">💾 Save as Default</button>
+            <button onclick="resetLedgerColPrefs()" style="width:100%;background:none;border:1px solid var(--line2);border-radius:8px;color:var(--ink3);font-size:11px;padding:5px;cursor:pointer;margin-top:6px">↺ Reset to Default</button>
+          </div>
+        </div>
       </div>
       <div class="tbl-wrap">
         <table><thead><tr>
-          <th>Date</th><th>Type</th><th>Reference</th><th>Product</th><th class="right">In</th><th class="right">Out</th><th class="right">Balance After</th><th>By</th><th>Notes</th>
+          <th id="led-th-date">Date</th><th id="led-th-type">Type</th><th id="led-th-ref">Reference</th><th id="led-th-product">Product</th><th id="led-th-in" class="right">In</th><th id="led-th-out" class="right">Out</th><th id="led-th-balance" class="right">Balance After</th><th id="led-th-by">By</th><th id="led-th-notes">Notes</th>
         </tr></thead><tbody id="ledger-tbody"></tbody></table>
       </div>
       <div id="ledger-pagination" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 0;font-size:13px"></div>
@@ -1557,7 +1575,8 @@ async function loadCloud(){
     const ddr=stock.find(r=>r.id==='__dismissedDups');if(ddr&&ddr.data)S.dismissedDups=ddr.data;
     const dpR=stock.find(r=>r.id==='__deletedProducts');if(dpR&&dpR.data)S.deletedProducts=dpR.data;
     const farR=stock.find(r=>r.id==='__fleetAlertStatus');if(farR&&farR.data)S.fleetAlertStatus=farR.data;
-    const otpR=stock.find(r=>r.id==='__ordTablePrefs');if(otpR&&otpR.data)S.ordTablePrefs=otpR.data;}
+    const otpR=stock.find(r=>r.id==='__ordTablePrefs');if(otpR&&otpR.data)S.ordTablePrefs=otpR.data;
+    const ltpR=stock.find(r=>r.id==='__ledTablePrefs');if(ltpR&&ltpR.data)S.ledTablePrefs=ltpR.data;}
     if(products&&products.length){
       const pr=products.find(r=>r.id==='__products');
       if(pr&&pr.data){
@@ -5290,6 +5309,48 @@ function renderLedger(){
   bindCbDropdown('led-cls',prodOpts,v=>{ledgerFilter.cls=v;ledgerPage=1;renderLedgerTable();});
   bindCbDropdown('led-type',typeOpts,v=>{ledgerFilter.type=v;ledgerPage=1;renderLedgerTable();});
 
+  // Build ledger column toggles with saved prefs
+  const ledPrefs=S.ledTablePrefs||{};
+  const ledSavedCols=ledPrefs.cols||{};
+  const ledSavedSize=ledPrefs.pageSize||25;
+  const ledColDefs=[{k:'date',l:'Date'},{k:'type',l:'Type'},{k:'ref',l:'Reference'},{k:'product',l:'Product'},{k:'in',l:'In'},{k:'out',l:'Out'},{k:'balance',l:'Balance After'},{k:'by',l:'By'},{k:'notes',l:'Notes'}];
+  const ledToggles=document.getElementById('led-col-toggles');
+  if(ledToggles){
+    ledToggles.innerHTML=ledColDefs.map(c=>{
+      const isOn=c.k in ledSavedCols?ledSavedCols[c.k]:true;
+      return`<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:var(--ink2);padding:2px 0"><input type="checkbox" id="led-col-${c.k}" ${isOn?'checked':''} onchange="renderLedgerTable()"/> ${c.l}</label>`;
+    }).join('');
+  }
+  const ledPsSel=document.getElementById('led-page-size');
+  if(ledPsSel)ledPsSel.value=String(ledSavedSize);
+  renderLedgerTable();
+}
+
+function saveLedgerColPrefs(){
+  const ledColDefs=['date','type','ref','product','in','out','balance','by','notes'];
+  const cols={};
+  ledColDefs.forEach(k=>{const el=document.getElementById('led-col-'+k);if(el)cols[k]=el.checked;});
+  const ps=parseInt(document.getElementById('led-page-size')?.value||'25');
+  if(!S.ledTablePrefs)S.ledTablePrefs={};
+  S.ledTablePrefs={cols,pageSize:ps};
+  pushRecord('sp_stock','__ledTablePrefs',S.ledTablePrefs);
+  persist();
+  toast('Ledger column preferences saved');
+  document.getElementById('led-col-dd').style.display='none';
+}
+
+function resetLedgerColPrefs(){
+  S.ledTablePrefs={cols:{},pageSize:25};
+  pushRecord('sp_stock','__ledTablePrefs',S.ledTablePrefs);
+  persist();
+  toast('Ledger preferences reset');
+  renderLedger();
+}
+
+function saveLedgerPageSize(val){
+  if(!S.ledTablePrefs)S.ledTablePrefs={};
+  S.ledTablePrefs.pageSize=parseInt(val);
+  ledgerPage=1;
   renderLedgerTable();
 }
 
@@ -5316,9 +5377,12 @@ function renderLedgerTable(){
     const q=ledgerFilter.search.toLowerCase();
     list=list.filter(e=>(e.ref||'').toLowerCase().includes(q)||(e.cls||'').toLowerCase().includes(q)||(e.notes||'').toLowerCase().includes(q)||(e.type||'').toLowerCase().includes(q));
   }
+  const ledCol=k=>{const el=document.getElementById(`led-col-${k}`);return!el||el.checked!==false;};
+  ['date','type','ref','product','in','out','balance','by','notes'].forEach(k=>{const th=document.getElementById(`led-th-${k}`);if(th)th.style.display=ledCol(k)?'':'none';});
+  const _lps=(S.ledTablePrefs&&S.ledTablePrefs.pageSize)||25;
   const tb=document.getElementById('ledger-tbody');
-  if(!list.length){tb.innerHTML=`<tr><td colspan="8" class="empty">No ledger entries found</td></tr>`;renderLedgerPagination(0,0,0);return;}
-  const _lps=LEDGER_PAGE_SIZE;
+  if(!list.length){tb.innerHTML=`<tr><td colspan="9" class="empty">No ledger entries found</td></tr>`;renderLedgerPagination(0,0,0);return;}
+  // _lps already set above from prefs
   const _ltotal=Math.ceil(list.length/_lps);
   if(ledgerPage>_ltotal)ledgerPage=_ltotal;
   if(ledgerPage<1)ledgerPage=1;
@@ -5354,15 +5418,15 @@ function renderLedgerTable(){
     });
   },100);
   tb.innerHTML=list.map(e=>`<tr style="cursor:pointer" onclick="viewLedgerEntry('${e.id}')" title="Click for details">
-    <td style="font-size:12px;white-space:nowrap">${fdt(e.date)}</td>
-    <td>${typeChipL(e.type)}</td>
-    <td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:var(--brand)">${esc(e.ref||'\u2014')}</td>
-    <td>${skuBadge(e.cls,false)}</td>
-    <td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--brand)">${e.dir==='in'?'+'+e.qty:'\u2014'}</td>
-    <td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--red)">${e.dir==='out'?'\u2212'+e.qty:'\u2014'}</td>
-    <td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:${e.balance<0?'var(--red)':'var(--ink2)'}">${e.balance}</td>
-    <td style="font-size:12px;color:var(--ink2);white-space:nowrap">${esc(e.by||'\u2014')}</td>
-    <td style="font-size:11px;color:var(--ink3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.notes||'\u2014')}</td>
+    ${ledCol('date')?`<td style="font-size:12px;white-space:nowrap">${fdt(e.date)}</td>`:''}
+    ${ledCol('type')?`<td>${typeChipL(e.type)}</td>`:''}
+    ${ledCol('ref')?`<td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:var(--brand)">${esc(e.ref||'\u2014')}</td>`:''}
+    ${ledCol('product')?`<td>${skuBadge(e.cls,false)}</td>`:''}
+    ${ledCol('in')?`<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--brand)">${e.dir==='in'?'+'+e.qty:'\u2014'}</td>`:''}
+    ${ledCol('out')?`<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--red)">${e.dir==='out'?'\u2212'+e.qty:'\u2014'}</td>`:''}
+    ${ledCol('balance')?`<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:${e.balance<0?'var(--red)':'var(--ink2)'}">${e.balance}</td>`:''}
+    ${ledCol('by')?`<td style="font-size:12px;color:var(--ink2);white-space:nowrap">${esc(e.by||'\u2014')}</td>`:''}
+    ${ledCol('notes')?`<td style="font-size:11px;color:var(--ink3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.notes||'\u2014')}</td>`:''}
   </tr>`).join('');
 }
 
