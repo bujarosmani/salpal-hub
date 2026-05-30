@@ -6424,28 +6424,31 @@ function renderStocktake(){
             </div>
           </div>
           ${t.status==='pending'?`
-            <div style="margin-top:10px;overflow-x:auto">
-              <table style="width:100%;border-collapse:collapse;font-size:12px">
-                <thead><tr style="border-bottom:1px solid var(--line)">
-                  <th style="text-align:left;padding:5px 8px;color:var(--ink3)">Product</th>
-                  <th style="text-align:right;padding:5px 8px;color:var(--ink3)">System</th>
-                  <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Counted · Diff</th>
-                </tr></thead>
-                <tbody>
-                  ${(t.counts||[]).filter(c=>c.counted!==null).map(c=>{
-                    const sys=c.systemQty||0;const diff=c.counted-sys;
-                    return`<tr style="border-bottom:1px solid var(--line2)">
-                      <td style="padding:5px 8px;font-weight:600">${esc(c.cls)}</td>
-                      <td style="padding:5px 8px;text-align:right">${sys}</td>
-                      <td style="padding:4px 8px;text-align:right">
-                        <input type="number" value="${c.counted}" min="0" class="no-spin"
-                          style="width:70px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;background:var(--panel2);border:1px solid var(--line2);border-radius:6px;color:var(--ink);padding:2px 4px;-moz-appearance:textfield;appearance:textfield"
-                          oninput="editPendingCount('${t.id}','${esc(c.cls)}',this.value,${sys},this.nextElementSibling)"
-                        /><span style="display:inline-block;width:46px;text-align:right;font-weight:700;color:${diff===0?'var(--brand)':diff>0?'var(--blue)':'var(--red)'}">${diff>0?'+':''}${diff}</span>
-                      </td>
-                    </tr>`;}).join('')}
-                </tbody>
-              </table>
+            <div style="margin-top:8px">
+              <button type="button" onclick="const b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';this.textContent=b.style.display==='none'?'▶ Show counts':'▼ Hide counts'" style="background:none;border:none;color:var(--ink3);font-size:11px;cursor:pointer;padding:0;font-weight:600;letter-spacing:0.5px">▶ Show counts</button>
+              <div style="display:none;margin-top:8px;overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                  <thead><tr style="border-bottom:1px solid var(--line)">
+                    <th style="text-align:left;padding:5px 8px;color:var(--ink3)">Product</th>
+                    <th style="text-align:right;padding:5px 8px;color:var(--ink3)">System</th>
+                    <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Counted · Diff</th>
+                  </tr></thead>
+                  <tbody>
+                    ${(t.counts||[]).filter(c=>c.counted!==null).map(c=>{
+                      const sys=c.systemQty||0;const diff=c.counted-sys;
+                      return`<tr style="border-bottom:1px solid var(--line2)">
+                        <td style="padding:5px 8px;font-weight:600">${esc(c.cls)}</td>
+                        <td style="padding:5px 8px;text-align:right">${sys}</td>
+                        <td style="padding:4px 8px;text-align:right">
+                          <input type="number" value="${c.counted}" min="0" class="no-spin"
+                            style="width:70px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;background:var(--panel2);border:1px solid var(--line2);border-radius:6px;color:var(--ink);padding:2px 4px;-moz-appearance:textfield;appearance:textfield"
+                            oninput="editPendingCount('${t.id}','${esc(c.cls)}',this.value,${sys},this.nextElementSibling)"
+                          /><span style="display:inline-block;width:46px;text-align:right;font-weight:700;color:${diff===0?'var(--brand)':diff>0?'var(--blue)':'var(--red)'}">${diff>0?'+':''}${diff}</span>
+                        </td>
+                      </tr>`;}).join('')}
+                  </tbody>
+                </table>
+              </div>
             </div>`:''}
         </div>`).join('')}
     `:'<div class="empty">No stock takes yet</div>';
