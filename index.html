@@ -405,6 +405,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       </div>
     </div>
     <div id="ord-active-tags" style="display:flex;gap:6px;flex-wrap:wrap;padding:6px 16px 4px"></div>
+    <div id="ord-tbl-container" style="position:relative;overflow:hidden">
     <div class="tbl-wrap">
       <table id="ord-table"><thead id="ord-thead"><tr>
         <th data-col="awb" onclick="thClick('ord-table','awb',renderOrdTable)" style="cursor:pointer">AWB</th>
@@ -420,6 +421,9 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
         <th id="th-checked" data-col="checked" onclick="thClick('ord-table','checked',renderOrdTable)" style="cursor:pointer">✓ Checked</th>
         <th class="right">Actions</th>
       </tr></thead><tbody id="ord-tbody"></tbody></table>
+    </div>
+    </div>
+    <div id="ord-tbl-resize-handle" style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:col-resize;background:var(--line2);z-index:10;opacity:0;transition:opacity .2s" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0'" title="Drag to resize table"></div>
     </div>
     <div id="ord-pagination" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 0;font-size:13px"></div>
   </div>
@@ -2419,13 +2423,46 @@ function renderOrdTable(){
   if(ordPage<1)ordPage=1;
   const pageList=list.slice((ordPage-1)*_ps,ordPage*_ps);
   renderOrdPagination(ordPage,totalPages,list.length);
+  // Bind table container resize handle
+  setTimeout(()=>{
+    const handle=document.getElementById('ord-tbl-resize-handle');
+    const container=document.getElementById('ord-tbl-container');
+    if(handle&&container&&!handle._bound){
+      handle._bound=true;
+      handle.addEventListener('mousedown',e=>{
+        e.preventDefault();
+        const startX=e.clientX;
+        const startW=container.offsetWidth;
+        const onMove=ev=>{
+          const newW=Math.max(400,startW+(ev.clientX-startX));
+          container.style.width=newW+'px';
+        };
+        const onUp=()=>{
+          document.removeEventListener('mousemove',onMove);
+          document.removeEventListener('mouseup',onUp);
+        };
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+      });
+      // Touch support
+      handle.addEventListener('touchstart',e=>{
+        e.preventDefault();
+        const startX=e.touches[0].clientX;
+        const startW=container.offsetWidth;
+        const onMove=ev=>{const newW=Math.max(400,startW+(ev.touches[0].clientX-startX));container.style.width=newW+'px';};
+        const onUp=()=>{handle.removeEventListener('touchmove',onMove);handle.removeEventListener('touchend',onUp);};
+        handle.addEventListener('touchmove',onMove,{passive:false});
+        handle.addEventListener('touchend',onUp);
+      },{passive:false});
+    }
+  },100);
   // Apply saved table width
   const savedTblWidth=(S.ordTablePrefs&&S.ordTablePrefs.tableWidth)||null;
   const tblEl=document.getElementById('ord-table');
   const wSlider=document.getElementById('ord-tbl-width');
   const wLbl=document.getElementById('ord-tbl-width-lbl');
-  const wrapEl=document.querySelector('#page-orders .tbl-wrap');
-  if(wrapEl){if(savedTblWidth){wrapEl.style.minWidth=savedTblWidth+'px';if(wSlider)wSlider.value=savedTblWidth;if(wLbl)wLbl.textContent=savedTblWidth+'px';}else{wrapEl.style.minWidth='';if(wSlider)wSlider.value=600;if(wLbl)wLbl.textContent='Auto';}}
+  const contElR=document.getElementById('ord-tbl-container');
+  if(contElR){if(savedTblWidth){contElR.style.width=savedTblWidth+'px';}else{contElR.style.width='';}} if(wSlider)wSlider.value=savedTblWidth||600;if(wLbl)wLbl.textContent=savedTblWidth?savedTblWidth+'px':'Auto';
   // Apply saved column widths
   const savedWidths=(S.ordTablePrefs&&S.ordTablePrefs.widths)||{};
   const allThs=document.querySelectorAll('#ord-table th');
@@ -2811,9 +2848,10 @@ function saveOrdColPrefs(){
     const c=th.dataset.col||th.id?.replace('th-','');
     if(c&&th.offsetWidth>0)widths[c]=th.offsetWidth;
   });
-  const tblWidth=parseInt(document.getElementById('ord-tbl-width')?.value||'600');
+  const contEl=document.getElementById('ord-tbl-container');
+  const tblWidth=contEl&&contEl.style.width?parseInt(contEl.style.width):null;
   if(!S.ordTablePrefs)S.ordTablePrefs={};
-  S.ordTablePrefs={cols,pageSize:ps,widths,tableWidth:tblWidth>600?tblWidth:null};
+  S.ordTablePrefs={cols,pageSize:ps,widths,tableWidth:tblWidth&&tblWidth>400?tblWidth:null};
   pushRecord('sp_stock','__ordTablePrefs',S.ordTablePrefs);
   persist();
   toast('Column preferences saved');
@@ -2822,7 +2860,7 @@ function saveOrdColPrefs(){
 
 function resetOrdColPrefs(){
   S.ordTablePrefs={cols:{},pageSize:25,widths:{},tableWidth:null};
-  const wrapElR=document.querySelector('#page-orders .tbl-wrap');if(wrapElR)wrapElR.style.minWidth='';
+  const contElReset=document.getElementById('ord-tbl-container');if(contElReset)contElReset.style.width='';
   pushRecord('sp_stock','__ordTablePrefs',S.ordTablePrefs);
   persist();
   toast('Column preferences reset');
