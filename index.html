@@ -6278,7 +6278,7 @@ function renderStocktake(){
             <div style="display:flex;align-items:center;gap:10px">
               <input type="checkbox" class="st-chk" data-id="${t.id}" style="width:16px;height:16px;cursor:pointer;accent-color:var(--brand)" onchange="updateStExportBtn()"/>
               <div>
-              ${t.adjRef?`<div style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px;color:var(--brand)">${esc(t.adjRef)}</div>`:''}
+              <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px;color:${t.status==='draft'?'var(--ink3)':`var(--brand)`}">${t.adjRef?esc(t.adjRef):(t.status==='draft'?'Draft (not submitted)':'')}</div>
               <div style="font-weight:600;font-size:13px">${esc(t.userName)} · ${fd(t.createdAt?.slice(0,10))}</div>
               <div style="font-size:11px;color:var(--ink3)">${t.counts?.filter(c=>c.counted!==null).length||0} products counted${t.approvedBy?' · Approved by '+esc(t.approvedBy):''}</div>
             </div></div>
@@ -6437,7 +6437,7 @@ function submitStocktake(id){
 
 function discardStocktake(id){
   const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
-  sendToBin('stocktake',id,t.adjRef||'Stocktake',t);
+  sendToBin('stocktake',id,t.adjRef||(t.status==='draft'?`Draft – ${t.userName||''} ${fd(t.createdAt?.slice(0,10))}`:'Stocktake'),t);
   S.stocktakes=(S.stocktakes||[]).filter(x=>x.id!==id);
   // Delete from server so it doesn't come back on next sync
   apiDelete('sp_stocktakes',id).catch(()=>{});
@@ -6446,7 +6446,7 @@ function discardStocktake(id){
 function deleteStocktake(id){
   const t=(S.stocktakes||[]).find(x=>x.id===id);if(!t)return;
   if(!confirm(`Delete this stocktake${t.adjRef?' ('+t.adjRef+')':''}? This cannot be undone.`))return;
-  sendToBin('stocktake',id,t.adjRef||'Stocktake',t);
+  sendToBin('stocktake',id,t.adjRef||(t.status==='draft'?`Draft – ${t.userName||''} ${fd(t.createdAt?.slice(0,10))}`:'Stocktake'),t);
   S.stocktakes=(S.stocktakes||[]).filter(x=>x.id!==id);
   apiDelete('sp_stocktakes',id).catch(()=>{});
   persist();renderStocktake();toast('Stocktake deleted');
@@ -6974,8 +6974,11 @@ function deleteEmployee(id){
 
 
 function sendToBin(type,id,name,data){
-  const entry={id:mkId(),type,originalId:id,name,data,deletedBy:ME?`${ME.firstName} ${ME.lastName}`.trim():'',deletedAt:new Date().toISOString()};
   if(!S.bin)S.bin=[];
+  // Remove any existing bin entry for same original item (prevents duplicates)
+  const existing=S.bin.filter(e=>e.originalId===id);
+  existing.forEach(e=>{ S.bin=S.bin.filter(x=>x.id!==e.id); apiDelete('sp_deleted',e.id).catch(()=>{}); });
+  const entry={id:mkId(),type,originalId:id,name,data,deletedBy:ME?`${ME.firstName} ${ME.lastName}`.trim():'',deletedAt:new Date().toISOString()};
   S.bin.unshift(entry);
   sbUpsert('sp_deleted',entry.id,entry).catch(()=>{});
 }
