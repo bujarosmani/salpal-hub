@@ -3730,6 +3730,7 @@ async function confirmDeleteRepair(id){
       body:JSON.stringify({repairId:id,pallet_class:r.pallet_class,src:r.src||'Defected Euro',qty:r.qty})});
     if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error||'Server error');}
     const result=await res.json();
+    sendToBin('repair',id,`Repair ${fd(r.date?.slice(0,10))} — ${r.repairer||''}`,r);
     S.repairs=(S.repairs||[]).filter(x=>x.id!==id);
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
@@ -4462,7 +4463,8 @@ function doMergeCompany(){
     (S.orders||[]).forEach(j=>{
       if(j.companyId===d.id){j.companyId=masterId;j.companyName=master.name;j.companyAddress=master.address;j.city=master.city;j.postcode=master.postcode;moved++;}
     });
-    // Delete duplicate from Supabase
+    // Move duplicate to bin then delete
+    sendToBin('company',d.id,d.name+' (merged duplicate)',d);
     apiDelete('sp_companies',d.id).catch(()=>{});
   });
   // Remove duplicates from state
@@ -4637,6 +4639,7 @@ async function confirmDeleteSorting(id){
       body:JSON.stringify({sortingId:id,pallets:r.pallets||[],totalQty:r.totalQty||0})});
     if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error||'Server error');}
     const result=await res.json();
+    sendToBin('sorting',id,`Sorting ${fd(r.date?.slice(0,10))} — ${(r.sorters||[]).join(', ')}`,r);
     S.sortings=(S.sortings||[]).filter(x=>x.id!==id);
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
@@ -7126,6 +7129,11 @@ function viewBinItem(binId){
   } else if(entry.type==='order'){
     const pallets=(d.pallets||[]).map(p=>'<tr style="border-bottom:1px solid var(--line2)"><td style="padding:6px 8px;font-weight:600">'+esc(p.cls)+'</td><td style="padding:6px 8px;text-align:right">'+p.qty+'</td></tr>').join('');
     body='<div style="display:grid;gap:6px;font-size:13px;margin-bottom:12px">'+[['Reference',d.awb],['Type',d.type],['Status',d.status],['Customer',d.companyName],['Date',fd(d.deliveryDate)],['Driver',d.driverId?uname(d.driverId):d.driver||'—'],['Notes',d.driverNotes||'—']].map(([l,v])=>'<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700">'+l+'</span><span style="font-weight:600;text-align:right">'+esc(v||'—')+'</span></div>').join('')+'</div>'+(pallets?'<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="border-bottom:1.5px solid var(--line)"><th style="text-align:left;padding:6px 8px;color:var(--ink3)">Class</th><th style="text-align:right;padding:6px 8px;color:var(--ink3)">Qty</th></tr></thead><tbody>'+pallets+'</tbody></table>':'');
+  } else if(entry.type==='repair'){
+    body='<div style="display:grid;gap:6px;font-size:13px;margin-bottom:12px">'+[['Date',fd(d.date?.slice(0,10))],['Repairer',d.repairer||'—'],['Supervisor',d.supervisor||'—'],['Class',d.pallet_class||'—'],['Qty',d.qty||0],['Source',d.src||'—']].map(([l,v])=>'<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700">'+l+'</span><span style="font-weight:600;text-align:right">'+esc(String(v||'—'))+'</span></div>').join('')+'</div><div style="font-size:11px;color:var(--amber);background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.3);border-radius:8px;padding:8px 10px">⚠ Stock was already reversed on delete — restoring this record will NOT re-adjust stock.</div>';
+  } else if(entry.type==='sorting'){
+    const pallets=(d.pallets||[]).map(p=>'<tr style="border-bottom:1px solid var(--line2)"><td style="padding:6px 8px;font-weight:600">'+esc(p.cls)+'</td><td style="padding:6px 8px;text-align:right">'+p.qty+'</td></tr>').join('');
+    body='<div style="display:grid;gap:6px;font-size:13px;margin-bottom:12px">'+[['Date',fd(d.date?.slice(0,10))],['Sorters',(d.sorters||[]).join(', ')||'—'],['Supervisor',d.supervisor||'—'],['Order Ref',d.orderRef||'—'],['Total Qty',d.totalQty||0]].map(([l,v])=>'<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700">'+l+'</span><span style="font-weight:600;text-align:right">'+esc(String(v||'—'))+'</span></div>').join('')+'</div>'+(pallets?'<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px"><thead><tr style="border-bottom:1.5px solid var(--line)"><th style="text-align:left;padding:6px 8px;color:var(--ink3)">Class</th><th style="text-align:right;padding:6px 8px;color:var(--ink3)">Qty</th></tr></thead><tbody>'+pallets+'</tbody></table>':'')+'<div style="font-size:11px;color:var(--amber);background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.3);border-radius:8px;padding:8px 10px">⚠ Stock was already reversed on delete — restoring this record will NOT re-adjust stock.</div>';
   } else if(entry.type==='user'){
     body='<div style="display:grid;gap:6px;font-size:13px">'+[['Name',(d.firstName||'')+' '+(d.lastName||'')],['Username',d.username],['Role',d.role],['Phone',d.phone||'—']].map(([l,v])=>'<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700">'+l+'</span><span style="font-weight:600;text-align:right">'+esc(v||'—')+'</span></div>').join('')+'</div>';
   } else if(entry.type==='company'){
