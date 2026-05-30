@@ -4697,17 +4697,32 @@ function editSorting(id){
   // Pre-fill pallet lines
   document.getElementById('srt-lines').innerHTML='';
   (r.pallets||[]).forEach(p=>addPltLine('srt-lines',p.cls,p.qty));
-  const warn=document.getElementById('srt-warn');if(warn){warn.style.display='none';warn.innerHTML='';}
+  hideSrtMsgs();
   const info=document.getElementById('srt-order-info');if(info)info.style.display='none';
   const btn=document.querySelector('#m-sort .btn-primary');
   if(btn){btn.textContent='✓ Update';btn.onclick=()=>saveSortingEdit(id,false);}
   openM('m-sort');
 }
 
+function showSrtMsg(type,html,autoDismiss){
+  // Remove any existing msg
+  document.querySelectorAll('.srt-msg-overlay').forEach(e=>e.remove());
+  const backdrop=document.getElementById('m-sort');
+  if(!backdrop)return;
+  const div=document.createElement('div');
+  div.className='srt-msg-overlay';
+  div.style.cssText='position:fixed;bottom:70px;left:50%;transform:translateX(-50%);z-index:9999;width:90%;max-width:500px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.6);animation:fadeIn .2s ease';
+  div.innerHTML=html;
+  backdrop.appendChild(div);
+  if(autoDismiss)setTimeout(()=>div.remove(),3000);
+}
+
+function hideSrtMsgs(){document.querySelectorAll('.srt-msg-overlay').forEach(e=>e.remove());}
+
 function saveSortingEdit(id,force){
-  const _sErr=document.getElementById('srt-err');if(_sErr)_sErr.style.display='none';
+  hideSrtMsgs();
   if(!SF.sup||!SF.sorters.length){
-    if(_sErr){_sErr.style.display='';_sErr.textContent='⚠ Select a supervisor and at least one sorter';_sErr.scrollIntoView({behavior:'smooth',block:'center'});}
+    showSrtMsg('err','<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);padding:12px 16px;border-radius:12px;font-size:13px;font-weight:700;color:var(--red)">⚠ Select a supervisor and at least one sorter</div>',2500);
     return;
   }
   const r=(S.sortings||[]).find(x=>x.id===id);if(!r)return;
@@ -4724,7 +4739,7 @@ function saveSortingEdit(id,force){
   if(r&&r.id)syncSorting(r);
   persist();clearDirty('m-sort');toast('Sorting updated');forceCloseM('m-sort');renderSorting();renderDash();
 }
-function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se.style.display='none';const _sb=document.querySelector('#m-sort .btn-primary');if(_sb){_sb.disabled=false;_sb.textContent='✓ Save';}
+function openSortModal(){hideSrtMsgs();const _sb=document.querySelector('#m-sort .btn-primary');if(_sb){_sb.disabled=false;_sb.textContent='✓ Save';}
   // Always reset dropdown to unlocked for Log Sorting (openSortModalForOrder locks it)
   const _selReset=document.getElementById('srt-order-ref');if(_selReset){_selReset.disabled=false;}
   const _lblReset=document.getElementById('srt-order-ref-label');if(_lblReset)_lblReset.textContent='Order Reference (optional)';
@@ -4754,7 +4769,7 @@ function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se
       const qty=(j.pallets||[]).filter(p=>p.cls&&p.cls.toLowerCase().includes('unsorted')).reduce((s,p)=>s+(p.qty||0),0);
       return`<option value="${j.awb}">${esc(j.awb)} — ${esc(j.companyName||'')} (${qty}× Unsorted)</option>`;
     }).join('');
-  const warn=document.getElementById('srt-warn');if(warn){warn.style.display='none';warn.innerHTML='';}
+  hideSrtMsgs();
   const info=document.getElementById('srt-order-info');if(info)info.style.display='none';
   const srtDate=document.getElementById('srt-date');if(srtDate)srtDate.value=localIso(new Date());
   const srtDateWrap=document.getElementById('srt-date-wrap');if(srtDateWrap)srtDateWrap.style.display=isAdmin()?'':'none';
@@ -4849,14 +4864,14 @@ function toggleSorter(name){const i=SF.sorters.indexOf(name);if(i>=0)SF.sorters.
  * - auto-completes order if fully sorted
  */
 async function saveSorting(force){
-  const _sErr=document.getElementById('srt-err');if(_sErr)_sErr.style.display='none';
+  hideSrtMsgs();
   if(!SF.sup||!SF.sorters.length){
-    if(_sErr){_sErr.style.display='';_sErr.textContent='⚠ Select a supervisor and at least one sorter';_sErr.scrollIntoView({behavior:'smooth',block:'center'});}
+    showSrtMsg('err','<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);padding:12px 16px;border-radius:12px;font-size:13px;font-weight:700;color:var(--red)">⚠ Select a supervisor and at least one sorter</div>',2500);
     return;
   }
   const pallets=getLines('srt-lines');
   if(!pallets.length){
-    if(_sErr){_sErr.style.display='';_sErr.textContent='⚠ Add at least one pallet line';_sErr.scrollIntoView({behavior:'smooth',block:'center'});}
+    showSrtMsg('err','<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);padding:12px 16px;border-radius:12px;font-size:13px;font-weight:700;color:var(--red)">⚠ Add at least one pallet line</div>',2500);
     return;
   }
   const totalQty=pallets.reduce((s,p)=>s+(p.qty||0),0);
@@ -4881,11 +4896,11 @@ async function saveSorting(force){
     if(totalQty>unsortedStock){
       const short=totalQty-unsortedStock;
       const warn=document.getElementById('srt-warn');
-      if(warn){warn.style.display='';warn.innerHTML=`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:12px 14px"><div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px">⚠ Unsorted stock: ${unsortedStock} available, ${totalQty} needed (${short} short).<br>Proceed anyway?</div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="saveSorting(true)">✓ Yes, proceed</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('srt-warn').style.display='none'">✕ No, go back</button></div></div>`;}
+      showSrtMsg('warn',`<div style="background:var(--red-bg);border:1.5px solid rgba(245,107,107,.4);padding:12px 16px;border-radius:12px"><div style="font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px">⚠ Unsorted stock: ${unsortedStock} available, ${totalQty} needed (${short} short). Proceed anyway?</div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="hideSrtMsgs();saveSorting(true)">✓ Yes</button><button class="btn btn-ghost btn-sm" onclick="hideSrtMsgs()">✕ No</button></div></div>`);
       return;
     }
   }
-  const warnEl=document.getElementById('srt-warn');if(warnEl)warnEl.style.display='none';
+  hideSrtMsgs();
   const srtDateVal=document.getElementById('srt-date')?.value;
   const srtDateFull=srtDateVal?new Date(srtDateVal+'T'+new Date().toTimeString().slice(0,8)).toISOString():new Date().toISOString();
   const btn=document.querySelector('#m-sort .btn-primary');
