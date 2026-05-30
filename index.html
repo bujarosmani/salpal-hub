@@ -2481,14 +2481,14 @@ function renderOrdTable(){
     const ps=palletStr(j.pallets);
     const whn=(j.whChanges||[]).length?(j.whChanges||[]).map(c=>`${c.label}: ${c.value}`).join(' \u00b7 '):'\u2014';
     return`<tr>
-      <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap">${esc(j.awb)}</td>
+      <td style="font-family:'DM Mono',monospace;font-weight:400;font-size:13px;white-space:nowrap">${esc(j.awb)}</td>
       ${col('orderRef')?`<td style="font-size:12px;color:var(--ink2)">${esc(j.orderRef||'\u2014')}</td>`:''}
       ${col('type')?`<td>${typeChip(j.type)}</td>`:''}
-      ${col('company')?`<td><div style="font-weight:600">${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td>`:''}
+      ${col('company')?`<td><div>${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td>`:''}
       ${col('date')?`<td>${fd(j.deliveryDate)}</td>`:''}
       ${col('pallets')?`<td style="font-size:12px;font-family:'DM Mono',monospace">${esc(ps)}</td>`:''}
       ${col('driver')?`<td style="font-size:12px">${j.driverId?uname(j.driverId):j.driver||'\u2014'}</td>`:''}
-      ${col('whBy')?`<td style="font-size:12px;font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td>`:''}
+      ${col('whBy')?`<td style="font-size:12px;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td>`:''}
       ${col('whNotes')?`<td style="font-size:11px;color:var(--ink3);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(whn)}">${esc(whn)}</td>`:''}
       ${col('status')?`<td>${stChip(j.status)}</td>`:''}
       ${col('checked')?`<td style="text-align:center"><input type="checkbox" ${j.checked?'checked':''} onclick="toggleOrderChecked('${j.id}',this)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--brand)"/></td>`:''}
