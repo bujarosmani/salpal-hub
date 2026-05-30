@@ -395,7 +395,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
         <th id="th-date" data-col="deliveryDate" onclick="thClick('ord-table','deliveryDate',renderOrdTable)" style="cursor:pointer">Date</th>
         <th id="th-pallets" data-col="totalQty" onclick="thClick('ord-table','totalQty',renderOrdTable)" style="cursor:pointer">Pallets</th>
         <th id="th-driver" data-col="driverId" onclick="thClick('ord-table','driverId',renderOrdTable)" style="cursor:pointer">Driver</th>
-        <th id="th-whBy" data-col="whBy" onclick="thClick('ord-table','whBy',renderOrdTable)" style="cursor:pointer">WH By</th>
+        <th id="th-whBy" data-col="whBy" onclick="thClick('ord-table','whBy',renderOrdTable)" style="cursor:pointer">WH By</th><th id="th-checked" data-col="checked" onclick="thClick('ord-table','checked',renderOrdTable)" style="cursor:pointer">✓ Checked</th>
         <th id="th-whNotes">WH Notes</th>
         <th id="th-status" data-col="status" onclick="thClick('ord-table','status',renderOrdTable)" style="cursor:pointer">Status</th>
         <th class="right">Actions</th>
@@ -2259,9 +2259,9 @@ function renderOrders(){
   // Build column toggles once
   const toggles=document.getElementById('ord-col-toggles');
   if(toggles&&!toggles.hasChildNodes()){
-    const cols=[{k:'orderRef',l:'Order Ref'},{k:'type',l:'Type'},{k:'company',l:'Company'},{k:'date',l:'Date'},{k:'pallets',l:'Pallets'},{k:'driver',l:'Driver'},{k:'whBy',l:'WH By'},{k:'whNotes',l:'WH Notes'},{k:'status',l:'Status'}];
+    const cols=[{k:'orderRef',l:'Order Ref'},{k:'type',l:'Type'},{k:'company',l:'Company'},{k:'date',l:'Date'},{k:'pallets',l:'Pallets'},{k:'driver',l:'Driver'},{k:'whBy',l:'WH By'},{k:'whNotes',l:'WH Notes'},{k:'status',l:'Status'},{k:'checked',l:'✓ Checked'}];
     toggles.innerHTML=`<span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px">Columns:</span>`+
-      cols.map(c=>`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ink2)"><input type="checkbox" id="col-${c.k}" ${c.k==='whNotes'?'':'checked'} onchange="renderOrdTable()"/> ${c.l}</label>`).join('');
+      cols.map(c=>`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ink2)"><input type="checkbox" id="col-${c.k}" ${(c.k==='whNotes'||c.k==='checked')?'':'checked'} onchange="renderOrdTable()"/> ${c.l}</label>`).join('');
   }
   const ords=S.orders||[];
   document.getElementById('ord-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${ords.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${ords.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
@@ -2365,7 +2365,7 @@ function renderOrdTable(){
   const tb=document.getElementById('ord-tbody');
   if(!list.length){tb.innerHTML=`<tr><td colspan="11" class="empty">No orders found</td></tr>`;return;}
   const col=c=>{const el=document.getElementById(`col-${c}`);return!el||el.checked!==false;};
-  ['orderRef','type','company','date','pallets','driver','whBy','whNotes','status'].forEach(c=>{
+  ['orderRef','type','company','date','pallets','driver','whBy','whNotes','status','checked'].forEach(c=>{
     const th=document.getElementById(`th-${c}`);if(th)th.style.display=col(c)?'':'none';
   });
   tb.innerHTML=list.map(j=>{
@@ -2382,6 +2382,7 @@ function renderOrdTable(){
       ${col('whBy')?`<td style="font-size:12px;font-weight:700;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td>`:''}
       ${col('whNotes')?`<td style="font-size:11px;color:var(--ink3);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(whn)}">${esc(whn)}</td>`:''}
       ${col('status')?`<td>${stChip(j.status)}</td>`:''}
+      ${col('checked')?`<td style="text-align:center"><input type="checkbox" ${j.checked?'checked':''} onclick="toggleOrderChecked('${j.id}',this)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--brand)"/></td>`:''}
       <td class="right" style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="viewOrder('${j.id}')">View</button>${isAdmin()?`${(()=>{const lk=S.orderLocks&&S.orderLocks[j.id];const age=lk?(Date.now()-new Date(lk.time).getTime())/1000:999;return lk&&age<300?` <span style="font-size:10px;color:var(--amber);font-weight:600">🔒 ${esc(lk.user)}</span> <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="forceUnlockOrder('${j.id}')">Unlock</button>`:(` <button class="btn btn-ghost btn-sm" onclick="editOrder('${j.id}')">Edit</button>`);})()}`:''}
       </td>
     </tr>`;
@@ -2717,6 +2718,15 @@ function closeOrderModal(){
   const dc=document.getElementById('of-del-confirm');if(dc)dc.style.display='none';
   closeM('m-order');
 }
+function toggleOrderChecked(id,cb){
+  const j=(S.orders||[]).find(o=>o.id===id);if(!j)return;
+  j.checked=cb.checked;
+  j.checkedBy=cb.checked?`${ME?.firstName||''} ${ME?.lastName||''}`.trim():null;
+  j.checkedAt=cb.checked?new Date().toISOString():null;
+  j.updatedAt=new Date().toISOString();
+  syncOrder(j);persist();
+}
+
 function viewOrder(id){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   const isD=j.type==='Delivery';
