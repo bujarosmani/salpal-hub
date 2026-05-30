@@ -374,7 +374,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <input class="inp" id="ord-search" placeholder="🔍 Search AWB, company, driver, ref..." autocomplete="off" style="width:100%;font-size:14px" oninput="ordF.search=this.value;ordPage=1;renderOrdTable()"/>
   </div>
   <div class="stats" id="ord-stats"></div>
-  <div class="card">
+  <div class="card" id="ord-table-card">
     <div class="card-hdr" style="flex-wrap:wrap;gap:6px">
       <span class="card-hdr-title">All Orders</span>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1" id="ord-filters"></div>
@@ -2436,8 +2436,7 @@ function renderOrdTable(){
     newHandle.addEventListener('mousedown',e=>{
       e.preventDefault();
       const startX=e.clientX;
-      const page=document.getElementById('page-orders');
-      const card=page?page.querySelector('.card'):null;
+      const card=document.getElementById('ord-table-card');
       const startW=card?card.offsetWidth:800;
       newHandle.style.borderColor='var(--brand)';
       const onMove=ev=>{
@@ -2458,12 +2457,12 @@ function renderOrdTable(){
   const tblEl=document.getElementById('ord-table');
   const wSlider=document.getElementById('ord-tbl-width');
   const wLbl=document.getElementById('ord-tbl-width-lbl');
-  const pageOrdEl=document.getElementById('page-orders');
-  const cardSaved=pageOrdEl?pageOrdEl.querySelector('.card'):null;
+  const cardSaved=document.getElementById('ord-table-card');
   if(cardSaved){if(savedTblWidth){cardSaved.style.maxWidth=savedTblWidth+'px';cardSaved.style.width=savedTblWidth+'px';}else{cardSaved.style.maxWidth='';cardSaved.style.width='';}} if(wSlider)wSlider.value=savedTblWidth||600;if(wLbl)wLbl.textContent=savedTblWidth?savedTblWidth+'px':'Auto';
   // Apply saved column widths
   const savedWidths=(S.ordTablePrefs&&S.ordTablePrefs.widths)||{};
   const allThs=document.querySelectorAll('#ord-table th');
+  if(Object.keys(savedWidths).length){const tblFix=document.getElementById('ord-table');if(tblFix)tblFix.style.tableLayout='fixed';}
   allThs.forEach(th=>{const c=th.dataset.col||th.id?.replace('th-','');if(c&&savedWidths[c])th.style.width=savedWidths[c]+'px';});
   // Add resize handles to headers
   setTimeout(()=>{
@@ -2849,8 +2848,7 @@ function saveOrdColPrefs(){
     const c=th.dataset.col||th.id?.replace('th-','');
     if(c&&th.offsetWidth>0)widths[c]=th.offsetWidth;
   });
-  const pageOrd=document.getElementById('page-orders');
-  const cardEl=pageOrd?pageOrd.querySelector('.card'):null;
+  const cardEl=document.getElementById('ord-table-card');
   const tblWidth=cardEl&&cardEl.style.width?parseInt(cardEl.style.width):null;
   if(!S.ordTablePrefs)S.ordTablePrefs={};
   S.ordTablePrefs={cols,pageSize:ps,widths,tableWidth:tblWidth&&tblWidth>400?tblWidth:null};
@@ -2862,7 +2860,7 @@ function saveOrdColPrefs(){
 
 function resetOrdColPrefs(){
   S.ordTablePrefs={cols:{},pageSize:25,widths:{},tableWidth:null};
-  const pageOrdReset=document.getElementById('page-orders');const cardReset=pageOrdReset?pageOrdReset.querySelector('.card'):null;if(cardReset){cardReset.style.maxWidth='';cardReset.style.width='';}
+  const cardReset=document.getElementById('ord-table-card');if(cardReset){cardReset.style.maxWidth='';cardReset.style.width='';}
   pushRecord('sp_stock','__ordTablePrefs',S.ordTablePrefs);
   persist();
   toast('Column preferences reset');
@@ -2879,6 +2877,13 @@ function saveOrdPageSize(val){
 function initColResize(th){
   return function(e){
     e.preventDefault();
+    const tbl=document.getElementById('ord-table');
+    // Enable fixed layout so widths are respected
+    if(tbl&&tbl.style.tableLayout!=='fixed'){
+      tbl.style.tableLayout='fixed';
+      // Set current widths on all headers so layout doesn't jump
+      document.querySelectorAll('#ord-table th').forEach(h=>{if(!h.style.width)h.style.width=h.offsetWidth+'px';});
+    }
     const startX=e.clientX;
     const startW=th.offsetWidth;
     const onMove=ev=>{const newW=Math.max(40,startW+(ev.clientX-startX));th.style.width=newW+'px';};
