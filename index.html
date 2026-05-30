@@ -1470,6 +1470,7 @@ function syncCompany(company){
 // Save a stocktake immediately
 function syncStocktake(st){
   if(!st||!st.id)return;
+  st.updatedAt=new Date().toISOString();
   persist();
   pushRecord('sp_stocktakes',st.id,st);
 }
@@ -1571,15 +1572,21 @@ async function loadCloud(){
     if(stocktakes&&stocktakes.length){
       const remote=stocktakes.map(r=>r.data).filter(Boolean);
       const local=S.stocktakes||[];
-      // Merge by id, keep newer
+      // Merge by id — use updatedAt for drafts, submittedAt/approvedAt for others
       const merged=remote.map(rt=>{
         const lt=local.find(x=>x.id===rt.id);
         if(!lt)return rt;
-        const rt2=new Date(rt.submittedAt||rt.createdAt||0).getTime();
-        const lt2=new Date(lt.submittedAt||lt.createdAt||0).getTime();
-        return lt2>rt2?lt:rt;
+        // Always prefer remote for approved/rejected — they were processed server-side
+        if(rt.status==='approved'||rt.status==='rejected')return rt;
+        // For pending/draft use updatedAt (most recent edit wins)
+        const rtTime=new Date(rt.updatedAt||rt.submittedAt||rt.createdAt||0).getTime();
+        const ltTime=new Date(lt.updatedAt||lt.submittedAt||lt.createdAt||0).getTime();
+        return ltTime>rtTime?lt:rt;
       });
-      local.forEach(lt=>{if(!merged.find(x=>x.id===lt.id))merged.unshift(lt);});
+      // Only add local records that are drafts not yet pushed (have no remote copy)
+      local.forEach(lt=>{
+        if(!merged.find(x=>x.id===lt.id)&&lt.status==='draft')merged.unshift(lt);
+      });
       S.stocktakes=merged;
     }
     localStorage.setItem(SKEY,JSON.stringify(S));
