@@ -3380,7 +3380,7 @@ function confirmReceived(){
   const truck=document.getElementById('crec-truck').value.trim();
   const trailer=document.getElementById('crec-trailer').value.trim();
   const changes=[];if(oldPs!==newPs)changes.push(`Pallets: ${oldPs} \u2192 ${newPs}`);if(cond)changes.push(`Condition: ${cond}`);
-  const hasUnsortedPallets=newPallets.some(p=>p.cls==='Unsorted');
+  const hasUnsortedPallets=newPallets.some(p=>p.cls&&p.cls.toLowerCase().includes('unsorted'));
   const _now=new Date().toISOString();
   j.status=hasUnsortedPallets?'Pending Sort':'Completed';
   j.whBy=sup;j.condition=cond;if(notes)j.whNotes=notes;j.updatedAt=_now;
@@ -3496,7 +3496,7 @@ function saveQuickEntry(createOnly){
     goHome();
   } else {
     // Atomic save — order + stock + ledger together
-    const hasUnsorted=pallets.some(p=>p.cls==='Unsorted');
+    const hasUnsorted=pallets.some(p=>p.cls&&p.cls.toLowerCase().includes('unsorted'));
     j.status=type==='Delivery'?'Loaded':(hasUnsorted?'Pending Sort':'Completed');
     fetch(API_URL+'/api/action/quickentry',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j,type})})
     .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Server error');});return r.json();})
@@ -4548,7 +4548,7 @@ function renderSorting(){
     }
   });
   const outstanding=unsortedOrders.map(j=>{
-    const ordered=(j.pallets||[]).find(p=>p.cls==='Unsorted')?.qty||0;
+    const ordered=(j.pallets||[]).filter(p=>p.cls&&p.cls.toLowerCase().includes('unsorted')).reduce((s,p)=>s+(p.qty||0),0);
     const sorted=sortedByOrder[j.awb]||0;
     const remaining=ordered-sorted;
     return{j,ordered,sorted,remaining};
@@ -4734,7 +4734,7 @@ function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se
   const unsortedOrders=(S.orders||[]).filter(j=>{
     if(j.type!=='Collection')return false;
     if(j.status==='Cancelled'||j.status==='Deleted')return false;
-    const ordered=(j.pallets||[]).find(p=>p.cls==='Unsorted')?.qty||0;
+    const ordered=(j.pallets||[]).filter(p=>p.cls&&p.cls.toLowerCase().includes('unsorted')).reduce((s,p)=>s+(p.qty||0),0);
     if(!ordered)return false;
     const sorted=sortedByOrder[j.awb]||0;
     return sorted<ordered; // only show if still has remaining qty
@@ -4742,7 +4742,7 @@ function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se
   const sel=document.getElementById('srt-order-ref');
   sel.innerHTML='<option value="">— No specific order —</option>'+
     unsortedOrders.map(j=>{
-      const qty=(j.pallets||[]).find(p=>p.cls==='Unsorted')?.qty||0;
+      const qty=(j.pallets||[]).filter(p=>p.cls&&p.cls.toLowerCase().includes('unsorted')).reduce((s,p)=>s+(p.qty||0),0);
       return`<option value="${j.awb}">${esc(j.awb)} — ${esc(j.companyName||'')} (${qty}× Unsorted)</option>`;
     }).join('');
   const warn=document.getElementById('srt-warn');if(warn){warn.style.display='none';warn.innerHTML='';}
@@ -5258,7 +5258,7 @@ function addPltLine(cid,cls,qty){
   const d=document.createElement('div');d.className='plt-line';
   // Filter classes based on context
   let skuList=getSKUS();
-  if(cid==='srt-lines') skuList=getSKUS().filter(s=>s!=='Unsorted'&&!s.toLowerCase().includes('new'));
+  if(cid==='srt-lines') skuList=getSKUS().filter(s=>!s.toLowerCase().includes('unsorted')&&!s.toLowerCase().includes('new'));
   const rmCb=`this.closest('.plt-line').remove();${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}`;
   const inpCb=`${cid==='do-lines'?'updateDoTotal();':''}${cid==='srt-lines'?'onSrtLinesChange();':''}${cid==='crec-lines'?'updateCrecTotal();':''}${cid==='load-lines'?'updateLoadTotal();':''}${cid==='qk-lines'?'updateQkTotal();':''}`;
   d.innerHTML=`<select class="inp"><option value="">— Class —</option>${skuList.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select><input class="inp" type="number" min="1" placeholder="Qty" value="${qty||''}" style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800" oninput="${inpCb}"/><button type="button" class="rm-btn" onclick="${rmCb}">−</button>`;
