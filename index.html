@@ -530,7 +530,8 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     </div>
   </div>
   <div class="tpane" id="stk-ledger-pane">
-    <div class="card">
+    <div class="card" id="ledger-table-card" style="position:relative">
+      <div id="ledger-card-resize" style="position:absolute;right:-4px;top:0;width:8px;height:100%;cursor:ew-resize;z-index:20;border-radius:4px;background:transparent" onmouseenter="this.style.background='var(--brand)';this.style.opacity='0.5'" onmouseleave="this.style.background='transparent'"></div>
       <div class="card-hdr">
         <span class="card-hdr-title">Stock Ledger</span><button class="btn btn-ghost btn-sm" onclick="exportLedgerExcel()">⬇ Excel</button>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="ledger-filters"></div>
@@ -5282,6 +5283,34 @@ function renderLedgerTable(){
   const tb=document.getElementById('ledger-tbody');
   if(!list.length){tb.innerHTML=`<tr><td colspan="8" class="empty">No ledger entries found</td></tr>`;return;}
   const typeChipL=t=>{const m={'Order In':'chip-green','Order Out':'chip-amber','Sorting':'chip-blue','Repair':'chip-purple','Manual':'chip-gray'};return`<span class="chip ${m[t]||'chip-gray'}" style="font-size:10px">${esc(t)}</span>`;};
+  // Bind ledger card resize handle
+  setTimeout(()=>{
+    const handle=document.getElementById('ledger-card-resize');
+    if(!handle)return;
+    const newHandle=handle.cloneNode(true);
+    newHandle.onmouseenter=()=>{newHandle.style.background='var(--brand)';newHandle.style.opacity='0.6';};
+    newHandle.onmouseleave=()=>{newHandle.style.background='transparent';};
+    handle.parentNode.replaceChild(newHandle,handle);
+    newHandle.addEventListener('mousedown',e=>{
+      e.preventDefault();
+      const card=document.getElementById('ledger-table-card');
+      if(!card)return;
+      const startX=e.clientX;
+      const startW=card.getBoundingClientRect().width;
+      newHandle.style.background='var(--brand)';newHandle.style.opacity='1';
+      const onMove=ev=>{
+        const newW=Math.max(400,startW+(ev.clientX-startX));
+        card.style.maxWidth=newW+'px';card.style.width=newW+'px';
+      };
+      const onUp=()=>{
+        newHandle.style.background='transparent';
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+      };
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
+  },100);
   tb.innerHTML=list.map(e=>`<tr style="cursor:pointer" onclick="viewLedgerEntry('${e.id}')" title="Click for details">
     <td style="font-size:12px;white-space:nowrap">${fdt(e.date)}</td>
     <td>${typeChipL(e.type)}</td>
