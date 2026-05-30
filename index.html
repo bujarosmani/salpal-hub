@@ -541,6 +541,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
           <th>Date</th><th>Type</th><th>Reference</th><th>Product</th><th class="right">In</th><th class="right">Out</th><th class="right">Balance After</th><th>By</th><th>Notes</th>
         </tr></thead><tbody id="ledger-tbody"></tbody></table>
       </div>
+      <div id="ledger-pagination" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 0;font-size:13px"></div>
     </div>
   </div>
   <div class="tpane" id="stk-adj-pane">
@@ -5246,27 +5247,41 @@ function getLines(cid){
 }
 
 let ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null,sort:'newest'};
+let ledgerPage=1;
+const LEDGER_PAGE_SIZE=25;
 function renderLedger(){
   const prodOpts=getSKUS().map(c=>({value:c,label:c}));
   const typeOpts=['Order In','Order Out','Sorting','Repair','Manual'].map(t=>({value:t,label:t}));
   const dlabel=ledgerFilter.dateFrom&&ledgerFilter.dateTo?`${fd(ledgerFilter.dateFrom)}\u2013${fd(ledgerFilter.dateTo)}`:ledgerFilter.dateFrom?fd(ledgerFilter.dateFrom):'All Dates';
   document.getElementById('ledger-filters').innerHTML=`
-    <input class="inp" id="led-search" placeholder="🔍 Search ref, product, notes..." value="${esc(ledgerFilter.search)}" style="width:220px;padding:7px 10px;font-size:12px" oninput="ledgerFilter.search=this.value;renderLedgerTable()"/>
+    <input class="inp" id="led-search" placeholder="🔍 Search ref, product, notes..." value="${esc(ledgerFilter.search)}" style="width:220px;padding:7px 10px;font-size:12px" oninput="ledgerFilter.search=this.value;ledgerPage=1;renderLedgerTable()"/>
     ${buildCbDropdown('led-cls',prodOpts,ledgerFilter.cls,'All Products')}
     ${buildCbDropdown('led-type',typeOpts,ledgerFilter.type,'All Types')}
     <div style="display:flex;gap:4px;padding:4px;background:var(--panel2);border-radius:8px;border:1.5px solid var(--line2)">
-      <button class="vt-btn${!ledgerFilter.dir?' on':''}" onclick="ledgerFilter.dir=null;renderLedgerTable()" style="padding:4px 10px;font-size:12px">All</button>
-      <button class="vt-btn${ledgerFilter.dir==='in'?' on':''}" onclick="ledgerFilter.dir='in';renderLedgerTable()" style="padding:4px 10px;font-size:12px;color:var(--brand)">▲ In</button>
-      <button class="vt-btn${ledgerFilter.dir==='out'?' on':''}" onclick="ledgerFilter.dir='out';renderLedgerTable()" style="padding:4px 10px;font-size:12px;color:var(--red)">▼ Out</button>
+      <button class="vt-btn${!ledgerFilter.dir?' on':''}" onclick="ledgerFilter.dir=null;ledgerPage=1;renderLedgerTable()" style="padding:4px 10px;font-size:12px">All</button>
+      <button class="vt-btn${ledgerFilter.dir==='in'?' on':''}" onclick="ledgerFilter.dir='in';ledgerPage=1;renderLedgerTable()" style="padding:4px 10px;font-size:12px;color:var(--brand)">▲ In</button>
+      <button class="vt-btn${ledgerFilter.dir==='out'?' on':''}" onclick="ledgerFilter.dir='out';ledgerPage=1;renderLedgerTable()" style="padding:4px 10px;font-size:12px;color:var(--red)">▼ Out</button>
     </div>
-    <button class="dp-btn${ledgerFilter.dateFrom?' active':''}" onclick="openDatePicker(ledgerFilter.dateFrom,ledgerFilter.dateTo,(f,t)=>{ledgerFilter.dateFrom=f;ledgerFilter.dateTo=t;renderLedger()})">📅 ${esc(dlabel)}</button>
+    <button class="dp-btn${ledgerFilter.dateFrom?' active':''}" onclick="openDatePicker(ledgerFilter.dateFrom,ledgerFilter.dateTo,(f,t)=>{ledgerFilter.dateFrom=f;ledgerFilter.dateTo=t;ledgerPage=1;renderLedger()})">📅 ${esc(dlabel)}</button>
     ${ledgerFilter.dateFrom?`<button class="dp-clear" onclick="ledgerFilter.dateFrom='';ledgerFilter.dateTo='';renderLedger()">\u2715</button>`:''}
-    ${ledgerFilter.search||ledgerFilter.cls||ledgerFilter.type||ledgerFilter.dateFrom||ledgerFilter.dir?`<button class="btn btn-ghost btn-sm" onclick="ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null};renderLedger()">Clear all</button>`:''}
+    ${ledgerFilter.search||ledgerFilter.cls||ledgerFilter.type||ledgerFilter.dateFrom||ledgerFilter.dir?`<button class="btn btn-ghost btn-sm" onclick="ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null};ledgerPage=1;renderLedger()">Clear all</button>`:''}
   `;
-  bindCbDropdown('led-cls',prodOpts,v=>{ledgerFilter.cls=v;renderLedgerTable();});
-  bindCbDropdown('led-type',typeOpts,v=>{ledgerFilter.type=v;renderLedgerTable();});
+  bindCbDropdown('led-cls',prodOpts,v=>{ledgerFilter.cls=v;ledgerPage=1;renderLedgerTable();});
+  bindCbDropdown('led-type',typeOpts,v=>{ledgerFilter.type=v;ledgerPage=1;renderLedgerTable();});
 
   renderLedgerTable();
+}
+
+function renderLedgerPagination(page,total,count){
+  const el=document.getElementById('ledger-pagination');if(!el)return;
+  if(total<=1){el.innerHTML='';return;}
+  const btn=(label,pg,disabled,active)=>`<button onclick="ledgerPage=${pg};renderLedgerTable()" style="background:${active?'var(--brand)':'var(--panel2)'};border:1.5px solid ${active?'var(--brand)':'var(--line2)'};border-radius:7px;color:${active?'#fff':'var(--ink2)'};cursor:${disabled?'default':'pointer'};padding:5px 11px;font-size:12px;font-weight:700;opacity:${disabled?'0.4':'1'}" ${disabled?'disabled':''}>${label}</button>`;
+  let pages='';
+  for(let i=1;i<=total;i++){
+    if(i===1||i===total||Math.abs(i-page)<=1){pages+=btn(i,i,false,i===page);}
+    else if(Math.abs(i-page)===2){pages+='<span style="color:var(--ink3);padding:0 2px">…</span>';}
+  }
+  el.innerHTML=btn('←',page-1,page===1,false)+pages+btn('→',page+1,page===total,false)+`<span style="color:var(--ink3);font-size:11px;margin-left:6px">Page ${page} of ${total} · ${count} entries</span>`;
 }
 
 function renderLedgerTable(){
@@ -5281,7 +5296,13 @@ function renderLedgerTable(){
     list=list.filter(e=>(e.ref||'').toLowerCase().includes(q)||(e.cls||'').toLowerCase().includes(q)||(e.notes||'').toLowerCase().includes(q)||(e.type||'').toLowerCase().includes(q));
   }
   const tb=document.getElementById('ledger-tbody');
-  if(!list.length){tb.innerHTML=`<tr><td colspan="8" class="empty">No ledger entries found</td></tr>`;return;}
+  if(!list.length){tb.innerHTML=`<tr><td colspan="8" class="empty">No ledger entries found</td></tr>`;renderLedgerPagination(0,0,0);return;}
+  const _lps=LEDGER_PAGE_SIZE;
+  const _ltotal=Math.ceil(list.length/_lps);
+  if(ledgerPage>_ltotal)ledgerPage=_ltotal;
+  if(ledgerPage<1)ledgerPage=1;
+  renderLedgerPagination(ledgerPage,_ltotal,list.length);
+  list=list.slice((ledgerPage-1)*_lps,ledgerPage*_lps);
   const typeChipL=t=>{const m={'Order In':'chip-green','Order Out':'chip-amber','Sorting':'chip-blue','Repair':'chip-purple','Manual':'chip-gray'};return`<span class="chip ${m[t]||'chip-gray'}" style="font-size:10px">${esc(t)}</span>`;};
   // Bind ledger card resize handle
   setTimeout(()=>{
