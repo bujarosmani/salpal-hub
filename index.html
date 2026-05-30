@@ -813,6 +813,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <div class="sec-row"><div class="sec-title">Pallets</div><button class="btn btn-ghost btn-sm" type="button" onclick="addPltLine('of-lines')">+ Add Line</button></div>
       <div id="of-lines"></div>
       <div class="fwrap" style="margin-top:12px"><label class="flabel">Driver Notes</label><textarea class="inp" id="of-notes" rows="2" placeholder="Gate codes, parking..."></textarea></div>
+      <div class="fwrap" style="margin-top:12px"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="of-checked" style="width:18px;height:18px;accent-color:var(--brand);cursor:pointer"/><span class="flabel" style="margin:0">Checked</span></label><div id="of-checked-info" style="font-size:11px;color:var(--ink3);margin-top:4px;display:none"></div></div>
       <div class="fwrap" id="of-status-wrap" style="display:none">
         <label class="flabel">Status</label>
         <div style="background:var(--panel2);border:1.5px solid var(--line2);border-radius:9px;padding:10px 12px;margin-bottom:8px">
@@ -2512,6 +2513,7 @@ function openOrderModal(){
   document.getElementById('of-ddate').value='';
   document.getElementById('of-tfrom').value='';document.getElementById('of-tto').value='';
   document.getElementById('of-notes').value='';
+  document.getElementById('of-checked').checked=false;document.getElementById('of-checked-info').style.display='none';
   document.getElementById('of-co-search').value='';document.getElementById('of-co-id').value='';
   document.getElementById('of-addr').value='';document.getElementById('of-city').value='';document.getElementById('of-post').value='';
   document.getElementById('of-co-dd').classList.remove('open');
@@ -2564,6 +2566,8 @@ function editOrder(id){
   document.getElementById('of-ddate').value=j.deliveryDate||'';
   document.getElementById('of-tfrom').value=j.timeFrom||'';document.getElementById('of-tto').value=j.timeTo||'';
   document.getElementById('of-notes').value=j.driverNotes||'';
+  const ofChk=document.getElementById('of-checked');if(ofChk)ofChk.checked=!!j.checked;
+  const ofChkInfo=document.getElementById('of-checked-info');if(ofChkInfo){if(j.checked&&j.checkedBy){ofChkInfo.textContent='Checked by '+esc(j.checkedBy)+(j.checkedAt?' on '+fdt(j.checkedAt):'');ofChkInfo.style.display='';}else ofChkInfo.style.display='none';}
   document.getElementById('of-co-search').value=j.companyName||'';document.getElementById('of-co-id').value=j.companyId||'';
   document.getElementById('of-addr').value=j.companyAddress||'';document.getElementById('of-city').value=j.city||'';document.getElementById('of-post').value=j.postcode||'';
   document.getElementById('of-co-dd').classList.remove('open');
@@ -2739,7 +2743,7 @@ function saveOrder(force){
   const awb=ex?ex.awb:makeAWB();
   const driverId=document.getElementById('of-driver').value;
   const now=new Date().toISOString();
-  const order={id:ex?ex.id:mkId(),awb,orderRef:document.getElementById('of-ref').value.trim(),orderDate:document.getElementById('of-odate').value,deliveryDate:ddate,type,driverId,timeFrom:document.getElementById('of-tfrom').value,timeTo:document.getElementById('of-tto').value,companyId:document.getElementById('of-co-id').value,companyName:coSearch,companyAddress:document.getElementById('of-addr').value.trim(),city,postcode:post,pallets,totalQty,driverNotes:document.getElementById('of-notes').value.trim(),status:newStatus,whBy:ex?ex.whBy:'',whChanges:ex?ex.whChanges:[],history:ex?ex.history:[],createdAt:ex?ex.createdAt:now,updatedAt:now};
+  const order={id:ex?ex.id:mkId(),awb,orderRef:document.getElementById('of-ref').value.trim(),orderDate:document.getElementById('of-odate').value,deliveryDate:ddate,type,driverId,timeFrom:document.getElementById('of-tfrom').value,timeTo:document.getElementById('of-tto').value,companyId:document.getElementById('of-co-id').value,companyName:coSearch,companyAddress:document.getElementById('of-addr').value.trim(),city,postcode:post,pallets,totalQty,driverNotes:document.getElementById('of-notes').value.trim(),checked:document.getElementById('of-checked')?.checked||false,checkedBy:document.getElementById('of-checked')?.checked?(ex&&ex.checked===document.getElementById('of-checked').checked?ex.checkedBy:`${ME?.firstName||''} ${ME?.lastName||''}`.trim()):null,checkedAt:document.getElementById('of-checked')?.checked?(ex&&ex.checked===document.getElementById('of-checked').checked?ex.checkedAt:new Date().toISOString()):null,status:newStatus,whBy:ex?ex.whBy:'',whChanges:ex?ex.whChanges:[],history:ex?ex.history:[],createdAt:ex?ex.createdAt:now,updatedAt:now};
   if(!ex){addTL(order,'Order created','create',[`Type: ${type}`,`${totalQty} pallets`,`Company: ${coSearch}`]);S.orders.unshift(order);syncOrder(order);toast(`Order ${awb} created`);}
   else{
     const changes=[];
