@@ -1570,6 +1570,8 @@ async function loadCloud(){
       }
     }
     if(stocktakes&&stocktakes.length){
+      // Delete any discarded stocktakes from server permanently
+      stocktakes.forEach(r=>{if(r.data&&r.data.status==='discarded')apiDelete('sp_stocktakes',r.id).catch(()=>{});});
       const remote=stocktakes.map(r=>r.data).filter(Boolean).filter(t=>t.status!=='discarded');
       const local=S.stocktakes||[];
       // Merge by id — use updatedAt for drafts, submittedAt/approvedAt for others
