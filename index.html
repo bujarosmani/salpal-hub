@@ -1364,10 +1364,16 @@ function updateNavBadges(){
     if(totalDefected>0){rb.textContent=totalDefected;rb.style.display='';}
     else rb.style.display='none';
   }
-  const pendingSortBadge=(S.orders||[]).filter(o=>o.status==='Pending Sort').length;
+  const sortedByOrd={};
+  (S.sortings||[]).forEach(r=>{if(r.orderRef){if(!sortedByOrd[r.orderRef])sortedByOrd[r.orderRef]=0;sortedByOrd[r.orderRef]+=(r.totalQty||0);}});
+  const pendingSortQty=(S.orders||[]).filter(o=>o.status==='Pending Sort').reduce((s,o)=>{
+    const ordered=(o.pallets||[]).filter(p=>p.cls&&p.cls.toLowerCase().includes('unsorted')).reduce((a,p)=>a+(p.qty||0),0);
+    const sorted=sortedByOrd[o.awb]||0;
+    return s+Math.max(0,ordered-sorted);
+  },0);
   const sb=document.getElementById('nav-badge-sorting');
   if(sb){
-    if(pendingSortBadge>0){sb.textContent=pendingSortBadge;sb.style.display='';}
+    if(pendingSortQty>0){sb.textContent=pendingSortQty;sb.style.display='';}
     else sb.style.display='none';
   }
   // Fleet badge
