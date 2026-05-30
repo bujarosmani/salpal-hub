@@ -1359,15 +1359,15 @@ function updateNavBadges(){
   const defEuro=(S.stock&&S.stock['Defected Euro'])||0;
   const defK=(S.stock&&S.stock['Defected K'])||0;
   const totalDefected=defEuro+defK;
-  const unsorted=(S.stock&&S.stock['Unsorted'])||0;
   const rb=document.getElementById('nav-badge-repairs');
   if(rb){
     if(totalDefected>0){rb.textContent=totalDefected;rb.style.display='';}
     else rb.style.display='none';
   }
+  const pendingSortBadge=(S.orders||[]).filter(o=>o.status==='Pending Sort').length;
   const sb=document.getElementById('nav-badge-sorting');
   if(sb){
-    if(unsorted>0){sb.textContent=unsorted;sb.style.display='';}
+    if(pendingSortBadge>0){sb.textContent=pendingSortBadge;sb.style.display='';}
     else sb.style.display='none';
   }
   // Fleet badge
@@ -4537,7 +4537,7 @@ function renderSorting(){
   const unsortedOrders=(S.orders||[]).filter(j=>
     j.type==='Collection'&&
     j.status==='Pending Sort'&&
-    (j.pallets||[]).some(p=>p.cls==='Unsorted')
+    (j.pallets||[]).some(p=>p.cls&&p.cls.toLowerCase().includes('unsorted'))
   );
   // Calculate already sorted qty per order
   const sortedByOrder={};
