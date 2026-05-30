@@ -4738,7 +4738,7 @@ function openSortModal(){const _se=document.getElementById('srt-err');if(_se)_se
     }
   });
   const unsortedOrders=(S.orders||[]).filter(j=>{
-    if(j.type!=='Collection')return false;
+    if(j.type!=='Collection'&&j.type!=='Drop-off')return false;
     if(j.status==='Cancelled'||j.status==='Deleted')return false;
     const ordered=(j.pallets||[]).filter(p=>p.cls&&p.cls.toLowerCase().includes('unsorted')).reduce((s,p)=>s+(p.qty||0),0);
     if(!ordered)return false;
