@@ -4925,15 +4925,21 @@ async function saveSorting(force){
     if(!S.sortings)S.sortings=[];if(!S.stock)S.stock={};if(!S.ledger)S.ledger=[];
     S.sortings.unshift(result.sorting);
     result.ledger.forEach(entry=>S.ledger.unshift(entry));
-    pallets.forEach(p=>{
-      S.stock[p.cls]=(S.stock[p.cls]||0)+p.qty;
-      S.stock['Unsorted']=(S.stock['Unsorted']||0)-p.qty;
+    // Update stock from ledger entries (correct product names)
+    result.ledger.forEach(e=>{
+      if(!S.stock)S.stock={};
+      if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;
+      else S.stock[e.cls]=Math.max(0,(S.stock[e.cls]||0)-e.qty);
     });
     // Update order status from server response
     if(result.completedOrder){
       const idx=(S.orders||[]).findIndex(j=>j.id===result.completedOrder.id);
       if(idx>=0)S.orders[idx]=result.completedOrder;
       toast(`✓ ${orderRef} fully sorted — marked Completed`);
+    } else if(orderRef){
+      // Keep order as Pending Sort (not fully sorted yet)
+      const ord=(S.orders||[]).find(j=>j.awb===orderRef);
+      if(ord&&ord.status!=='Completed')ord.status='Pending Sort';
     }
     persist();clearDirty('m-sort');
     toast(`${totalQty} pallets sorted — saved ✓`);
