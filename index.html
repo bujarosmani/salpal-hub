@@ -4529,7 +4529,8 @@ function renderSorting(){
   const trToday=(S.sortings||[]).filter(r=>isToday(r.date)&&filterST(r));
   const totToday=trToday.reduce((s,r)=>s+(r.totalQty||r.qty||0),0);
   const allFiltered=(S.sortings||[]).filter(filterST);
-  document.getElementById('srt-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="font-size:48px">${totToday}</div><div class="stat-lbl">Sorted Today</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px">${trToday.length}</div><div class="stat-lbl">Entries Today</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px">${allFiltered.reduce((s,r)=>s+(r.totalQty||r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div>`;
+  const _unsortedQty=Object.entries(S.stock||{}).filter(([k])=>k.toLowerCase().includes('unsorted')).reduce((s,[,v])=>s+(v||0),0);
+  document.getElementById('srt-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="font-size:48px">${totToday}</div><div class="stat-lbl">Sorted Today</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px">${trToday.length}</div><div class="stat-lbl">Entries Today</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px">${allFiltered.reduce((s,r)=>s+(r.totalQty||r.qty||0),0)}</div><div class="stat-lbl">All Time</div></div><div class="stat-box"><div class="stat-num" style="font-size:48px;color:var(--amber)">${_unsortedQty}</div><div class="stat-lbl">Outstanding</div></div>`;
   // Outstanding tasks — only Pending Sort orders (Completed means admin confirmed it's done)
   const unsortedOrders=(S.orders||[]).filter(j=>
     j.type==='Collection'&&
@@ -4576,20 +4577,7 @@ function renderSorting(){
     } else {
       taskSection.innerHTML='';
     }
-    // Show unsorted stock banner if there's unsorted stock not covered by Pending Sort orders
-    const unsortedOnHand=Object.entries(S.stock||{}).filter(([k])=>k.toLowerCase().includes('unsorted')).reduce((s,[,v])=>s+(v||0),0);
-    if(unsortedOnHand>0){
-      const existingBanner=document.getElementById('srt-stock-banner');
-      if(!existingBanner){
-        const banner=document.createElement('div');
-        banner.id='srt-stock-banner';
-        banner.style.cssText='margin-bottom:16px;background:var(--panel);border:1.5px solid rgba(245,200,66,.4);border-left:4px solid var(--amber);border-radius:var(--r);padding:12px 14px;display:flex;justify-content:space-between;align-items:center';
-        banner.innerHTML=`<div><div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--amber);font-weight:700;margin-bottom:4px">🔶 Unsorted Stock On Hand</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--amber)">${unsortedOnHand}<span style="font-size:13px;color:var(--ink3);font-weight:400;margin-left:6px">pallets to sort</span></div></div><button class="btn btn-amber btn-sm" onclick="openSortModal()">+ Log Sorting</button>`;
-        taskSection.insertAdjacentElement('afterbegin',banner);
-      }
-    } else {
-      const b=document.getElementById('srt-stock-banner');if(b)b.remove();
-    }
+    const b=document.getElementById('srt-stock-banner');if(b)b.remove();
   }
   renderSrtTab('today');
 }
