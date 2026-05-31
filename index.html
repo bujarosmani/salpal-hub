@@ -1581,12 +1581,10 @@ async function loadCloud(){
     if(products&&products.length){
       const pr=products.find(r=>r.id==='__products');
       if(pr&&pr.data){
-        // Merge: keep all products from both local and remote — except deleted ones
+        // Remote is source of truth for products — filter out deleted ones
         const remote=Array.isArray(pr.data)?pr.data:[];
-        const local=S.products||[];
         const deleted=S.deletedProducts||[];
-        const merged=[...new Set([...remote,...local])].filter(p=>!deleted.includes(p));
-        S.products=merged;
+        S.products=remote.filter(p=>!deleted.includes(p));
       }
     }
     if(stocktakes&&stocktakes.length){
