@@ -2669,12 +2669,9 @@ function editOrder(id){
     ['of-driver','of-ddate','of-odate','of-tfrom','of-tto'].forEach(f=>{const el=document.getElementById(f);if(el)el.disabled=false;});
   }
   const cb=document.getElementById('of-changes-box');
-  if(j.whChanges&&j.whChanges.length){
-    cb.style.display='';
-    cb.innerHTML=`<div class="changes-box"><div class="changes-box-title">\u26a0 WH Changes</div>${j.whChanges.map(c=>`<div class="changes-row"><span class="changes-lbl">${esc(c.label)}</span><span class="changes-val">${esc(c.value)}</span></div>`).join('')}</div>`;
-  } else {
-    cb.style.display='none';cb.innerHTML='';
-  }
+  const cbHtml=renderChangesBox(j);
+  if(cbHtml){cb.style.display='';cb.innerHTML=cbHtml;}
+  else{cb.style.display='none';cb.innerHTML='';}
   document.getElementById('of-addr-picker-wrap').style.display='none';
   bindCoSearch('of-co-search','of-co-dd',co=>{
     document.getElementById('of-co-id').value=co.id;
