@@ -1692,6 +1692,7 @@ function setSS(s){
 
 /* ── HELPERS ── */
 const mkId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const localDateOf=iso=>{if(!iso)return'';const d=new Date(iso);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 const tod=()=>localIso(new Date());
 const isToday=s=>{if(!s)return false;return s.slice(0,10)===tod();};
 const fd=s=>{if(!s)return'';const[y,m,d]=s.slice(0,10).split('-');return`${d}/${m}/${y}`;};
@@ -3645,7 +3646,7 @@ function renderRepTab(name){
       if(rhF.dateTo&&r.date.slice(0,10)>rhF.dateTo)return false;
       return filterRep(r);
     };
-    const grp={};(S.repairs||[]).filter(r=>filterH(r)&&filterRepHistory(r)).forEach(r=>{const d=r.date.slice(0,10);if(!grp[d])grp[d]=[];grp[d].push(r);});
+    const grp={};(S.repairs||[]).filter(r=>filterH(r)&&filterRepHistory(r)).forEach(r=>{const d=localDateOf(r.date);if(!grp[d])grp[d]=[];grp[d].push(r);});
     const filtersHtml=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
       <select class="inp" id="rhf-worker" style="flex:1;min-width:120px" onchange="renderRepTab('history')">
         <option value="">All Workers</option>
@@ -3706,11 +3707,11 @@ function renderRepTab(name){
       ${(()=>{
         const workers=byw.map(r=>r.n);
         if(!workers.length)return'';
-        const days=[...new Set(rlist.map(r=>r.date?.slice(0,10)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+        const days=[...new Set(rlist.map(r=>localDateOf(r.date)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
         if(!days.length)return'';
         const hdr='<tr><th style="text-align:left;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line);white-space:nowrap">Date</th>'+workers.map(w=>'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line);white-space:nowrap">'+esc(w)+'</th>').join('')+'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line)">Total</th></tr>';
         const bodyRows=days.map(day=>{
-          const dr=rlist.filter(r=>r.date?.slice(0,10)===day);
+          const dr=rlist.filter(r=>localDateOf(r.date)===day);
           const cells=workers.map(w=>{const q=dr.filter(r=>r.repairer===w).reduce((s,r)=>s+(r.qty||0),0);return'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;color:'+(q>0?'var(--brand)':'var(--ink4)')+';border-bottom:1px solid var(--line2)">'+(q>0?q:'—')+'</td>';}).join('');
           const dt=dr.reduce((s,r)=>s+(r.qty||0),0);
           return'<tr><td style="padding:7px 10px;font-size:12px;font-weight:600;color:var(--ink2);border-bottom:1px solid var(--line2);white-space:nowrap">'+fd(day)+'</td>'+cells+'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line2)">'+dt+'</td></tr>';
@@ -4618,7 +4619,7 @@ function renderSrtTab(name){
     </div>`).join(''):'<div class="empty">No sorting today</div>';
   }
   if(name==='history'){
-    const grp={};(S.sortings||[]).filter(filterSrtHistory).forEach(r=>{const d=r.date.slice(0,10);if(!grp[d])grp[d]=[];grp[d].push(r);});
+    const grp={};(S.sortings||[]).filter(filterSrtHistory).forEach(r=>{const d=localDateOf(r.date);if(!grp[d])grp[d]=[];grp[d].push(r);});
     document.getElementById('srt-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort(srtSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{
       const rs=grp[day],dt=rs.reduce((s,r)=>s+totQty(r),0);
       return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--blue);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} sorted</span></div>`+
@@ -4639,11 +4640,11 @@ function renderSrtTab(name){
         const workers=byw.map(r=>r.n);
         if(!workers.length)return'';
         const slist=S.sortings||[];
-        const days=[...new Set(slist.map(r=>r.date?.slice(0,10)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+        const days=[...new Set(slist.map(r=>localDateOf(r.date)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
         if(!days.length)return'';
         const hdr='<tr><th style="text-align:left;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line);white-space:nowrap">Date</th>'+workers.map(w=>'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line);white-space:nowrap">'+esc(w)+'</th>').join('')+'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line)">Total</th></tr>';
         const bodyRows=days.map(day=>{
-          const dr=slist.filter(r=>r.date?.slice(0,10)===day);
+          const dr=slist.filter(r=>localDateOf(r.date)===day);
           const cells=workers.map(w=>{const q=dr.filter(r=>(r.sorters||[]).includes(w)).reduce((s,r)=>s+totQty(r),0);return'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;color:'+(q>0?'var(--blue)':'var(--ink4)')+';border-bottom:1px solid var(--line2)">'+(q>0?q:'—')+'</td>';}).join('');
           const dt=dr.reduce((s,r)=>s+totQty(r),0);
           return'<tr><td style="padding:7px 10px;font-size:12px;font-weight:600;color:var(--ink2);border-bottom:1px solid var(--line2);white-space:nowrap">'+fd(day)+'</td>'+cells+'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line2)">'+dt+'</td></tr>';
