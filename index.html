@@ -5434,10 +5434,14 @@ async function fixDuplicateLedger(ref,cls,dir,correctQty){
     console.log('adjustment result',result);
     if(!r.ok){throw new Error(result.error||'Server error '+r.status);}
     if(!S.stock)S.stock={};S.stock[cls]=result.newQty;
-    if(!S.ledger)S.ledger=[];S.ledger.unshift(result.ledger);
-    persist();renderStock();renderDash();if(typeof renderLedger==='function')renderLedger();
+    if(!S.ledger)S.ledger=[];
+    if(result.ledger&&result.ledger.id)S.ledger.unshift(result.ledger);
+    persist();renderStock();renderDash();
+    if(typeof renderLedger==='function')renderLedger();
     toast(`✓ Fixed: +${excess} ${cls} applied for ${ref}`);
-    openRecalcModal();
+    // Hide the fixed row
+    const fixBtn=document.querySelector(`[onclick*="${ref}"][onclick*="${cls}"]`);
+    if(fixBtn){const row=fixBtn.closest('tr');if(row)row.style.display='none';}
   }catch(e){console.error('fixDuplicateLedger error',e);toast('Fix failed: '+e.message,'err');}
 }
 
