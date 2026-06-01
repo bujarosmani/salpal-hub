@@ -5431,9 +5431,9 @@ async function fixDuplicateLedger(ref,cls,dir,correctQty){
     const result=await r.json();
     console.log('adjustment result',result);
     if(!r.ok){throw new Error(result.error||'Server error '+r.status);}
-    if(!S.stock)S.stock={};S.stock[cls]=(S.stock[cls]||0)+excess;
+    if(!S.stock)S.stock={};S.stock[cls]=result.newQty;
     if(!S.ledger)S.ledger=[];S.ledger.unshift(result.ledger);
-    persist();renderStock();
+    persist();renderStock();renderDash();
     toast(`✓ Fixed: +${excess} ${cls} applied for ${ref}`);
     openRecalcModal();
   }catch(e){console.error('fixDuplicateLedger error',e);toast('Fix failed: '+e.message,'err');}
