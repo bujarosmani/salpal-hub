@@ -5039,9 +5039,13 @@ function saveProduct(){
       pushStock(name);
       sbUpsert('sp_stock','stock__'+oldName.replace(/[^a-zA-Z0-9]/g,'_'),{cls:oldName,qty:0,updatedAt:new Date().toISOString()}).catch(()=>{});
     }
-    // Update ledger entries to new product name
-    (S.ledger||[]).forEach(e=>{if(e.cls===oldName)e.cls=name;});
-    toast(`Renamed "${oldName}" → "${name}"`);
+    // Update ledger entries to new product name — locally and push to Supabase
+    const ledgerUpdates=(S.ledger||[]).filter(e=>e.cls===oldName);
+    ledgerUpdates.forEach(e=>{
+      e.cls=name;
+      sbUpsert('sp_ledger',e.id,e).catch(()=>{});
+    });
+    toast(`Renamed "${oldName}" → "${name}" — updating ${ledgerUpdates.length} ledger entries`);
   } else {
     // Add new
     if(S.products.includes(name)){document.getElementById('prod-err').textContent='Product already exists.';return;}
@@ -5152,6 +5156,20 @@ async function saveStockAdjTab(){
     err.textContent='⚠ Save failed: '+e.message+' — please try again';
   }
 }
+function findOrphanedLedgerEntries(){
+  const skus=new Set(getSKUS());
+  const orphaned={};
+  (S.ledger||[]).forEach(e=>{
+    if(e.cls&&!skus.has(e.cls)){
+      if(!orphaned[e.cls])orphaned[e.cls]={in:0,out:0,count:0};
+      orphaned[e.cls].count++;
+      if(e.dir==='in')orphaned[e.cls].in+=e.qty||0;
+      else orphaned[e.cls].out+=e.qty||0;
+    }
+  });
+  return orphaned;
+}
+
 function openRecalcModal(){
   // Calculate stock from ledger for each product
   const ledger=S.ledger||[];
@@ -5190,9 +5208,54 @@ function openRecalcModal(){
       </tr>`).join('')}</tbody>
     </table>`:'<div class="empty">No ledger entries found to calculate from.</div>';
   
+  // Show orphaned ledger entries (old product names not in current list)
+  const orphaned=findOrphanedLedgerEntries();
+  const orphanKeys=Object.keys(orphaned);
+  const orphanHtml=orphanKeys.length?`<div style="background:rgba(245,200,66,.08);border:1.5px solid rgba(245,200,66,.4);border-radius:9px;padding:10px 14px;margin-bottom:10px">
+    <div style="font-size:11px;color:var(--amber);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">⚠ Ledger entries with unknown product names (${orphanKeys.length})</div>
+    <div style="font-size:12px;color:var(--ink2);margin-bottom:8px">These products have ledger entries but are NOT in your current product list. They may be old/renamed products.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="border-bottom:1px solid var(--line2)">
+        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">Old Name</th>
+        <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Entries</th>
+        <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Total IN</th>
+        <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Total OUT</th>
+        <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Net</th>
+        <th style="padding:5px 8px;color:var(--ink3)">Rename to</th>
+      </tr></thead>
+      <tbody>${orphanKeys.map(k=>`<tr style="border-bottom:1px solid var(--line2)">
+        <td style="padding:5px 8px;font-weight:600">${esc(k)}</td>
+        <td style="padding:5px 8px;text-align:right">${orphaned[k].count}</td>
+        <td style="padding:5px 8px;text-align:right;color:var(--brand)">+${orphaned[k].in}</td>
+        <td style="padding:5px 8px;text-align:right;color:var(--red)">-${orphaned[k].out}</td>
+        <td style="padding:5px 8px;text-align:right;font-weight:700;color:${orphaned[k].in-orphaned[k].out>=0?'var(--brand)':'var(--red)'}">
+          ${orphaned[k].in-orphaned[k].out>=0?'+':''}${orphaned[k].in-orphaned[k].out}</td>
+        <td style="padding:5px 8px">
+          <select onchange="remapOrphanLedger('${esc(k)}',this.value)" style="background:var(--panel);border:1px solid var(--line2);border-radius:6px;color:var(--ink2);padding:3px 6px;font-size:11px;width:100%">
+            <option value="">— select product —</option>
+            ${getSKUS().map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+          </select>
+        </td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>`:'';
+  document.getElementById('recalc-orphans').innerHTML=orphanHtml;
   document.getElementById('recalc-table').innerHTML=tableHtml;
   window._recalcRows=rows;
   openM('m-recalc');
+}
+
+async function remapOrphanLedger(oldCls, newCls){
+  if(!newCls)return;
+  const entries=(S.ledger||[]).filter(e=>e.cls===oldCls);
+  toast(`Remapping ${entries.length} entries from "${oldCls}" → "${newCls}"...`);
+  for(const e of entries){
+    e.cls=newCls;
+    await sbUpsert('sp_ledger',e.id,e).catch(()=>{});
+  }
+  persist();
+  toast(`✓ Remapped ${entries.length} ledger entries to "${newCls}"`);
+  openRecalcModal(); // refresh
 }
 
 async function applyRecalc(){
@@ -7399,6 +7462,7 @@ if(!tryRestoreSession()){
     <div class="mhdr"><span class="mtitle">↺ Recalculate Stock from Ledger</span><button class="mclose" onclick="closeM('m-recalc')">✕</button></div>
     <div class="mbody">
       <div style="font-size:12px;color:var(--ink3);margin-bottom:14px">Calculates correct stock for each product by summing all IN and OUT ledger entries. Review differences before applying.</div>
+      <div id="recalc-orphans" style="margin-bottom:14px"></div>
       <div id="recalc-table"></div>
     </div>
     <div class="mfoot">
