@@ -3501,6 +3501,15 @@ function saveQuickEntry(createOnly){
       const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
       if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
       result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+      // Auto-complete if 3rd party driver
+      if(type==='Delivery'){
+        const _drvName=(driverId?uname(driverId):'').toLowerCase();
+        if(_drvName.includes('3rd')||_drvName.includes('third')){
+          j.status='Completed';j.completedAt=new Date().toISOString();j.updatedAt=j.completedAt;
+          addTL(j,'Auto-completed — 3rd party delivery','status');
+          syncOrder(j);
+        }
+      }
       persist();
       if(_qBtn){_qBtn.disabled=false;}
       toast(`✓ ${type==='Delivery'?'Loaded':'Received'} — ${awb}`);
