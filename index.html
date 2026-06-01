@@ -5307,16 +5307,19 @@ async function openRecalcModal(){
     }
   });
   const dupHtml=dupes.length?`<div style="background:rgba(245,107,107,.08);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px">
-    <div style="font-size:11px;color:var(--red);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">⚠ Possible Duplicate OUT Entries (${dupes.length})</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:11px;color:var(--red);font-weight:700;text-transform:uppercase;letter-spacing:1px">⚠ Possible Duplicate OUT Entries (${dupes.length})</div>
+      <button class="btn btn-ghost btn-sm" onclick="exportDupesExcel()">⬇ Excel</button>
+    </div>
     <div style="font-size:12px;color:var(--ink2);margin-bottom:8px">Same order + product + direction appears more than once. These may be double-deductions.</div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px" id="dupes-tbl">
       <thead><tr style="border-bottom:1px solid var(--line2)">
-        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">Order</th>
-        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">Product</th>
-        <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Count</th>
-        <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Total OUT</th>
+        <th style="text-align:left;padding:5px 8px;color:var(--ink3);cursor:pointer" onclick="sortDupesTable('order')">Order ⇅</th>
+        <th style="text-align:left;padding:5px 8px;color:var(--ink3);cursor:pointer" onclick="sortDupesTable('product')">Product ⇅</th>
+        <th style="text-align:right;padding:5px 8px;color:var(--ink3);cursor:pointer" onclick="sortDupesTable('count')">Count ⇅</th>
+        <th style="text-align:right;padding:5px 8px;color:var(--ink3);cursor:pointer" onclick="sortDupesTable('total')">Total OUT ⇅</th>
         <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Per Entry</th>
-        <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Excess</th>
+        <th style="text-align:right;padding:5px 8px;color:var(--ink3);cursor:pointer" onclick="sortDupesTable('excess')">Excess ⇅</th>
         <th style="padding:5px 8px;color:var(--ink3)">Fix</th>
       </tr></thead>
       <tbody>${dupes.map(d=>{
@@ -5368,6 +5371,35 @@ function filterRecalcTable(){
     const matchF=f==='all'||(f==='diff'&&diff!==0)||(f==='ok'&&diff===0);
     row.style.display=matchQ&&matchF?'':'none';
   });
+}
+
+function sortDupesTable(col){
+  const tbl=document.getElementById('dupes-tbl');if(!tbl)return;
+  const tbody=tbl.querySelector('tbody');if(!tbody)return;
+  const rows=[...tbody.querySelectorAll('tr')];
+  const dir=tbl.dataset.sortCol===col&&tbl.dataset.sortDir==='asc'?'desc':'asc';
+  tbl.dataset.sortCol=col;tbl.dataset.sortDir=dir;
+  const colIdx={order:0,product:1,count:2,total:3,excess:5};
+  rows.sort((a,b)=>{
+    const ci=colIdx[col];
+    const av=col==='order'||col==='product'?a.cells[ci]?.textContent.trim():parseFloat(a.cells[ci]?.textContent)||0;
+    const bv=col==='order'||col==='product'?b.cells[ci]?.textContent.trim():parseFloat(b.cells[ci]?.textContent)||0;
+    if(typeof av==='string')return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
+    return dir==='asc'?av-bv:bv-av;
+  });
+  rows.forEach(r=>tbody.appendChild(r));
+}
+
+function exportDupesExcel(){
+  const tbl=document.getElementById('dupes-tbl');if(!tbl)return;
+  const rows=[['Order','Product','Count','Total OUT','Per Entry','Excess']];
+  tbl.querySelectorAll('tbody tr').forEach(tr=>{
+    const cells=[...tr.cells];
+    rows.push([cells[0].textContent.trim(),cells[1].textContent.trim(),cells[2].textContent.trim(),cells[3].textContent.trim(),cells[4].textContent.trim(),cells[5].textContent.trim()]);
+  });
+  const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='duplicate-ledger-entries.csv';a.click();
 }
 
 async function fixDuplicateLedger(ref,cls,dir,correctQty){
