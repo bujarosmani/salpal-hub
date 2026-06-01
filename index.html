@@ -1578,7 +1578,8 @@ async function loadCloud(){
     const dpR=stock.find(r=>r.id==='__deletedProducts');if(dpR&&dpR.data)S.deletedProducts=dpR.data;
     const farR=stock.find(r=>r.id==='__fleetAlertStatus');if(farR&&farR.data)S.fleetAlertStatus=farR.data;
     const otpR=stock.find(r=>r.id==='__ordTablePrefs');if(otpR&&otpR.data)S.ordTablePrefs=otpR.data;
-    const ltpR=stock.find(r=>r.id==='__ledTablePrefs');if(ltpR&&ltpR.data)S.ledTablePrefs=ltpR.data;}
+    const ltpR=stock.find(r=>r.id==='__ledTablePrefs');if(ltpR&&ltpR.data)S.ledTablePrefs=ltpR.data;
+    const phR=stock.find(r=>r.id==='__productHistory');if(phR&&phR.data)S.productHistory=phR.data;}
     if(products&&products.length){
       const pr=products.find(r=>r.id==='__products');
       if(pr&&pr.data){
@@ -5045,6 +5046,10 @@ function saveProduct(){
       e.cls=name;
       sbUpsert('sp_ledger',e.id,e).catch(()=>{});
     });
+    // Log the rename
+    if(!S.productHistory)S.productHistory=[];
+    S.productHistory.unshift({type:'rename',from:oldName,to:name,by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():'',date:new Date().toISOString()});
+    pushRecord('sp_stock','__productHistory',S.productHistory);
     toast(`Renamed "${oldName}" → "${name}" — updating ${ledgerUpdates.length} ledger entries`);
   } else {
     // Add new
@@ -5261,6 +5266,29 @@ async function openRecalcModal(){
       </tr>`).join('')}</tbody>
     </table>
   </div>`:'';
+  // Show product history
+  const history=S.productHistory||[];
+  const histHtml=history.length?`<div style="background:rgba(99,102,241,.08);border:1.5px solid rgba(99,102,241,.3);border-radius:9px;padding:10px 14px;margin-bottom:10px">
+    <div style="font-size:11px;color:var(--blue);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📋 Product Rename / Merge History</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="border-bottom:1px solid var(--line2)">
+        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">Date</th>
+        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">Action</th>
+        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">From</th>
+        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">To</th>
+        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">By</th>
+      </tr></thead>
+      <tbody>${history.slice(0,20).map(h=>`<tr style="border-bottom:1px solid var(--line2)">
+        <td style="padding:5px 8px;color:var(--ink3);white-space:nowrap">${fdt(h.date)}</td>
+        <td style="padding:5px 8px"><span style="background:${h.type==='merge'?'rgba(99,102,241,.2)':'rgba(245,200,66,.2)'};color:${h.type==='merge'?'var(--blue)':'var(--amber)'};border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700">${h.type}</span></td>
+        <td style="padding:5px 8px;color:var(--red)">${esc(h.from)}</td>
+        <td style="padding:5px 8px;color:var(--brand)">${esc(h.to)}</td>
+        <td style="padding:5px 8px;color:var(--ink3)">${esc(h.by||'—')}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+    ${history.length>20?`<div style="font-size:11px;color:var(--ink3);margin-top:6px">Showing last 20 of ${history.length} entries</div>`:''}
+  </div>`:'';
+  document.getElementById('recalc-history').innerHTML=histHtml;
   document.getElementById('recalc-orphans').innerHTML=orphanHtml;
   document.getElementById('recalc-table').innerHTML=tableHtml;
   window._recalcRows=rows;
@@ -7513,6 +7541,7 @@ if(!tryRestoreSession()){
     <div class="mbody">
       <div style="font-size:12px;color:var(--ink3);margin-bottom:14px">Calculates correct stock for each product by summing all IN and OUT ledger entries. Review differences before applying.</div>
       <div id="recalc-orphans" style="margin-bottom:14px"></div>
+      <div id="recalc-history" style="margin-bottom:14px"></div>
       <div id="recalc-table"></div>
     </div>
     <div class="mfoot">
