@@ -5818,7 +5818,26 @@ function renderLedgerTable(){
     ${ledCol('balance')?`<td class="right" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:${e.balance<0?'var(--red)':'var(--ink2)'}">${e.balance}</td>`:''}
     ${ledCol('by')?`<td style="font-size:12px;color:var(--ink2);white-space:nowrap">${esc(e.by||'\u2014')}</td>`:''}
     ${ledCol('notes')?`<td style="font-size:11px;color:var(--ink3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.notes||'\u2014')}</td>`:''}
+    ${isAdmin()?`<td onclick="event.stopPropagation()" style="white-space:nowrap"><button class="btn btn-ghost btn-sm" style="font-size:11px;opacity:.6" onclick="reverseLedgerEntry('${e.id}')">↺ Reverse</button></td>`:''}
   </tr>`).join('');
+}
+
+async function reverseLedgerEntry(id){
+  const e=(S.ledger||[]).find(x=>x.id===id);if(!e)return;
+  if(!confirm(`Reverse this entry?\n${e.type} | ${e.cls} | ${e.dir==='in'?'+':'-'}${e.qty}\nRef: ${e.ref}\n\nThis will create an opposite adjustment.`))return;
+  const reverseQty=e.dir==='in'?-e.qty:e.qty;
+  try{
+    const r=await fetch(API_URL+'/api/action/adjustment',{
+      method:'POST',headers:apiHeaders(),
+      body:JSON.stringify({cls:e.cls,qty:reverseQty,ref:'REV-'+e.ref,note:`Reversed: ${e.type} ${e.ref} (${e.dir==='in'?'+':'-'}${e.qty} ${e.cls})`,by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():''})
+    });
+    const result=await r.json();
+    if(!r.ok)throw new Error(result.error||'Server error');
+    if(!S.stock)S.stock={};S.stock[e.cls]=result.newQty;
+    if(!S.ledger)S.ledger=[];if(result.ledger&&result.ledger.id)S.ledger.unshift(result.ledger);
+    persist();renderStock();renderLedger();renderDash();
+    toast(`✓ Reversed — ${e.dir==='in'?'-':'+'}${e.qty} ${e.cls} applied`);
+  }catch(err){toast('Reverse failed: '+err.message,'err');}
 }
 
 function viewLedgerEntry(id){
