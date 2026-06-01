@@ -1579,7 +1579,8 @@ async function loadCloud(){
     const farR=stock.find(r=>r.id==='__fleetAlertStatus');if(farR&&farR.data)S.fleetAlertStatus=farR.data;
     const otpR=stock.find(r=>r.id==='__ordTablePrefs');if(otpR&&otpR.data)S.ordTablePrefs=otpR.data;
     const ltpR=stock.find(r=>r.id==='__ledTablePrefs');if(ltpR&&ltpR.data)S.ledTablePrefs=ltpR.data;
-    const phR=stock.find(r=>r.id==='__productHistory');if(phR&&phR.data)S.productHistory=phR.data;}
+    const phR=stock.find(r=>r.id==='__productHistory');if(phR&&phR.data)S.productHistory=phR.data;
+    const idR=stock.find(r=>r.id==='__ignoredDupes');if(idR&&idR.data)S.ignoredDupes=idR.data;}
     if(products&&products.length){
       const pr=products.find(r=>r.id==='__products');
       if(pr&&pr.data){
@@ -5300,8 +5301,9 @@ async function openRecalcModal(){
     if(!seen[key])seen[key]=[];
     seen[key].push(e);
   });
+  const ignoredDupes=new Set(S.ignoredDupes||[]);
   Object.entries(seen).forEach(([key,entries])=>{
-    if(entries.length>1&&entries[0].dir==='out'){
+    if(entries.length>1&&entries[0].dir==='out'&&!ignoredDupes.has(key)){
       // Only flag out duplicates (double-deductions are the problem)
       dupes.push({key,entries,ref:entries[0].ref,cls:entries[0].cls,totalQty:entries.reduce((s,e)=>s+(e.qty||0),0),count:entries.length});
     }
@@ -5332,7 +5334,7 @@ async function openRecalcModal(){
           <td style="padding:5px 8px;text-align:right;color:var(--red)">-${d.totalQty}</td>
           <td style="padding:5px 8px;text-align:right;color:var(--ink2)">-${perEntry}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:var(--red)">-${excess}</td>
-          <td style="padding:5px 8px"><button class="btn btn-ghost btn-sm" onclick="fixDuplicateLedger('${esc(d.ref)}','${esc(d.cls)}','out',${perEntry})">+${excess} Fix</button></td>
+          <td style="padding:5px 8px;white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="fixDuplicateLedger('${esc(d.ref)}','${esc(d.cls)}','out',${perEntry})">+${excess} Fix</button> <button class="btn btn-ghost btn-sm" style="opacity:.6" onclick="ignoreDupe('${esc(d.key)}',this)">Ignore</button></td>
         </tr>`;
       }).join('')}</tbody>
     </table>
@@ -5371,6 +5373,19 @@ function filterRecalcTable(){
     const matchF=f==='all'||(f==='diff'&&diff!==0)||(f==='ok'&&diff===0);
     row.style.display=matchQ&&matchF?'':'none';
   });
+}
+
+function ignoreDupe(key,btn){
+  if(!S.ignoredDupes)S.ignoredDupes=[];
+  if(!S.ignoredDupes.includes(key))S.ignoredDupes.push(key);
+  pushRecord('sp_stock','__ignoredDupes',S.ignoredDupes).catch(()=>{});
+  persist();
+  // Hide the row
+  const row=btn.closest('tr');if(row)row.style.display='none';
+  // Update count
+  const visible=[...document.querySelectorAll('#dupes-tbl tbody tr')].filter(r=>r.style.display!=='none').length;
+  const title=document.querySelector('#recalc-duplicates .text-red,#recalc-duplicates [style*="color:var(--red)"]');
+  toast('Entry ignored');
 }
 
 function sortDupesTable(col){
