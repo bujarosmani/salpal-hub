@@ -5418,24 +5418,25 @@ function exportDupesExcel(){
 }
 
 async function fixDuplicateLedger(ref,cls,dir,correctQty){
-  // Apply a positive adjustment to reverse the excess deduction
   const dupeEntries=(S.ledger||[]).filter(e=>e.ref===ref&&e.cls===cls&&e.dir===dir);
   const totalDeducted=dupeEntries.reduce((s,e)=>s+(e.qty||0),0);
   const excess=totalDeducted-correctQty;
-  if(excess<=0){toast('No excess found','err');return;}
+  console.log('fixDuplicateLedger',{ref,cls,dir,correctQty,totalDeducted,excess,entries:dupeEntries.length});
+  if(excess<=0){toast('No excess found — excess='+excess,'err');return;}
   try{
     const r=await fetch(API_URL+'/api/action/adjustment',{
       method:'POST',headers:apiHeaders(),
       body:JSON.stringify({cls,qty:excess,ref:'DUP-FIX',note:`Reversed duplicate OUT for ${ref} (${dupeEntries.length} entries found, excess: +${excess})`,by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():''})
     });
-    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||'Server error');}
     const result=await r.json();
+    console.log('adjustment result',result);
+    if(!r.ok){throw new Error(result.error||'Server error '+r.status);}
     if(!S.stock)S.stock={};S.stock[cls]=(S.stock[cls]||0)+excess;
     if(!S.ledger)S.ledger=[];S.ledger.unshift(result.ledger);
     persist();renderStock();
     toast(`✓ Fixed: +${excess} ${cls} applied for ${ref}`);
     openRecalcModal();
-  }catch(e){toast('Fix failed: '+e.message,'err');}
+  }catch(e){console.error('fixDuplicateLedger error',e);toast('Fix failed: '+e.message,'err');}
 }
 
 async function remapOrphanLedger(oldCls, newCls){
