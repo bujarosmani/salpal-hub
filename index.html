@@ -502,6 +502,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" onclick="openProductModal()">+ Add Product</button>
       <button class="btn btn-ghost" id="btn-adj-stock" onclick="openStockAdjModal()">⚙ Adjust Stock</button>
+      <button class="btn btn-ghost" onclick="openRecalcModal()">↺ Recalc from Ledger</button>
     </div>
   </div>
   <div class="stats" id="stk-stats"></div>
@@ -5151,6 +5152,82 @@ async function saveStockAdjTab(){
     err.textContent='⚠ Save failed: '+e.message+' — please try again';
   }
 }
+function openRecalcModal(){
+  // Calculate stock from ledger for each product
+  const ledger=S.ledger||[];
+  const calc={};
+  ledger.forEach(e=>{
+    if(!e.cls)return;
+    if(!calc[e.cls])calc[e.cls]=0;
+    if(e.dir==='in')calc[e.cls]+=e.qty||0;
+    else if(e.dir==='out')calc[e.cls]-=e.qty||0;
+  });
+  const skus=getSKUS();
+  const rows=skus.map(cls=>{
+    const current=S.stock&&S.stock[cls]!==undefined?S.stock[cls]:0;
+    const ledgerVal=calc[cls]!==undefined?calc[cls]:null;
+    if(ledgerVal===null)return null;
+    const diff=ledgerVal-current;
+    const diffColor=diff===0?'var(--brand)':diff>0?'var(--blue)':'var(--red)';
+    return{cls,current,ledgerVal,diff,diffColor};
+  }).filter(Boolean);
+  
+  const tableHtml=rows.length?`
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="border-bottom:1.5px solid var(--line)">
+        <th style="text-align:left;padding:7px 10px;color:var(--ink3)"><input type="checkbox" id="recalc-all" onchange="document.querySelectorAll('.recalc-chk').forEach(c=>c.checked=this.checked)" checked/></th>
+        <th style="text-align:left;padding:7px 10px;color:var(--ink3)">Product</th>
+        <th style="text-align:right;padding:7px 10px;color:var(--ink3)">Current</th>
+        <th style="text-align:right;padding:7px 10px;color:var(--ink3)">Ledger Calc</th>
+        <th style="text-align:right;padding:7px 10px;color:var(--ink3)">Difference</th>
+      </tr></thead>
+      <tbody>${rows.map(r=>`<tr style="border-bottom:1px solid var(--line2)">
+        <td style="padding:7px 10px"><input type="checkbox" class="recalc-chk" data-cls="${esc(r.cls)}" data-val="${r.ledgerVal}" ${r.diff===0?'':'checked'}/></td>
+        <td style="padding:7px 10px">${skuBadge(r.cls,true)}</td>
+        <td style="padding:7px 10px;text-align:right;color:var(--ink2)">${r.current}</td>
+        <td style="padding:7px 10px;text-align:right;font-weight:700">${r.ledgerVal}</td>
+        <td style="padding:7px 10px;text-align:right;font-weight:700;color:${r.diffColor}">${r.diff>0?'+':''}${r.diff}</td>
+      </tr>`).join('')}</tbody>
+    </table>`:'<div class="empty">No ledger entries found to calculate from.</div>';
+  
+  document.getElementById('recalc-table').innerHTML=tableHtml;
+  window._recalcRows=rows;
+  openM('m-recalc');
+}
+
+async function applyRecalc(){
+  const checked=document.querySelectorAll('.recalc-chk:checked');
+  if(!checked.length){toast('No products selected','err');return;}
+  const btn=document.querySelector('#m-recalc .btn-primary');
+  if(btn){btn.disabled=true;btn.textContent='Applying...';}
+  let applied=0;
+  for(const chk of checked){
+    const cls=chk.dataset.cls;
+    const val=parseInt(chk.dataset.val);
+    if(!cls||isNaN(val))continue;
+    const current=(S.stock&&S.stock[cls])||0;
+    const diff=val-current;
+    if(diff===0)continue;
+    // Save as adjustment through server
+    try{
+      const r=await fetch(API_URL+'/api/action/adjustment',{
+        method:'POST',headers:apiHeaders(),
+        body:JSON.stringify({cls,qty:diff,ref:'RECALC',note:`Stock recalculated from ledger (was ${current}, should be ${val})`,by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():''})
+      });
+      if(r.ok){
+        const result=await r.json();
+        if(!S.stock)S.stock={};S.stock[cls]=val;
+        if(!S.ledger)S.ledger=[];S.ledger.unshift(result.ledger);
+        applied++;
+      }
+    }catch(e){console.error('recalc failed for',cls,e);}
+  }
+  persist();renderStock();
+  if(btn){btn.disabled=false;btn.textContent='✓ Apply Selected';}
+  closeM('m-recalc');
+  toast(`✓ Stock recalculated — ${applied} product${applied!==1?'s':''} updated`);
+}
+
 function renderAdjTab(){
   const tb=document.getElementById('adj-tbody');if(!tb)return;
   const adjs=S.adjustments||[];
@@ -7317,5 +7394,18 @@ if(!tryRestoreSession()){
   loadCloud().catch(()=>{});
 }
 </script>
+<div class="mbackdrop" id="m-recalc">
+  <div class="mbox wide">
+    <div class="mhdr"><span class="mtitle">↺ Recalculate Stock from Ledger</span><button class="mclose" onclick="closeM('m-recalc')">✕</button></div>
+    <div class="mbody">
+      <div style="font-size:12px;color:var(--ink3);margin-bottom:14px">Calculates correct stock for each product by summing all IN and OUT ledger entries. Review differences before applying.</div>
+      <div id="recalc-table"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeM('m-recalc')">Cancel</button>
+      <button class="btn btn-primary" onclick="applyRecalc()">✓ Apply Selected</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
