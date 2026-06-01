@@ -5019,10 +5019,18 @@ function saveProduct(){
     const i=S.products.indexOf(oldName);
     if(i>=0)S.products[i]=name;
     // Update all references
-    (S.orders||[]).forEach(j=>(j.pallets||[]).forEach(p=>{if(p.cls===oldName)p.cls=name;}));
-    (S.repairs||[]).forEach(r=>{if(r.pallet_class===oldName)r.pallet_class=name;});
-    (S.sortings||[]).forEach(r=>(r.pallets||[]).forEach(p=>{if(p.cls===oldName)p.cls=name;}));
-    if(S.stock&&S.stock[oldName]!==undefined){S.stock[name]=S.stock[oldName];delete S.stock[oldName];}
+    (S.orders||[]).forEach(j=>{(j.pallets||[]).forEach(p=>{if(p.cls===oldName)p.cls=name;});syncOrder(j);});
+    (S.repairs||[]).forEach(r=>{if(r.pallet_class===oldName){r.pallet_class=name;syncRepair(r);}});
+    (S.sortings||[]).forEach(r=>{(r.pallets||[]).forEach(p=>{if(p.cls===oldName)p.cls=name;});if(r.pallets?.some(p=>p.cls===name))syncSorting(r);});
+    if(S.stock&&S.stock[oldName]!==undefined){
+      S.stock[name]=S.stock[oldName];
+      delete S.stock[oldName];
+      // Push new name stock to server and zero out old name
+      pushStock(name);
+      sbUpsert('sp_stock','stock__'+oldName.replace(/[^a-zA-Z0-9]/g,'_'),{cls:oldName,qty:0,updatedAt:new Date().toISOString()}).catch(()=>{});
+    }
+    // Update ledger entries to new product name
+    (S.ledger||[]).forEach(e=>{if(e.cls===oldName)e.cls=name;});
     toast(`Renamed "${oldName}" → "${name}"`);
   } else {
     // Add new
