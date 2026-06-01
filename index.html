@@ -5428,7 +5428,7 @@ async function fixDuplicateLedger(ref,cls,dir,correctQty){
   try{
     const r=await fetch(API_URL+'/api/action/adjustment',{
       method:'POST',headers:apiHeaders(),
-      body:JSON.stringify({cls,qty:excess,ref:'DUP-FIX',note:`Reversed duplicate OUT for ${ref} (${dupeEntries.length} entries found, excess: +${excess})`,by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():''})
+      body:JSON.stringify({cls,qty:excess,ref:`DUP-FIX ${ref}`,note:`Reversed duplicate OUT for ${ref} (${dupeEntries.length} entries found, excess: +${excess})`,by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():''})
     });
     const result=await r.json();
     console.log('adjustment result',result);
