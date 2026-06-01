@@ -5156,9 +5156,10 @@ async function saveStockAdjTab(){
     err.textContent='⚠ Save failed: '+e.message+' — please try again';
   }
 }
-function findOrphanedLedgerEntries(){
+async function findOrphanedLedgerEntries(){
   const skus=new Set(getSKUS());
   const orphaned={};
+  // Use full local ledger — should be complete after loadCloud
   (S.ledger||[]).forEach(e=>{
     if(e.cls&&!skus.has(e.cls)){
       if(!orphaned[e.cls])orphaned[e.cls]={in:0,out:0,count:0};
@@ -5167,10 +5168,23 @@ function findOrphanedLedgerEntries(){
       else orphaned[e.cls].out+=e.qty||0;
     }
   });
+  // Also fetch directly from Supabase to catch any not in local state
+  try{
+    const rows=await sbGet('sp_ledger');
+    rows.forEach(r=>{
+      const e=r.data;if(!e||!e.cls)return;
+      if(!skus.has(e.cls)){
+        if(!orphaned[e.cls])orphaned[e.cls]={in:0,out:0,count:0};
+        orphaned[e.cls].count++;
+        if(e.dir==='in')orphaned[e.cls].in+=e.qty||0;
+        else orphaned[e.cls].out+=e.qty||0;
+      }
+    });
+  }catch(err){console.warn('Could not fetch ledger from Supabase',err);}
   return orphaned;
 }
 
-function openRecalcModal(){
+async function openRecalcModal(){
   // Calculate stock from ledger for each product
   const ledger=S.ledger||[];
   const calc={};
@@ -5191,13 +5205,21 @@ function openRecalcModal(){
   }).filter(Boolean);
   
   const tableHtml=rows.length?`
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+      <input type="text" id="recalc-search" placeholder="Search product..." oninput="filterRecalcTable()" style="flex:1;background:var(--panel2);border:1px solid var(--line2);border-radius:7px;color:var(--ink);padding:6px 10px;font-size:12px"/>
+      <select id="recalc-filter" onchange="filterRecalcTable()" style="background:var(--panel2);border:1px solid var(--line2);border-radius:7px;color:var(--ink2);padding:6px 10px;font-size:12px">
+        <option value="all">All products</option>
+        <option value="diff">With differences only</option>
+        <option value="ok">Matching only</option>
+      </select>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px" id="recalc-tbl">
       <thead><tr style="border-bottom:1.5px solid var(--line)">
-        <th style="text-align:left;padding:7px 10px;color:var(--ink3)"><input type="checkbox" id="recalc-all" onchange="document.querySelectorAll('.recalc-chk').forEach(c=>c.checked=this.checked)" checked/></th>
-        <th style="text-align:left;padding:7px 10px;color:var(--ink3)">Product</th>
-        <th style="text-align:right;padding:7px 10px;color:var(--ink3)">Current</th>
-        <th style="text-align:right;padding:7px 10px;color:var(--ink3)">Ledger Calc</th>
-        <th style="text-align:right;padding:7px 10px;color:var(--ink3)">Difference</th>
+        <th style="text-align:left;padding:7px 10px;color:var(--ink3)"><input type="checkbox" id="recalc-all" onchange="document.querySelectorAll('.recalc-chk:not([style*=none])').forEach(c=>c.checked=this.checked)" checked/></th>
+        <th style="text-align:left;padding:7px 10px;color:var(--ink3);cursor:pointer" onclick="sortRecalcTable('product')">Product ⇅</th>
+        <th style="text-align:right;padding:7px 10px;color:var(--ink3);cursor:pointer" onclick="sortRecalcTable('current')">Current ⇅</th>
+        <th style="text-align:right;padding:7px 10px;color:var(--ink3);cursor:pointer" onclick="sortRecalcTable('ledger')">Ledger Calc ⇅</th>
+        <th style="text-align:right;padding:7px 10px;color:var(--ink3);cursor:pointer" onclick="sortRecalcTable('diff')">Difference ⇅</th>
       </tr></thead>
       <tbody>${rows.map(r=>`<tr style="border-bottom:1px solid var(--line2)">
         <td style="padding:7px 10px"><input type="checkbox" class="recalc-chk" data-cls="${esc(r.cls)}" data-val="${r.ledgerVal}" ${r.diff===0?'':'checked'}/></td>
@@ -5209,7 +5231,7 @@ function openRecalcModal(){
     </table>`:'<div class="empty">No ledger entries found to calculate from.</div>';
   
   // Show orphaned ledger entries (old product names not in current list)
-  const orphaned=findOrphanedLedgerEntries();
+  const orphaned=await findOrphanedLedgerEntries();
   const orphanKeys=Object.keys(orphaned);
   const orphanHtml=orphanKeys.length?`<div style="background:rgba(245,200,66,.08);border:1.5px solid rgba(245,200,66,.4);border-radius:9px;padding:10px 14px;margin-bottom:10px">
     <div style="font-size:11px;color:var(--amber);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">⚠ Ledger entries with unknown product names (${orphanKeys.length})</div>
@@ -5243,6 +5265,34 @@ function openRecalcModal(){
   document.getElementById('recalc-table').innerHTML=tableHtml;
   window._recalcRows=rows;
   openM('m-recalc');
+}
+
+function sortRecalcTable(col){
+  const tbl=document.getElementById('recalc-tbl');if(!tbl)return;
+  const tbody=tbl.querySelector('tbody');if(!tbody)return;
+  const rows=[...tbody.querySelectorAll('tr')];
+  const dir=tbl.dataset.sortCol===col&&tbl.dataset.sortDir==='asc'?'desc':'asc';
+  tbl.dataset.sortCol=col;tbl.dataset.sortDir=dir;
+  rows.sort((a,b)=>{
+    let av,bv;
+    if(col==='product'){av=a.cells[1]?.textContent.trim();bv=b.cells[1]?.textContent.trim();return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);}
+    av=parseFloat(a.cells[col==='current'?2:col==='ledger'?3:4]?.textContent)||0;
+    bv=parseFloat(b.cells[col==='current'?2:col==='ledger'?3:4]?.textContent)||0;
+    return dir==='asc'?av-bv:bv-av;
+  });
+  rows.forEach(r=>tbody.appendChild(r));
+}
+
+function filterRecalcTable(){
+  const q=(document.getElementById('recalc-search')?.value||'').toLowerCase();
+  const f=document.getElementById('recalc-filter')?.value||'all';
+  document.querySelectorAll('#recalc-tbl tbody tr').forEach(row=>{
+    const name=row.cells[1]?.textContent.toLowerCase()||'';
+    const diff=parseFloat(row.cells[4]?.textContent)||0;
+    const matchQ=!q||name.includes(q);
+    const matchF=f==='all'||(f==='diff'&&diff!==0)||(f==='ok'&&diff===0);
+    row.style.display=matchQ&&matchF?'':'none';
+  });
 }
 
 async function remapOrphanLedger(oldCls, newCls){
