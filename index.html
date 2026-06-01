@@ -5439,6 +5439,11 @@ async function fixDuplicateLedger(ref,cls,dir,correctQty){
     persist();renderStock();renderDash();
     if(typeof renderLedger==='function')renderLedger();
     toast(`✓ Fixed: +${excess} ${cls} applied for ${ref}`);
+    // Auto-ignore so it doesn't reappear in duplicates list
+    const dupKey=`${ref}__${cls}__out`;
+    if(!S.ignoredDupes)S.ignoredDupes=[];
+    if(!S.ignoredDupes.includes(dupKey))S.ignoredDupes.push(dupKey);
+    pushRecord('sp_stock','__ignoredDupes',S.ignoredDupes).catch(()=>{});
     // Hide the fixed row
     const fixBtn=document.querySelector(`[onclick*="${ref}"][onclick*="${cls}"]`);
     if(fixBtn){const row=fixBtn.closest('tr');if(row)row.style.display='none';}
@@ -5835,6 +5840,13 @@ async function reverseLedgerEntry(id){
     if(!r.ok)throw new Error(result.error||'Server error');
     if(!S.stock)S.stock={};S.stock[e.cls]=result.newQty;
     if(!S.ledger)S.ledger=[];if(result.ledger&&result.ledger.id)S.ledger.unshift(result.ledger);
+    // Auto-ignore in duplicates if this was an OUT entry
+    if(e.dir==='out'&&e.ref){
+      const dupKey=`${e.ref}__${e.cls}__out`;
+      if(!S.ignoredDupes)S.ignoredDupes=[];
+      if(!S.ignoredDupes.includes(dupKey))S.ignoredDupes.push(dupKey);
+      pushRecord('sp_stock','__ignoredDupes',S.ignoredDupes).catch(()=>{});
+    }
     persist();renderStock();renderLedger();renderDash();
     toast(`✓ Reversed — ${e.dir==='in'?'-':'+'}${e.qty} ${e.cls} applied`);
   }catch(err){toast('Reverse failed: '+err.message,'err');}
