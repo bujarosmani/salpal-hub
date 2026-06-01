@@ -3391,7 +3391,7 @@ function confirmReceived(){
    addTL(j,`Completed by ${sup}`,'status',[...changes,...(notes?[`Notes: ${notes}`]:[])]); 
    const _crecBtn=document.querySelector('#m-crec .btn-primary');
    if(_crecBtn){_crecBtn.disabled=true;_crecBtn.textContent='Saving...';}
-   fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...j,_hasPendingSort:hasUnsortedPallets}})})
+   fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...j,previousStatus:j.status,_hasPendingSort:hasUnsortedPallets}})})
    .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Server error');});return r.json();})
    .then(result=>{
      const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
@@ -3554,7 +3554,7 @@ function saveDropoff(){
   const order={id:mkId(),awb,type:'Collection',orderDate:document.getElementById('do-date').value,deliveryDate:document.getElementById('do-date').value,companyId:document.getElementById('do-co-id').value,companyName:coSearch,companyAddress:document.getElementById('do-addr').value.trim(),city,postcode:post,pallets,totalQty,driver:'Customer Drop Off',driverId:'',condition:document.getElementById('do-cond').value,truckPlate:document.getElementById('do-truck').value.trim(),trailerPlate:document.getElementById('do-trailer').value.trim(),collectionRef:document.getElementById('do-ref').value.trim(),driverNotes:document.getElementById('do-notes').value.trim(),status:'Completed',whBy:by,whChanges:[],history:[],createdAt:now,updatedAt:now,source:'dropoff',signature:sigCtxs['do-canvas']&&sigCtxs['do-canvas']._has?document.getElementById('do-canvas').toDataURL('image/png'):null};
   addTL(order,`Drop-off received by ${by}`,'create',[`${totalQty} pallets`,`Supplier: ${coSearch}`,`Condition: ${order.condition||'\u2014'}`]);
   S.orders.unshift(order);
-  fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order})})
+  fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...order,previousStatus:order.status}})})
   .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Server error');});return r.json();})
   .then(result=>{
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
