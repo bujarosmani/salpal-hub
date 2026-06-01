@@ -2702,13 +2702,16 @@ function setOrdStatus(id,status){
   // Loaded and Pending Sort = stock already moved. Only move for Open/In Transit/Collected/Delivered
   const stockNotYetMoved=['Open','In Transit','Collected','Delivered'];
   if(old!=='Completed'&&status==='Completed'&&stockNotYetMoved.includes(old)){
-    fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j})})
+    fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...j,previousStatus:old}})})
     .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);}))
     .then(result=>{
+      // Merge timeline from local (addTL was called before fetch) into server result
+      const localTL=j.history||[];
+      result.order.history=[...localTL,...(result.order.history||[]).filter(e=>!localTL.find(l=>l.id===e.id))];
       const idx=(S.orders||[]).findIndex(x=>x.id===j.id);if(idx>=0)S.orders[idx]=result.order;
       if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
       result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
-      persist();
+      persist();renderOrders();renderDash();
     }).catch(e=>console.error('status complete failed',e));
   } else {
     syncOrder(j);
