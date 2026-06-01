@@ -5304,8 +5304,10 @@ async function openRecalcModal(){
   const ignoredDupes=new Set(S.ignoredDupes||[]);
   Object.entries(seen).forEach(([key,entries])=>{
     if(entries.length>1&&entries[0].dir==='out'&&!ignoredDupes.has(key)){
-      // Only flag out duplicates (double-deductions are the problem)
-      dupes.push({key,entries,ref:entries[0].ref,cls:entries[0].cls,totalQty:entries.reduce((s,e)=>s+(e.qty||0),0),count:entries.length});
+      const ref=entries[0].ref||'';
+      // Only flag order AWB duplicates (WMS-* refs) — repair/batch refs are legitimate
+      if(!ref.match(/^WMS-/i))return;
+      dupes.push({key,entries,ref,cls:entries[0].cls,totalQty:entries.reduce((s,e)=>s+(e.qty||0),0),count:entries.length});
     }
   });
   const dupHtml=dupes.length?`<div style="background:rgba(245,107,107,.08);border:1.5px solid rgba(245,107,107,.4);border-radius:9px;padding:10px 14px">
