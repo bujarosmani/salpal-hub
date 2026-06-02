@@ -1584,10 +1584,10 @@ async function loadCloud(){
     if(products&&products.length){
       const pr=products.find(r=>r.id==='__products');
       if(pr&&pr.data){
-        // Remote is source of truth for products — filter out deleted ones
+        // Remote is source of truth for products — filter out deleted and null/empty
         const remote=Array.isArray(pr.data)?pr.data:[];
         const deleted=S.deletedProducts||[];
-        S.products=remote.filter(p=>!deleted.includes(p));
+        S.products=remote.filter(p=>p&&typeof p==='string'&&p.trim()&&!deleted.includes(p));
       }
     }
     if(stocktakes&&stocktakes.length){
