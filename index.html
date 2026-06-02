@@ -5540,26 +5540,23 @@ async function applyRecalc(){
     const val=parseInt(chk.dataset.val);
     if(!cls||isNaN(val))continue;
     const current=(S.stock&&S.stock[cls])||0;
-    const diff=val-current;
-    if(diff===0)continue;
-    // Save as adjustment through server
+    if(val===current)continue;
+    // Set stock directly — no ledger entry created
     try{
-      const r=await fetch(API_URL+'/api/action/adjustment',{
+      const r=await fetch(API_URL+'/api/stock/set',{
         method:'POST',headers:apiHeaders(),
-        body:JSON.stringify({cls,qty:diff,ref:'RECALC',note:`Stock recalculated from ledger (was ${current}, should be ${val})`,by:ME?`${ME.firstName||''} ${ME.lastName||''}`.trim():''})
+        body:JSON.stringify({cls,qty:val})
       });
       if(r.ok){
-        const result=await r.json();
         if(!S.stock)S.stock={};S.stock[cls]=val;
-        if(!S.ledger)S.ledger=[];S.ledger.unshift(result.ledger);
         applied++;
       }
     }catch(e){console.error('recalc failed for',cls,e);}
   }
-  persist();renderStock();
+  persist();renderStock();renderDash();
   if(btn){btn.disabled=false;btn.textContent='✓ Apply Selected';}
   closeM('m-recalc');
-  toast(`✓ Stock recalculated — ${applied} product${applied!==1?'s':''} updated`);
+  toast(`✓ Stock updated — ${applied} product${applied!==1?'s':''} set to ledger values`);
 }
 
 function renderAdjTab(){
