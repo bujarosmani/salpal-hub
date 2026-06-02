@@ -5764,28 +5764,34 @@ function renderLedgerPagination(page,total,count){
   el.innerHTML=btn('←',page-1,page===1,false)+pages+btn('→',page+1,page===total,false)+`<span style="color:var(--ink3);font-size:11px;margin-left:6px">Page ${page} of ${total} · ${count} entries</span>`;
 }
 
-function renderLedgerTable(){
-  let list=[...(S.ledger||[])].sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
-  if(ledgerFilter.cls)list=list.filter(e=>ledgerFilter.cls.includes(e.cls));
-  if(ledgerFilter.type)list=list.filter(e=>ledgerFilter.type.includes(e.type));
-  if(ledgerFilter.dateFrom)list=list.filter(e=>e.date.slice(0,10)>=ledgerFilter.dateFrom);
-  if(ledgerFilter.dateTo)list=list.filter(e=>e.date.slice(0,10)<=ledgerFilter.dateTo);
-  if(ledgerFilter.dir)list=list.filter(e=>e.dir===ledgerFilter.dir);
-  if(ledgerFilter.search){
-    const q=ledgerFilter.search.toLowerCase();
-    list=list.filter(e=>(e.ref||'').toLowerCase().includes(q)||(e.cls||'').toLowerCase().includes(q)||(e.notes||'').toLowerCase().includes(q)||(e.type||'').toLowerCase().includes(q));
-  }
+async function renderLedgerTable(){
   const ledCol=k=>{const el=document.getElementById(`led-col-${k}`);return!el||el.checked!==false;};
   ['date','type','ref','product','in','out','balance','by','notes'].forEach(k=>{const th=document.getElementById(`led-th-${k}`);if(th)th.style.display=ledCol(k)?'':'none';});
   const _lps=(S.ledTablePrefs&&S.ledTablePrefs.pageSize)||25;
   const tb=document.getElementById('ledger-tbody');
+  tb.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--ink3)">Loading...</td></tr>`;
+  // Build query params
+  const params=new URLSearchParams();
+  params.set('page',ledgerPage);
+  params.set('pageSize',_lps);
+  if(ledgerFilter.cls)params.set('product',ledgerFilter.cls);
+  if(ledgerFilter.type)params.set('type',ledgerFilter.type);
+  if(ledgerFilter.dir)params.set('dir',ledgerFilter.dir);
+  if(ledgerFilter.search)params.set('search',ledgerFilter.search);
+  if(ledgerFilter.dateFrom)params.set('dateFrom',ledgerFilter.dateFrom);
+  if(ledgerFilter.dateTo)params.set('dateTo',ledgerFilter.dateTo);
+  let list=[], totalPages=1, totalCount=0;
+  try{
+    const r=await fetch(`${API_URL}/api/ledger?${params}`,{headers:apiHeaders()});
+    const result=await r.json();
+    if(result.ok){list=result.entries;totalPages=result.pages;totalCount=result.total;}
+    else throw new Error(result.error||'Failed');
+  }catch(err){
+    tb.innerHTML=`<tr><td colspan="9" class="empty">Failed to load ledger: ${esc(err.message)}</td></tr>`;
+    renderLedgerPagination(0,0,0);return;
+  }
   if(!list.length){tb.innerHTML=`<tr><td colspan="9" class="empty">No ledger entries found</td></tr>`;renderLedgerPagination(0,0,0);return;}
-  // _lps already set above from prefs
-  const _ltotal=Math.ceil(list.length/_lps);
-  if(ledgerPage>_ltotal)ledgerPage=_ltotal;
-  if(ledgerPage<1)ledgerPage=1;
-  renderLedgerPagination(ledgerPage,_ltotal,list.length);
-  list=list.slice((ledgerPage-1)*_lps,ledgerPage*_lps);
+  renderLedgerPagination(ledgerPage,totalPages,totalCount);
   const typeChipL=t=>{const m={'Order In':'chip-green','Order Out':'chip-amber','Sorting':'chip-blue','Repair':'chip-purple','Manual':'chip-gray'};return`<span class="chip ${m[t]||'chip-gray'}" style="font-size:10px">${esc(t)}</span>`;};
   // Bind ledger card resize handle
   setTimeout(()=>{
@@ -7555,25 +7561,15 @@ function forceSyncNow(){
   }).catch(()=>toast('Sync error — check connection','err'));
 }
 
-function checkReconciliation(){
+async function checkReconciliation(){
   if(!isAdmin()&&ME?.role!=='Manager')return;
-  const today=tod();
-  // Check orders completed in last 7 days with no ledger entry
-  const sevenDaysAgo=localIso(new Date(Date.now()-7*24*60*60*1000));
-  const completedRecent=(S.orders||[]).filter(j=>{
-    if(j.status!=='Completed'&&j.status!=='Pending Sort')return false;
-    const d=(j.completedAt||j.updatedAt||j.createdAt||'').slice(0,10);
-    return d>=sevenDaysAgo&&d<=today;
-  });
-  const issues=[];
-  completedRecent.forEach(j=>{
-    const ledgerEntries=(S.ledger||[]).filter(l=>l.ref===j.awb);
-    if(!ledgerEntries.length){
-      issues.push({id:j.id,awb:j.awb,company:j.companyName,pallets:palletStr(j.pallets),type:j.type,date:(j.completedAt||j.updatedAt||'').slice(0,10)});
-    }
-  });
   const warn=document.getElementById('dash-recon-warn');
-  if(warn){
+  if(!warn)return;
+  try{
+    const r=await fetch(`${API_URL}/api/ledger/verify`,{headers:apiHeaders()});
+    const result=await r.json();
+    if(!result.ok)throw new Error(result.error||'Failed');
+    const issues=result.missing.map(j=>({id:j.id,awb:j.awb,company:j.companyName,pallets:palletStr(j.pallets),type:j.type,date:(j.completedAt||j.updatedAt||'').slice(0,10)}));
     if(issues.length){
       warn.style.display='';
       warn.innerHTML=`<div style="background:rgba(245,107,107,.1);border:1.5px solid rgba(245,107,107,.4);border-radius:var(--r);padding:12px 14px;margin-bottom:14px">
@@ -7590,6 +7586,9 @@ function checkReconciliation(){
     } else {
       warn.style.display='none';
     }
+  }catch(err){
+    console.warn('checkReconciliation failed',err);
+    warn.style.display='none';
   }
 }
 
