@@ -5194,15 +5194,17 @@ async function findOrphanedLedgerEntries(){
 }
 
 async function openRecalcModal(){
-  // Calculate stock from ledger for each product
-  const ledger=S.ledger||[];
-  const calc={};
-  ledger.forEach(e=>{
-    if(!e.cls)return;
-    if(!calc[e.cls])calc[e.cls]=0;
-    if(e.dir==='in')calc[e.cls]+=e.qty||0;
-    else if(e.dir==='out')calc[e.cls]-=e.qty||0;
-  });
+  // Fetch ledger calc from server (accurate regardless of row limits)
+  let calc={};
+  try{
+    const r=await fetch(API_URL+'/api/ledger/calc',{headers:apiHeaders()});
+    const result=await r.json();
+    if(result.ok)calc=result.calc;
+    else throw new Error(result.error||'Failed');
+  }catch(err){
+    toast('Could not load ledger calc: '+err.message,'err');
+    return;
+  }
   const skus=getSKUS();
   const rows=skus.map(cls=>{
     const current=S.stock&&S.stock[cls]!==undefined?S.stock[cls]:0;
