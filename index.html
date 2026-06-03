@@ -5045,7 +5045,9 @@ function saveProduct(){
       delete S.stock[oldName];
       // Push new name stock to server and zero out old name
       pushStock(name);
-      sbUpsert('sp_stock','stock__'+oldName.replace(/[^a-zA-Z0-9]/g,'_'),{cls:oldName,qty:0,updatedAt:new Date().toISOString()}).catch(()=>{});
+      // Delete old stock row so it never appears as stale
+      fetch(API_URL+'/api/delete',{method:'DELETE',headers:apiHeaders(),
+        body:JSON.stringify({table:'sp_stock',id:'stock__'+oldName.replace(/[^a-zA-Z0-9]/g,'_')})}).catch(()=>{});
     }
     // Update ledger entries to new product name — locally and push to Supabase
     const ledgerUpdates=(S.ledger||[]).filter(e=>e.cls===oldName);
