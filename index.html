@@ -2809,8 +2809,8 @@ function saveOrder(force){
         if(!S.ledger)S.ledger=[];
         S.ledger.unshift({id:mkId(),date:new Date().toISOString(),type:'Manual',ref:order.awb,cls:'\u2014',dir:'in',qty:0,balance:0,notes:`\u26a0 Force status override: ${ex.status} \u2192 ${newStatus} by ${ME?ME.firstName:''} \u2014 verify stock manually`});
       } else if(ex.status!=='Completed'&&newStatus==='Completed'){
-        // Forward to Completed — use atomic endpoint, pass previousStatus so server knows if stock already moved
-        fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:{...order,previousStatus:ex.status}})})
+        // Forward to Completed — use atomic endpoint
+        fetch(API_URL+'/api/action/order/complete',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order})})
         .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);})).then(result=>{if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});persist();}).catch(e=>console.error('saveOrder complete failed',e));
       }
     }
@@ -5338,22 +5338,31 @@ async function openRecalcModal(){
       if(cls.startsWith('__'))return; // skip config rows
       staleRows.push({id:r.id,cls,qty:r.data?.qty||0});
     });
-    const staleHtml=staleRows.length?`<div style="background:rgba(245,200,66,.08);border:1.5px solid rgba(245,200,66,.4);border-radius:9px;padding:10px 14px">
-      <div style="font-size:11px;color:var(--amber);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🗑 Stale Stock Rows (${staleRows.length}) — not in current product list</div>
-      <div style="font-size:12px;color:var(--ink2);margin-bottom:8px">These products exist in the database but are no longer in your product list. Safe to zero out.</div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead><tr style="border-bottom:1px solid var(--line2)">
-          <th style="text-align:left;padding:5px 8px;color:var(--ink3)">Product</th>
-          <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Current Qty</th>
-          <th style="padding:5px 8px;color:var(--ink3)">Action</th>
-        </tr></thead>
-        <tbody>${staleRows.map(r=>`<tr style="border-bottom:1px solid var(--line2)" id="stale-row-${r.id.replace(/[^a-z0-9]/gi,'_')}">
-          <td style="padding:5px 8px;font-weight:600">${esc(r.cls)}</td>
-          <td style="padding:5px 8px;text-align:right;color:${r.qty>0?'var(--red)':r.qty<0?'var(--amber)':'var(--ink3)'};font-weight:${r.qty!==0?'700':'400'}">${r.qty}</td>
-          <td style="padding:5px 8px"><button class="btn btn-ghost btn-sm" onclick="zeroStaleRow('${esc(r.id)}','${esc(r.cls)}')">Zero Out</button></td>
-        </tr>`).join('')}</tbody>
-      </table>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="zeroAllStaleRows(${JSON.stringify(staleRows).replace(/'/g,'\'')})">Zero Out All</button>
+    const hasNonZeroStale=staleRows.some(r=>r.qty!==0);
+    const staleHtml=staleRows.length?`<div style="background:rgba(245,200,66,.08);border:1.5px solid rgba(245,200,66,.4);border-radius:9px;overflow:hidden">
+      <div onclick="this.parentElement.querySelector('.stale-body').style.display=this.parentElement.querySelector('.stale-body').style.display==='none'?'block':'none';this.querySelector('.stale-chevron').textContent=this.parentElement.querySelector('.stale-body').style.display==='none'?'▶':'▼';" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--amber);font-weight:700;text-transform:uppercase;letter-spacing:1px">🗑 Stale Stock Rows (${staleRows.length}) — not in current product list</span>
+          ${hasNonZeroStale?`<span style="background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px">has qty!</span>`:`<span style="background:var(--ink3);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;opacity:.6">all zero</span>`}
+        </div>
+        <span class="stale-chevron" style="color:var(--amber);font-size:11px">▶</span>
+      </div>
+      <div class="stale-body" style="display:none;padding:0 14px 12px 14px">
+        <div style="font-size:12px;color:var(--ink2);margin-bottom:8px">These products exist in the database but are no longer in your product list. Safe to zero out.</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="border-bottom:1px solid var(--line2)">
+            <th style="text-align:left;padding:5px 8px;color:var(--ink3)">Product</th>
+            <th style="text-align:right;padding:5px 8px;color:var(--ink3)">Current Qty</th>
+            <th style="padding:5px 8px;color:var(--ink3)">Action</th>
+          </tr></thead>
+          <tbody>${staleRows.map(r=>`<tr style="border-bottom:1px solid var(--line2)" id="stale-row-${r.id.replace(/[^a-z0-9]/gi,'_')}">
+            <td style="padding:5px 8px;font-weight:600">${esc(r.cls)}</td>
+            <td style="padding:5px 8px;text-align:right;color:${r.qty>0?'var(--red)':r.qty<0?'var(--amber)':'var(--ink3)'};font-weight:${r.qty!==0?'700':'400'}">${r.qty}</td>
+            <td style="padding:5px 8px"><button class="btn btn-ghost btn-sm" onclick="zeroStaleRow('${esc(r.id)}','${esc(r.cls)}')">Zero Out</button></td>
+          </tr>`).join('')}</tbody>
+        </table>
+        <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="zeroAllStaleRows(${JSON.stringify(staleRows).replace(/'/g,'\'')})">Zero Out All</button>
+      </div>
     </div>`:'<div style="background:rgba(0,200,100,.08);border:1.5px solid rgba(0,200,100,.2);border-radius:9px;padding:8px 14px;font-size:12px;color:var(--brand)">✓ No stale stock rows found</div>';
     document.getElementById('recalc-stale-stock').innerHTML=staleHtml;
   }catch(err){console.warn('stale stock check failed',err);}
