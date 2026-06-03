@@ -5311,26 +5311,35 @@ async function openRecalcModal(){
   </div>`:'';
   // Show product history
   const history=S.productHistory||[];
-  const histHtml=history.length?`<div style="background:rgba(99,102,241,.08);border:1.5px solid rgba(99,102,241,.3);border-radius:9px;padding:10px 14px;margin-bottom:10px">
-    <div style="font-size:11px;color:var(--blue);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📋 Product Rename / Merge History</div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="border-bottom:1px solid var(--line2)">
-        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">Date</th>
-        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">Action</th>
-        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">From</th>
-        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">To</th>
-        <th style="text-align:left;padding:5px 8px;color:var(--ink3)">By</th>
-      </tr></thead>
-      <tbody>${history.slice(0,20).map(h=>`<tr style="border-bottom:1px solid var(--line2)">
-        <td style="padding:5px 8px;color:var(--ink3);white-space:nowrap">${fdt(h.date)}</td>
-        <td style="padding:5px 8px"><span style="background:${h.type==='merge'?'rgba(99,102,241,.2)':'rgba(245,200,66,.2)'};color:${h.type==='merge'?'var(--blue)':'var(--amber)'};border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700">${h.type}</span></td>
-        <td style="padding:5px 8px;color:var(--red)">${esc(h.from)}</td>
-        <td style="padding:5px 8px;color:var(--brand)">${esc(h.to)}</td>
-        <td style="padding:5px 8px;color:var(--ink3)">${esc(h.by||'—')}</td>
-      </tr>`).join('')}</tbody>
-    </table>
-    ${history.length>20?`<div style="font-size:11px;color:var(--ink3);margin-top:6px">Showing last 20 of ${history.length} entries</div>`:''}
-  </div>`:'';
+  const histHtml=history.length
+    ?'<details style="background:rgba(99,102,241,.08);border:1.5px solid rgba(99,102,241,.3);border-radius:9px;margin-bottom:10px">'
+      +'<summary style="padding:10px 14px;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none">'
+      +'<span style="font-size:11px;color:var(--blue);font-weight:700;text-transform:uppercase;letter-spacing:1px">📋 Product Rename / Merge History ('+history.length+')</span>'
+      +'<span style="color:var(--blue);font-size:11px">▶</span></summary>'
+      +'<div style="padding:0 14px 12px 14px">'
+      +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      +'<thead><tr style="border-bottom:1px solid var(--line2)">'
+      +'<th style="text-align:left;padding:5px 8px;color:var(--ink3)">Date</th>'
+      +'<th style="text-align:left;padding:5px 8px;color:var(--ink3)">Action</th>'
+      +'<th style="text-align:left;padding:5px 8px;color:var(--ink3)">From</th>'
+      +'<th style="text-align:left;padding:5px 8px;color:var(--ink3)">To</th>'
+      +'<th style="text-align:left;padding:5px 8px;color:var(--ink3)">By</th>'
+      +'</tr></thead><tbody>'
+      +history.slice(0,20).map(h=>{
+        const bg=h.type==='merge'?'rgba(99,102,241,.2)':'rgba(245,200,66,.2)';
+        const cl=h.type==='merge'?'var(--blue)':'var(--amber)';
+        return '<tr style="border-bottom:1px solid var(--line2)">'
+          +'<td style="padding:5px 8px;color:var(--ink3);white-space:nowrap">'+fdt(h.date)+'</td>'
+          +'<td style="padding:5px 8px"><span style="background:'+bg+';color:'+cl+';border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700">'+h.type+'</span></td>'
+          +'<td style="padding:5px 8px;color:var(--red)">'+esc(h.from)+'</td>'
+          +'<td style="padding:5px 8px;color:var(--brand)">'+esc(h.to)+'</td>'
+          +'<td style="padding:5px 8px;color:var(--ink3)">'+esc(h.by||'—')+'</td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table>'
+      +(history.length>20?'<div style="font-size:11px;color:var(--ink3);margin-top:6px">Showing last 20 of '+history.length+' entries</div>':'')
+      +'</div></details>'
+    :'';
   // Find stale stock rows (in Supabase but not in current product list)
   try{
     const stockRows=await sbGetAll('sp_stock');
