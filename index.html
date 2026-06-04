@@ -5202,6 +5202,22 @@ async function zeroAllStaleRows(rows){
   toast(`✓ All stale rows zeroed out`);
 }
 
+async function deleteAllStaleRows(rows){
+  if(!confirm(`Permanently DELETE all ${rows.length} stale rows from the database?\nThis cannot be undone. All have zero qty.`))return;
+  let deleted=0,failed=0;
+  for(const r of rows){
+    try{
+      await fetch(API_URL+'/api/delete',{method:'DELETE',headers:apiHeaders(),
+        body:JSON.stringify({table:'sp_stock',id:r.id})});
+      const rowEl=document.getElementById('stale-row-'+r.id.replace(/[^a-z0-9]/gi,'_'));
+      if(rowEl)rowEl.remove();
+      deleted++;
+    }catch(e){console.warn('Failed to delete',r.cls,e);failed++;}
+  }
+  toast(failed?`Deleted ${deleted}, failed ${failed}`:`✓ Deleted all ${deleted} stale rows`);
+  if(!failed)document.getElementById('recalc-stale-stock').innerHTML='<div style="background:rgba(0,200,100,.08);border:1.5px solid rgba(0,200,100,.2);border-radius:9px;padding:8px 14px;font-size:12px;color:var(--brand)">✓ No stale stock rows found</div>';
+}
+
 async function findOrphanedLedgerEntries(){
   const skus=new Set(getSKUS());
   const orphaned={};
@@ -5378,7 +5394,10 @@ async function openRecalcModal(){
             +'<td style="padding:5px 8px"><button class="btn btn-ghost btn-sm" onclick="zeroStaleRow(\''+r.id+'\',\''+esc(r.cls)+'\')" >Zero Out</button></td></tr>';
         }).join('')
         +'</tbody></table>'
-        +'<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="zeroAllStaleRows('+JSON.stringify(staleRows).replace(/"/g,'&quot;').replace(/'/g,"'")+')" >Zero Out All</button>'
+        +'<div style="display:flex;gap:8px;margin-top:10px">'
+        +'<button class="btn btn-ghost btn-sm" onclick="zeroAllStaleRows('+JSON.stringify(staleRows).replace(/"/g,'&quot;').replace(/'/g,"'")+')" >Zero Out All</button>'
+        +'<button class="btn btn-sm" style="background:rgba(231,76,60,.15);color:#e74c3c;border:1px solid rgba(231,76,60,.3)" onclick="deleteAllStaleRows('+JSON.stringify(staleRows).replace(/"/g,'&quot;').replace(/'/g,"'")+')" >🗑 Delete All from DB</button>'
+        +'</div>'
         +'</div></details>'
       :'<div style="background:rgba(0,200,100,.08);border:1.5px solid rgba(0,200,100,.2);border-radius:9px;padding:8px 14px;font-size:12px;color:var(--brand)">✓ No stale stock rows found</div>';
     document.getElementById('recalc-stale-stock').innerHTML=staleHtml;
