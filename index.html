@@ -6222,6 +6222,7 @@ async function exportOrdersPDF(){
   toast('Generating PDF...');
   try{
   const W=210,H=297,ML=15,MR=15,MT=15;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
 
   // Colors
   const C={
