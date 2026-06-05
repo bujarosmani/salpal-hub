@@ -2944,6 +2944,11 @@ function toggleOrderChecked(id,cb){
   syncOrder(j);persist();
 }
 
+function viewOrderByAwb(awb){
+  const j=(S.orders||[]).find(x=>x.awb===awb);
+  if(!j){toast('Order not found: '+awb);return;}
+  viewOrder(j.id);
+}
 function viewOrder(id){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   const isD=j.type==='Delivery';
@@ -4615,7 +4620,7 @@ function renderSrtTab(name){
     const tr=(S.sortings||[]).filter(r=>isToday(r.date)&&filterSrt(r)).sort((a,b)=>b.date.localeCompare(a.date));
     document.getElementById('srt-today').innerHTML=tr.length?tr.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-        <div><div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} · ${esc(r.supervisor)}${r.orderRef?` · ${esc(r.orderRef)}`:''}</div></div>
+        <div><div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(r.date)} · ${esc(r.supervisor)}${r.orderRef?` · <span style="color:var(--blue);cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="viewOrderByAwb('${r.orderRef}')">${esc(r.orderRef)}</span>`:''}</div></div>
         <div style="display:flex;align-items:center;gap:8px"><span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--blue)">${totQty(r)}</span>${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editSorting('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteSortingEntry('${r.id}')">Delete</button>`:''}</div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">${(r.pallets||[]).map(p=>`<span>${skuBadge(p.cls,true)} <span style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800">×${p.qty}</span></span>`).join('')}</div>
@@ -4626,7 +4631,7 @@ function renderSrtTab(name){
     document.getElementById('srt-history').innerHTML=Object.keys(grp).length?Object.keys(grp).sort(srtSortAsc?(a,b)=>a.localeCompare(b):(a,b)=>b.localeCompare(a)).map(day=>{
       const rs=grp[day],dt=rs.reduce((s,r)=>s+totQty(r),0);
       return`<div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--blue);font-weight:700;padding:12px 0 6px"><span>${fd(day)}</span><span style="color:var(--ink3)">${dt} sorted</span></div>`+
-        rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div><div style="font-weight:700;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} · ${esc(r.supervisor)}${r.orderRef?` · ${esc(r.orderRef)}`:''}</div></div><div style="display:flex;align-items:center;gap:8px"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--blue)">${totQty(r)}</span>${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editSorting('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteSortingEntry('${r.id}')">Delete</button>`:''}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px">${(r.pallets||[]).map(p=>`<span>${skuBadge(p.cls)} <span style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800">×${p.qty}</span></span>`).join('')}</div></div>`).join('');
+        rs.map(r=>`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div><div style="font-weight:700;color:var(--blue)">${esc((r.sorters||[]).join(', '))}</div><div style="font-size:11px;color:var(--ink3)">${fdt(r.date)} · ${esc(r.supervisor)}${r.orderRef?` · <span style="color:var(--blue);cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="viewOrderByAwb('${r.orderRef}')">${esc(r.orderRef)}</span>`:''}</div></div><div style="display:flex;align-items:center;gap:8px"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--blue)">${totQty(r)}</span>${adminEdit?`<button class="btn btn-ghost btn-sm" onclick="editSorting('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteSortingEntry('${r.id}')">Delete</button>`:''}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px">${(r.pallets||[]).map(p=>`<span>${skuBadge(p.cls)} <span style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800">×${p.qty}</span></span>`).join('')}</div></div>`).join('');
     }).join(''):'<div class="empty">No sorting yet</div>';
   }
   if(name==='manager'){
