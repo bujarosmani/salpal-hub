@@ -2273,7 +2273,7 @@ function renderDash(){
   `;
   const byw=getWorkers().map(n=>({n,t:tr.filter(r=>r.repairer===n).reduce((s,r)=>s+(r.qty||0),0)})).filter(r=>r.t>0);
   document.getElementById('dash-repairs').innerHTML=byw.length?byw.map(r=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--brand)">${r.t}</span></div>`).join(''):'<div class="empty" style="padding:16px">No repairs today</div>';
-  const sbyw=getWorkers().map(n=>({n,t:ts.filter(r=>(r.sorters||[]).includes(n)).reduce((s,r)=>s+(r.totalQty||0),0)})).filter(r=>r.t>0);
+  const _swt=calcWorkerSortTotals(ts);const sbyw=Object.entries(_swt).filter(([,t])=>t>0).map(([n,t])=>({n,t})).sort((a,b)=>b.t-a.t);
   document.getElementById('dash-sorting').innerHTML=sbyw.length?sbyw.map(r=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(r.n)}</span><span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--blue)">${r.t}</span></div>`).join(''):'<div class="empty" style="padding:16px">No sorting today</div>';
   const active=ords.filter(j=>j.status!=='Completed').slice(0,5);
   document.getElementById('dash-orders').innerHTML=active.length?active.map(j=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><div><div style="font-weight:700;font-size:13px;font-family:'DM Mono',monospace">${esc(j.awb)}</div><div style="font-size:11px;color:var(--ink3)">${esc(j.companyName||'')} \u00b7 ${fd(j.deliveryDate)}</div></div>${stChip(j.status)}</div>`).join(''):'<div class="empty" style="padding:16px">No active orders</div>';
@@ -4540,6 +4540,26 @@ function delCo(id){
 let SF={sup:'',sorters:[],cls:''};
 function srtTab(name,btn){const page=document.getElementById('page-sorting');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`srt-${name}`).classList.add('on');if(name==='workers')renderWorkersReorder('srt-workers-list');else renderSrtTab(name);}
 let srtSortAsc=false;
+// Calculate per-worker sorting totals with fair split (floor + random remainder)
+function calcWorkerSortTotals(sortings){
+  const totals={};
+  for(const r of sortings){
+    const workers=r.sorters||[];
+    if(!workers.length)continue;
+    const total=r.totalQty||(r.pallets||[]).reduce((s,p)=>s+(p.qty||0),0);
+    const base=Math.floor(total/workers.length);
+    const rem=total%workers.length;
+    // Pick a deterministic random worker for remainder based on session id
+    const seed=r.id?r.id.split('').reduce((s,c)=>s+c.charCodeAt(0),0):0;
+    const bonusIdx=seed%workers.length;
+    workers.forEach((w,i)=>{
+      if(!totals[w])totals[w]=0;
+      totals[w]+=base+(i===bonusIdx?rem:0);
+    });
+  }
+  return totals;
+}
+
 function toggleSrtSort(){srtSortAsc=!srtSortAsc;const btn=document.getElementById('srt-sort-btn');if(btn)btn.textContent=srtSortAsc?'Newest First':'Oldest First';renderSorting();}
 function renderSorting(){
   const tr=(S.sortings||[]).filter(r=>isToday(r.date));
@@ -4636,7 +4656,7 @@ function renderSrtTab(name){
   }
   if(name==='manager'){
     const tot=(S.sortings||[]).reduce((s,r)=>s+totQty(r),0);
-    const byw=getWorkers().map(n=>({n,t:(S.sortings||[]).filter(r=>(r.sorters||[]).includes(n)).reduce((s,r)=>s+totQty(r),0)})).filter(r=>r.t>0).sort((a,b)=>b.t-a.t);
+    const _bywt=calcWorkerSortTotals(S.sortings||[]);const byw=Object.entries(_bywt).filter(([,t])=>t>0).map(([n,t])=>({n,t})).sort((a,b)=>b.t-a.t);
     const byc=getSKUS().map(c=>({c,t:(S.sortings||[]).reduce((s,r)=>s+(r.pallets||[]).filter(p=>p.cls===c).reduce((a,p)=>a+(p.qty||0),0),0)})).filter(x=>x.t>0);
     document.getElementById('srt-manager').innerHTML=`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px"><div class="stat-box"><div class="stat-num">${tot}</div><div class="stat-lbl">Total Sorted</div></div><div class="stat-box"><div class="stat-num">${(S.sortings||[]).length}</div><div class="stat-lbl">Total Entries</div></div></div>
@@ -4653,11 +4673,12 @@ function renderSrtTab(name){
         const hdr='<tr><th style="text-align:left;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line);white-space:nowrap">Date</th>'+workers.map(w=>'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line);white-space:nowrap">'+esc(w)+'</th>').join('')+'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid var(--line)">Total</th></tr>';
         const bodyRows=days.map(day=>{
           const dr=slist.filter(r=>localDateOf(r.date)===day);
-          const cells=workers.map(w=>{const q=dr.filter(r=>(r.sorters||[]).includes(w)).reduce((s,r)=>s+totQty(r),0);return'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;color:'+(q>0?'var(--blue)':'var(--ink4)')+';border-bottom:1px solid var(--line2)">'+(q>0?q:'—')+'</td>';}).join('');
+          const dayTotals=calcWorkerSortTotals(dr);
+          const cells=workers.map(w=>{const q=dayTotals[w]||0;return'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;color:'+(q>0?'var(--blue)':'var(--ink4)')+';border-bottom:1px solid var(--line2)">'+(q>0?q:'—')+'</td>';}).join('');
           const dt=dr.reduce((s,r)=>s+totQty(r),0);
           return'<tr><td style="padding:7px 10px;font-size:12px;font-weight:600;color:var(--ink2);border-bottom:1px solid var(--line2);white-space:nowrap">'+fd(day)+'</td>'+cells+'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line2)">'+dt+'</td></tr>';
         }).join('');
-        const totRow='<tr><td style="padding:7px 10px;font-size:11px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:1px">Total</td>'+workers.map(w=>{const q=slist.filter(r=>(r.sorters||[]).includes(w)).reduce((s,r)=>s+totQty(r),0);return'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--blue)">'+q+'</td>';}).join('')+'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--blue)">'+tot+'</td></tr>';
+        const allTotals=calcWorkerSortTotals(slist);const totRow='<tr><td style="padding:7px 10px;font-size:11px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:1px">Total</td>'+workers.map(w=>{const q=allTotals[w]||0;return'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--blue)">'+q+'</td>';}).join('')+'<td style="text-align:right;padding:7px 10px;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--blue)">'+tot+'</td></tr>';
         return'<div class="sec-title" style="margin-bottom:10px">Daily Sorting by Worker</div><div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r)"><thead>'+hdr+'</thead><tbody>'+bodyRows+totRow+'</tbody></table></div>';
       })()}
     `;
