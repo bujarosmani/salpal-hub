@@ -6254,7 +6254,7 @@ async function exportOrdersPDF(){
 
     // ── HEADER ──
     // Logo area (left)
-    try{doc.addImage('data:image/jpeg;base64,'+LOGO_B64,'JPEG',ML,y,16,11);}catch(e){}
+    try{doc.addImage('data:image/jpeg;base64,'+LOGO_B64,'JPEG',ML,y,16,11);}catch(e){toast('PDF generation failed: '+e.message,'err');console.error('PDF error',e);return;}
     doc.setFontSize(14);doc.setFont('helvetica','bold');setTxt(C.green);
     doc.text('SalPal Hub',ML+18,y+7);
     doc.setFontSize(8);doc.setFont('helvetica','normal');setTxt(C.gray);
