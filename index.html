@@ -1819,6 +1819,8 @@ function renderTL(order){
     h.push({id:'_syn_completed',at:order.completedAt,actor:order.whBy||'System',action:'Status: → Completed',type:'status',changes:[]});
   if(order.loadedAt&&!hasType('Loaded'))
     h.push({id:'_syn_loaded',at:order.loadedAt,actor:order.whBy||'System',action:'Status: → Loaded',type:'status',changes:[]});
+  if(order.pendingSortAt&&!hasType('Pending Sort'))
+    h.push({id:'_syn_pendingsort',at:order.pendingSortAt,actor:order.whBy||'System',action:'Status: → Pending Sort',type:'status',changes:[]});
   if(order.createdAt&&!hasType('Created'))
     h.push({id:'_syn_created',at:order.createdAt,actor:order.whBy||'System',action:'Order created',type:'status',changes:[]});
   // Sort by date ascending for display (newest at top)
