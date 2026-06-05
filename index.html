@@ -1812,9 +1812,19 @@ function renderSortingBox(order){
 }
 
 function renderTL(order){
-  const h=order.history||[];
+  const h=[...(order.history||[])];
+  // Inject synthetic events from stored timestamps if not already in history
+  const hasType=(action)=>h.some(e=>e.action&&e.action.includes(action));
+  if(order.completedAt&&!hasType('Completed'))
+    h.push({id:'_syn_completed',at:order.completedAt,actor:order.whBy||'System',action:'Status: → Completed',type:'status',changes:[]});
+  if(order.loadedAt&&!hasType('Loaded'))
+    h.push({id:'_syn_loaded',at:order.loadedAt,actor:order.whBy||'System',action:'Status: → Loaded',type:'status',changes:[]});
+  if(order.createdAt&&!hasType('Created'))
+    h.push({id:'_syn_created',at:order.createdAt,actor:order.whBy||'System',action:'Order created',type:'status',changes:[]});
+  // Sort by date ascending for display (newest at top)
+  h.sort((a,b)=>new Date(b.at)-new Date(a.at));
   if(!h.length)return`<div class="empty" style="padding:16px">No events yet</div>`;
-  return`<div class="timeline">${h.map((e,i)=>`<div class="tl-item"><div class="tl-dot-col"><div class="tl-dot ${e.type||'status'}"></div>${i<h.length-1?'<div class="tl-line"></div>':''}</div><div class="tl-body"><div class="tl-action">${esc(e.action)}</div><div class="tl-who">${esc(e.actor)} \u00b7 ${fdt(e.at)}</div>${e.changes&&e.changes.length?`<div class="tl-changes">${e.changes.map(c=>`<div class="tl-change">\u2192 ${esc(c)}</div>`).join('')}</div>`:''}</div></div>`).join('')}</div>`;
+  return`<div class="timeline">${h.map((e,i)=>`<div class="tl-item"><div class="tl-dot-col"><div class="tl-dot ${e.type||'status'}"></div>${i<h.length-1?'<div class="tl-line"></div>':''}</div><div class="tl-body"><div class="tl-action">${esc(e.action)}</div><div class="tl-who">${esc(e.actor)} · ${fdt(e.at)}</div>${e.changes&&e.changes.length?`<div class="tl-changes">${e.changes.map(c=>`<div class="tl-change">→ ${esc(c)}</div>`).join('')}</div>`:''}</div></div>`).join('')}</div>`;
 }
 function renderChangesBox(order){
   const hasChanges=order.whChanges&&order.whChanges.length;
