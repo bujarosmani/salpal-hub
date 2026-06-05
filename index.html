@@ -2744,6 +2744,8 @@ function applyForceStatus(){
   document.getElementById('of-status-value').dataset.forced='1';
   document.getElementById('of-status-display').innerHTML=stChip(newVal)+' <span style="font-size:10px;color:var(--red);font-weight:700">⚠ FORCED</span>';
   document.getElementById('of-force-status-box').style.display='none';
+  // TL will be written in saveOrder when the form is saved with the forced status
+  document.getElementById('of-status-value').dataset.forcedVal=newVal;
 }
 
 const STATUS_ORDER={
@@ -2826,6 +2828,8 @@ function saveOrder(force){
         .then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error);})).then(result=>{if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});persist();}).catch(e=>console.error('saveOrder complete failed',e));
       }
     }
+    const forcedStatus=document.getElementById('of-status-value')?.dataset?.forcedVal;
+    if(forcedStatus){addTL(order,`Status force-overridden to: ${forcedStatus}`,'edit');document.getElementById('of-status-value').dataset.forcedVal='';}
     if(changes.length)addTL(order,'Order edited','edit',changes);
     const i=(S.orders||[]).findIndex(x=>x.id===eid);if(i>=0)S.orders[i]=order;
     toast('Order updated');
@@ -4719,6 +4723,7 @@ async function confirmDeleteSorting(id){
     S.sortings=(S.sortings||[]).filter(x=>x.id!==id);
     if(!S.ledger)S.ledger=[];result.ledger.forEach(e=>S.ledger.unshift(e));
     result.ledger.forEach(e=>{if(!S.stock)S.stock={};if(e.dir==='in')S.stock[e.cls]=(S.stock[e.cls]||0)+e.qty;else S.stock[e.cls]=(S.stock[e.cls]||0)-e.qty;});
+    if(r.orderRef){const linkedOrd=(S.orders||[]).find(j=>j.awb===r.orderRef);if(linkedOrd){addTL(linkedOrd,`Sorting session deleted — ${r.totalQty||0} pallets reversed`,'edit');syncOrder(linkedOrd);}}
     persist();toast('Sorting entry deleted — stock reversed');renderSorting();renderDash();
     document.querySelectorAll('.srt-del-confirm').forEach(c=>c.remove());
   }catch(e){toast('Delete failed: '+e.message,'err');}
@@ -4783,6 +4788,7 @@ function saveSortingEdit(id,force){
   r.sorters=[...SF.sorters];
   // Keep original orderRef and pallets — never overwrite
   if(r&&r.id)syncSorting(r);
+  if(r.orderRef){const linkedOrd=(S.orders||[]).find(j=>j.awb===r.orderRef);if(linkedOrd){addTL(linkedOrd,`Sorting session edited — supervisor: ${r.supervisor}, sorters: ${r.sorters.join(', ')}`,'edit');syncOrder(linkedOrd);}}
   persist();clearDirty('m-sort');toast('Sorting updated');forceCloseM('m-sort');renderSorting();renderDash();
 }
 function openSortModal(){hideSrtMsgs();const _sb=document.querySelector('#m-sort .btn-primary');if(_sb){_sb.disabled=false;_sb.textContent='✓ Save';}
@@ -4971,6 +4977,9 @@ async function saveSorting(force){
       const idx=(S.orders||[]).findIndex(j=>j.id===result.completedOrder.id);
       if(idx>=0)S.orders[idx]=result.completedOrder;
       toast(`✓ ${orderRef} fully sorted — marked Completed`);
+    } else if(orderRef){
+      const linkedOrd=(S.orders||[]).find(j=>j.awb===orderRef);
+      if(linkedOrd){addTL(linkedOrd,`Sorting session logged — ${totalQty} pallets by ${[...SF.sorters].join(', ')}`,'edit',[...pallets.map(p=>`${p.cls}: +${p.qty}`)]);syncOrder(linkedOrd);}
     }
     persist();clearDirty('m-sort');
     toast(`${totalQty} pallets sorted — saved ✓`);
@@ -6657,7 +6666,7 @@ function bindMobPlannerDnd(date){
     const to=getArr(targetColId);
     to.splice(Math.max(0,Math.min(targetIdx,to.length)),0,dragOrderId);
     const order=(S.orders||[]).find(j=>j.id===dragOrderId);
-    if(order){order.driverId=targetColId==='unassigned'?null:targetColId;syncOrder(order);}
+    if(order){const prevDriver=order.driverId;order.driverId=targetColId==='unassigned'?null:targetColId;order.updatedAt=new Date().toISOString();const dName=targetColId==='unassigned'?'Unassigned':(uname(targetColId)||targetColId);addTL(order,`Driver assigned: ${dName}`,'edit');syncOrder(order);}
     persist();renderPlanner();
   }
 
