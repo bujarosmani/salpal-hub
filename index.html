@@ -159,9 +159,9 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 .cal-job.col{border-left-color:var(--amber);border-color:rgba(245,200,66,.3);background:rgba(245,200,66,.06)}
 .cal-job.col:hover{border-color:var(--amber)}
 .cal-job.completed{opacity:.6;border-left-color:var(--ink3);border-color:var(--line);background:var(--panel2)}
-.cal-job-awb{font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:var(--brand)}
-.cal-job.col .cal-job-awb{color:var(--amber)}
-.cal-job-co{font-size:12px;font-weight:700;color:var(--ink)}
+.cal-job-awb{font-family:'DM Mono',monospace;font-size:10px;font-weight:400;color:var(--ink2)}
+.cal-job.col .cal-job-awb{color:var(--ink2)}
+.cal-job-co{font-size:12px;font-weight:400;color:var(--ink)}
 .cal-job-meta{font-size:10px;color:var(--ink3)}
 .cal-section-lbl{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;padding:2px 0 4px;color:var(--ink3)}
 .cal-section-lbl.del{color:var(--brand)}.cal-section-lbl.col{color:var(--amber)}
@@ -3955,7 +3955,7 @@ function renderCalendar(){
       const dels=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Delivery'&&_csf.includes(t.status));
       const coll=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Collection'&&_csf.includes(t.status));
       const totPlt=[...dels,...coll].reduce((s,t)=>s+(t.totalQty||0),0);
-      const jobBtn=t=>{const sc=t.status.toLowerCase().replace(/ /g,''),isCol=t.type==='Collection';return`<button class="cal-job ${isCol?'col':''} ${sc==='completed'?'completed':''}" data-vid="${t.id}"><span class="cal-job-awb" style="text-decoration:underline;text-underline-offset:2px">${esc(t.awb)}</span><span class="cal-job-co">${esc(t.companyName||'')}</span><span class="cal-job-meta">${t.totalQty||0} plt${t.timeFrom?' \u00b7 '+t.timeFrom:''}</span>${stChip(t.status)}</button>`;};
+      const jobBtn=t=>{const sc=t.status.toLowerCase().replace(/ /g,''),isCol=t.type==='Collection';return`<button class="cal-job ${isCol?'col':''} ${sc==='completed'?'completed':''}" data-vid="${t.id}"><span class="cal-job-awb">${esc(t.awb)}</span><span class="cal-job-co">${esc(t.companyName||'')}</span><span class="cal-job-meta">${t.totalQty||0} plt${t.timeFrom?' \u00b7 '+t.timeFrom:''}</span>${stChip(t.status)}</button>`;};
       const sum=(dels.length||coll.length)?`<div class="cal-day-summary">${dels.length} del \u00b7 ${coll.length} col \u00b7 ${totPlt} plt</div>`:'';
       const dH=dels.length?`<div class="cal-section-lbl del">Deliveries</div>${dels.map(jobBtn).join('')}`:'';
       const cH=coll.length?`<div class="cal-section-lbl col">Collections</div>${coll.map(jobBtn).join('')}`:'';
