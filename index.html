@@ -1553,9 +1553,9 @@ async function loadCloud(){
       const merged=remote.map(ro=>{
         const lo=local.find(x=>x.id===ro.id);
         if(!lo)return ro;
-        const remoteTime=new Date(ro.updatedAt||ro.createdAt||0).getTime();
-        const localTime=new Date(lo.updatedAt||lo.createdAt||0).getTime();
-        return localTime>remoteTime?lo:ro;
+        // Only keep local if it has unsaved pending changes, otherwise always trust remote
+        if(lo._pendingSync)return lo;
+        return ro;
       });
       // Only add local orders not yet on remote if flagged as pending sync
       local.forEach(lo=>{
