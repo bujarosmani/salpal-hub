@@ -3957,6 +3957,7 @@ function renderCalendar(){
     const unassDels=(S.orders||[]).filter(t=>t.deliveryDate===date&&!t.driverId&&t.type==='Delivery'&&_csf.includes(t.status));
     const unassColl=(S.orders||[]).filter(t=>t.deliveryDate===date&&!t.driverId&&t.type==='Collection'&&_csf.includes(t.status));
     const unassTot=[...unassDels,...unassColl].reduce((s,t)=>s+(t.totalQty||0),0);
+    const jobBtn=t=>{const sc=t.status.toLowerCase().replace(/ /g,''),isCol=t.type==='Collection';return`<button class="cal-job ${isCol?'col':''} ${sc==='completed'?'completed':''}" data-vid="${t.id}"><span class="cal-job-awb">${esc(t.awb)}</span><span class="cal-job-co">${esc(t.companyName||'')}${t.city&&t.city!=='-'?' · '+esc(t.city):''}</span><span class="cal-job-meta">${t.totalQty||0} plt${t.timeFrom?' \u00b7 '+t.timeFrom:''}</span>${stChip(t.status)}</button>`;};
     const unassCol=(showUnassigned?(()=>{
       const dH=unassDels.length?`<div class="cal-section-lbl del">Deliveries</div>${unassDels.map(jobBtn).join('')}`:''
       const cH=unassColl.length?`<div class="cal-section-lbl col">Collections</div>${unassColl.map(jobBtn).join('')}`:''
@@ -3969,7 +3970,6 @@ function renderCalendar(){
       const dels=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Delivery'&&_csf.includes(t.status));
       const coll=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Collection'&&_csf.includes(t.status));
       const totPlt=[...dels,...coll].reduce((s,t)=>s+(t.totalQty||0),0);
-      const jobBtn=t=>{const sc=t.status.toLowerCase().replace(/ /g,''),isCol=t.type==='Collection';return`<button class="cal-job ${isCol?'col':''} ${sc==='completed'?'completed':''}" data-vid="${t.id}"><span class="cal-job-awb">${esc(t.awb)}</span><span class="cal-job-co">${esc(t.companyName||'')}${t.city&&t.city!=='-'?' · '+esc(t.city):''}</span><span class="cal-job-meta">${t.totalQty||0} plt${t.timeFrom?' \u00b7 '+t.timeFrom:''}</span>${stChip(t.status)}</button>`;};
       const sum=(dels.length||coll.length)?`<div class="cal-day-summary">${dels.length} del \u00b7 ${coll.length} col \u00b7 ${totPlt} plt</div>`:'';
       const dH=dels.length?`<div class="cal-section-lbl del">Deliveries</div>${dels.map(jobBtn).join('')}`:'';
       const cH=coll.length?`<div class="cal-section-lbl col">Collections</div>${coll.map(jobBtn).join('')}`:'';
