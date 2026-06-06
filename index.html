@@ -3947,7 +3947,8 @@ function renderCalendar(){
   const getDates=(f,t)=>{const dates=[];const cur=new Date(f);const end=new Date(t);while(cur<=end){dates.push(localIso(cur));cur.setDate(cur.getDate()+1);}return dates;};
   const dates=getDates(from,to);
   const dows=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const header=`<div class="day-cal-header"><div class="day-label-ph"></div>${showUnassigned?`<div class="driver-col-hdr" style="color:var(--amber)"><div class="drv-avatar" style="background:var(--amber);color:#000">?</div><span style="color:var(--amber)">UNASSIGNED</span></div>`:''}${drivers.map(d=>`<div class="driver-col-hdr"><div class="drv-avatar">${d.firstName[0]}${d.lastName[0]}</div><span>${esc(d.firstName)} ${esc(d.lastName)}</span></div>`).join('')}</div>`;
+  const unassHdr=showUnassigned?'<div class="driver-col-hdr" style="color:var(--amber)"><div class="drv-avatar" style="background:var(--amber);color:#000">?</div><span style="color:var(--amber)">UNASSIGNED</span></div>':'' ;
+  const header=`<div class="day-cal-header"><div class="day-label-ph"></div>${unassHdr}${drivers.map(d=>`<div class="driver-col-hdr"><div class="drv-avatar">${d.firstName[0]}${d.lastName[0]}</div><span>${esc(d.firstName)} ${esc(d.lastName)}</span></div>`).join('')}</div>`;
   const rows=dates.map(date=>{
     const dow=dows[new Date(date).getDay()],dn=parseInt(date.split('-')[2],10),isT=date===ts;
     const _csf=window.calStatusFilter||['Open','Loaded','In Transit','Collected','Delivered'];
