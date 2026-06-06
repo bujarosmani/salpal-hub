@@ -616,6 +616,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 
 <div class="page" id="page-calendar">
   <div class="phdr"><div><div class="ptitle">Driver Calendar</div></div></div>
+  <div id="cal-sticky-header" style="position:sticky;top:0;z-index:20;background:var(--bg);padding-bottom:0;margin:0 -20px;padding:0 20px"></div>
   <div id="cal-container"></div>
 </div>
 
@@ -3955,7 +3956,7 @@ function renderCalendar(){
       const dels=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Delivery'&&_csf.includes(t.status));
       const coll=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Collection'&&_csf.includes(t.status));
       const totPlt=[...dels,...coll].reduce((s,t)=>s+(t.totalQty||0),0);
-      const jobBtn=t=>{const sc=t.status.toLowerCase().replace(/ /g,''),isCol=t.type==='Collection';return`<button class="cal-job ${isCol?'col':''} ${sc==='completed'?'completed':''}" data-vid="${t.id}"><span class="cal-job-awb">${esc(t.awb)}</span><span class="cal-job-co">${esc(t.companyName||'')}</span><span class="cal-job-meta">${t.totalQty||0} plt${t.timeFrom?' \u00b7 '+t.timeFrom:''}</span>${stChip(t.status)}</button>`;};
+      const jobBtn=t=>{const sc=t.status.toLowerCase().replace(/ /g,''),isCol=t.type==='Collection';return`<button class="cal-job ${isCol?'col':''} ${sc==='completed'?'completed':''}" data-vid="${t.id}"><span class="cal-job-awb" style="text-decoration:underline;text-underline-offset:2px">${esc(t.awb)}</span><span class="cal-job-co">${esc(t.companyName||'')}</span><span class="cal-job-meta">${t.totalQty||0} plt${t.timeFrom?' \u00b7 '+t.timeFrom:''}</span>${stChip(t.status)}</button>`;};
       const sum=(dels.length||coll.length)?`<div class="cal-day-summary">${dels.length} del \u00b7 ${coll.length} col \u00b7 ${totPlt} plt</div>`:'';
       const dH=dels.length?`<div class="cal-section-lbl del">Deliveries</div>${dels.map(jobBtn).join('')}`:'';
       const cH=coll.length?`<div class="cal-section-lbl col">Collections</div>${coll.map(jobBtn).join('')}`:'';
@@ -3998,7 +3999,9 @@ function renderCalendar(){
     cont.querySelectorAll('[onclick]');
     return;
   }
-  cont.innerHTML=toolbar+`<div style="position:sticky;top:0;z-index:6;overflow-x:auto;background:var(--panel2);border:1.5px solid var(--line);border-radius:var(--r) var(--r) 0 0;border-bottom:2px solid var(--line2)"><div style="min-width:${64+drivers.length*160}px">${header}</div></div><div class="day-cal-wrap" style="min-width:${64+drivers.length*160}px;border-top:none;border-radius:0 0 var(--r) var(--r)">${rows}</div>`;
+  const stickyEl=document.getElementById('cal-sticky-header');
+  if(stickyEl)stickyEl.innerHTML=`<div style="overflow-x:auto;background:var(--panel2);border:1.5px solid var(--line);border-radius:var(--r) var(--r) 0 0;border-bottom:2px solid var(--line2);margin-bottom:-2px"><div style="min-width:${64+drivers.length*160}px">${header}</div></div>`;
+  cont.innerHTML=toolbar+`<div class="day-cal-wrap" style="min-width:${64+drivers.length*160}px;border-top:none;border-radius:0 0 var(--r) var(--r)">${rows}</div>`;
   cont.querySelectorAll('[data-vid]').forEach(btn=>{btn.onclick=()=>viewOrder(btn.dataset.vid);});
   bindCalToolbar(drvOpts);
 }
