@@ -3936,10 +3936,10 @@ function renderCalendar(){
   const ts=tod();
   const from=calFrom||(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;})();
   const to=calTo||(()=>{const d=new Date();const last=new Date(d.getFullYear(),d.getMonth()+1,0);return localIso(last);})();
-  const allD=drvs(),selD=calDrvSel?allD.filter(d=>calDrvSel.includes(d.id)):allD;
+  const allD=drvs(),showUnassigned=!calDrvSel||calDrvSel.includes('__unassigned'),selD=calDrvSel?allD.filter(d=>calDrvSel.includes(d.id)):allD;
   const drivers=selD.filter(d=>(S.orders||[]).some(t=>t.driverId===d.id&&t.deliveryDate>=from&&t.deliveryDate<=to));
   const dl=calFrom&&calTo?`${fd(calFrom)}\u2013${fd(calTo)}`:'This month';
-  const drvOpts=allD.map(d=>({value:d.id,label:`${d.firstName} ${d.lastName}`}));
+  const drvOpts=[{value:'__unassigned',label:'Unassigned'},...allD.map(d=>({value:d.id,label:`${d.firstName} ${d.lastName}`}))];
   if(!window.calStatusFilter)window.calStatusFilter=['Open','Loaded','In Transit','Collected','Delivered'];
   const toolbar=`<div class="cal-toolbar"><div><div class="cal-toolbar-lbl">Date Range</div><div style="display:flex;align-items:center;gap:6px"><button class="dp-btn${calFrom?' active':''}" onclick="openDatePicker(calFrom,calTo,(f,t)=>{calFrom=f;calTo=t;renderCalendar()})">📅 ${esc(dl)}</button>${calFrom?`<button class="dp-clear" onclick="calFrom='';calTo='';renderCalendar()">\u2715 Clear</button>`:''}</div></div><div><div class="cal-toolbar-lbl">Drivers</div>${buildCbDropdown('calDrv',drvOpts,calDrvSel,'All Drivers')}</div><div><div class="cal-toolbar-lbl">Status</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${[['Open','Open'],['Loaded','Loaded'],['In Transit','In Transit'],['Completed','Completed']].map(([val,lbl])=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" ${window.calStatusFilter.includes(val)?'checked':''} onchange="window.calStatusFilter=window.calStatusFilter.includes('${val}')?window.calStatusFilter.filter(s=>s!=='${val}'):[...window.calStatusFilter,'${val}'];renderCalendar()"> ${lbl}</label>`).join('')}</div></div></div>`;
   const cont=document.getElementById('cal-container');
@@ -3947,7 +3947,7 @@ function renderCalendar(){
   const getDates=(f,t)=>{const dates=[];const cur=new Date(f);const end=new Date(t);while(cur<=end){dates.push(localIso(cur));cur.setDate(cur.getDate()+1);}return dates;};
   const dates=getDates(from,to);
   const dows=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const header=`<div class="day-cal-header"><div class="day-label-ph"></div><div class="driver-col-hdr" style="color:var(--amber)"><div class="drv-avatar" style="background:var(--amber);color:#000">?</div><span style="color:var(--amber)">UNASSIGNED</span></div>${drivers.map(d=>`<div class="driver-col-hdr"><div class="drv-avatar">${d.firstName[0]}${d.lastName[0]}</div><span>${esc(d.firstName)} ${esc(d.lastName)}</span></div>`).join('')}</div>`;
+  const header=`<div class="day-cal-header"><div class="day-label-ph"></div>${showUnassigned?`<div class="driver-col-hdr" style="color:var(--amber)"><div class="drv-avatar" style="background:var(--amber);color:#000">?</div><span style="color:var(--amber)">UNASSIGNED</span></div>`:''}${drivers.map(d=>`<div class="driver-col-hdr"><div class="drv-avatar">${d.firstName[0]}${d.lastName[0]}</div><span>${esc(d.firstName)} ${esc(d.lastName)}</span></div>`).join('')}</div>`;
   const rows=dates.map(date=>{
     const dow=dows[new Date(date).getDay()],dn=parseInt(date.split('-')[2],10),isT=date===ts;
     const _csf=window.calStatusFilter||['Open','Loaded','In Transit','Collected','Delivered'];
@@ -3955,13 +3955,13 @@ function renderCalendar(){
     const unassDels=(S.orders||[]).filter(t=>t.deliveryDate===date&&!t.driverId&&t.type==='Delivery'&&_csf.includes(t.status));
     const unassColl=(S.orders||[]).filter(t=>t.deliveryDate===date&&!t.driverId&&t.type==='Collection'&&_csf.includes(t.status));
     const unassTot=[...unassDels,...unassColl].reduce((s,t)=>s+(t.totalQty||0),0);
-    const unassCol=(()=>{
+    const unassCol=(showUnassigned?(()=>{
       const dH=unassDels.length?`<div class="cal-section-lbl del">Deliveries</div>${unassDels.map(jobBtn).join('')}`:''
       const cH=unassColl.length?`<div class="cal-section-lbl col">Collections</div>${unassColl.map(jobBtn).join('')}`:''
       const eH=(!unassDels.length&&!unassColl.length)?`<span class="cal-empty-slot">\u2014</span>`:''
       const sum=(unassDels.length||unassColl.length)?`<div class="cal-day-summary">${unassDels.length} del \u00b7 ${unassColl.length} col \u00b7 ${unassTot} plt</div>`:''
       return`<div class="driver-col" style="border-left:2px solid rgba(245,200,66,.2)">${dH}${cH}${eH}${sum}</div>`;
-    })();
+    })():'');
     const cols=drivers.map(dr=>{
       const _csf=window.calStatusFilter||['Open','Loaded','In Transit','Collected','Delivered'];
       const dels=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Delivery'&&_csf.includes(t.status));
@@ -4010,7 +4010,7 @@ function renderCalendar(){
     cont.querySelectorAll('[onclick]');
     return;
   }
-  cont.innerHTML=toolbar+`<div class="day-cal-wrap" style="min-width:${64+180+(drivers.length*180)}px">${header}<div>${rows}</div></div>`;
+  cont.innerHTML=toolbar+`<div class="day-cal-wrap" style="min-width:${64+(showUnassigned?180:0)+(drivers.length*180)}px">${header}<div>${rows}</div></div>`;
   cont.querySelectorAll('[data-vid]').forEach(btn=>{btn.onclick=()=>viewOrder(btn.dataset.vid);});
   bindCalToolbar(drvOpts);
 }
