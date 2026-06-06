@@ -616,7 +616,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 
 <div class="page" id="page-calendar">
   <div class="phdr"><div><div class="ptitle">Driver Calendar</div></div></div>
-  <div id="cal-sticky-header" style="position:sticky;top:0;z-index:20;background:var(--bg);padding-bottom:0;margin:0 -20px;padding:0 20px"></div>
+  <div id="cal-sticky-header" style="position:fixed;top:0;z-index:100;background:var(--bg);left:0;right:0;display:none"></div>
   <div id="cal-container"></div>
 </div>
 
@@ -2111,7 +2111,7 @@ function goTo(page){
   document.querySelectorAll(`.sb-btn[data-p="${page}"]`).forEach(b=>b.classList.add('on'));
   closeMob();renderPage(page);
 }
-function renderPage(p){if(p==='hub')renderHub();else if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='fleet')renderFleet();else if(p==='stocktake')renderStocktake();else if(p==='driver')renderDriver();}
+function renderPage(p){const sh=document.getElementById('cal-sticky-header');if(sh&&p!=='calendar')sh.style.display='none';if(p==='hub')renderHub();else if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='fleet')renderFleet();else if(p==='stocktake')renderStocktake();else if(p==='driver')renderDriver();}
 document.querySelectorAll('.sb-btn[data-p]').forEach(btn=>{btn.onclick=()=>goTo(btn.dataset.p);});
 document.getElementById('ham-btn').onclick=()=>{document.getElementById('sidebar').classList.add('open');document.getElementById('mob-overlay').classList.add('open');};
 document.getElementById('mob-overlay').onclick=closeMob;
@@ -4000,7 +4000,16 @@ function renderCalendar(){
     return;
   }
   const stickyEl=document.getElementById('cal-sticky-header');
-  if(stickyEl)stickyEl.innerHTML=`<div style="overflow-x:auto;background:var(--panel2);border:1.5px solid var(--line);border-radius:var(--r) var(--r) 0 0;border-bottom:2px solid var(--line2);margin-bottom:-2px"><div style="min-width:${64+drivers.length*160}px">${header}</div></div>`;
+  if(stickyEl){
+    const contRect=cont.getBoundingClientRect();
+    stickyEl.style.left=contRect.left+'px';
+    stickyEl.style.right='0';
+    stickyEl.style.display='block';
+    stickyEl.style.top=(document.querySelector('.phdr')?.offsetHeight||60)+'px';
+    stickyEl.innerHTML=`<div style="overflow-x:auto;background:var(--panel2);border:1.5px solid var(--line);border-bottom:2px solid var(--line2)"><div style="min-width:${64+drivers.length*160}px">${header}</div></div>`;
+    // Add top padding to cont to compensate for fixed header height
+    cont.style.paddingTop=stickyEl.offsetHeight+'px';
+  }
   cont.innerHTML=toolbar+`<div class="day-cal-wrap" style="min-width:${64+drivers.length*160}px;border-top:none;border-radius:0 0 var(--r) var(--r)">${rows}</div>`;
   cont.querySelectorAll('[data-vid]').forEach(btn=>{btn.onclick=()=>viewOrder(btn.dataset.vid);});
   bindCalToolbar(drvOpts);
