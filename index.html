@@ -628,6 +628,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <button class="btn btn-ghost btn-sm" onclick="plannerNextWeek()">›</button>
     </div>
   </div>
+  <div id="planner-filters" style="display:flex;gap:8px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap"><span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px">Status:</span><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="pf-open" checked onchange="renderPlanner()"> Open</label><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="pf-loaded" checked onchange="renderPlanner()"> Loaded</label><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="pf-transit" checked onchange="renderPlanner()"> In Transit</label><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="pf-completed" onchange="renderPlanner()"> Completed</label></div>
   <div id="planner-body"></div>
 </div>
 
@@ -6554,7 +6555,16 @@ function renderPlanner(){
   if(!S.plans)S.plans={};
   if(!S.plans[date])S.plans[date]={unassigned:[],drivers:{}};
   const plan=S.plans[date];
-  const allOrders=(S.orders||[]).filter(j=>j.status!=='Completed'&&j.status!=='Pending Sort'&&j.deliveryDate===date);
+  const pfOpen=document.getElementById('pf-open')?.checked!==false;
+  const pfLoaded=document.getElementById('pf-loaded')?.checked!==false;
+  const pfTransit=document.getElementById('pf-transit')?.checked!==false;
+  const pfCompleted=document.getElementById('pf-completed')?.checked===true;
+  const allowedStatuses=[];
+  if(pfOpen)allowedStatuses.push('Open');
+  if(pfLoaded)allowedStatuses.push('Loaded');
+  if(pfTransit)allowedStatuses.push('In Transit','Collected','Delivered');
+  if(pfCompleted)allowedStatuses.push('Completed','Pending Sort');
+  const allOrders=(S.orders||[]).filter(j=>allowedStatuses.includes(j.status)&&j.deliveryDate===date);
   const drivers=drvs();
 
   // Add new orders to correct column if not yet in plan
@@ -6620,7 +6630,7 @@ function renderPlanner(){
     renderMobPlanner();
     return;
   }
-  body.innerHTML=`<div style="display:flex;gap:8px;align-items:flex-start;padding:4px;width:100%" id="planner-cols">
+  body.innerHTML=`<div style="display:flex;gap:8px;align-items:flex-start;padding:4px;width:100%;overflow-x:auto" id="planner-cols">
     ${plannerCol('unassigned','📋 Unassigned',plan.unassigned||[],allOrders,'#f5c843')}
     ${drivers.map(d=>plannerCol(d.id,`🚛 ${d.firstName} ${d.lastName}`,plan.drivers[d.id]||[],allOrders,'var(--brand)')).join('')}
   </div>`;
@@ -6629,9 +6639,9 @@ function renderPlanner(){
 
 function plannerCol(colId,title,orderIds,allOrders,color){
   const orders=orderIds.map(id=>allOrders.find(j=>j.id===id)).filter(Boolean);
-  return`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);flex:1;min-width:180px">
-    <div style="padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700;color:${color}">${title} <span style="font-size:11px;color:var(--ink3);font-weight:400">(${orders.length})</span></div>
-    <div class="planner-col-list" data-col="${colId}" style="padding:8px;min-height:80px">
+  return`<div style="background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r);flex:1;min-width:180px;display:flex;flex-direction:column">
+    <div style="padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700;color:${color};position:sticky;top:0;z-index:10;background:var(--panel);border-radius:var(--r) var(--r) 0 0">${title} <span style="font-size:11px;color:var(--ink3);font-weight:400">(${orders.length})</span></div>
+    <div class="planner-col-list" data-col="${colId}" style="padding:8px;min-height:80px;flex:1">
       ${orders.length?orders.map((j,i)=>plannerCard(j,i,colId,orders.length)).join(''):`<div style="text-align:center;padding:20px;color:var(--ink3);font-size:12px;border:2px dashed var(--line2);border-radius:8px">Drop here</div>`}
     </div>
   </div>`;
