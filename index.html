@@ -142,7 +142,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 .day-cal-wrap{border:1.5px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:auto}
 .day-cal-header{display:flex;border-bottom:2px solid var(--line2);background:var(--panel2);position:sticky;top:0;z-index:5}
 .day-label-ph{width:64px;flex-shrink:0;padding:10px 8px;border-right:1px solid var(--line)}
-.driver-col-hdr{flex:1;min-width:160px;padding:10px 12px;border-left:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.driver-col-hdr{flex:1;min-width:180px;padding:10px 12px;border-left:1px solid var(--line);display:flex;align-items:center;gap:8px}
 .drv-avatar{width:28px;height:28px;border-radius:50%;background:var(--brand-dark);color:var(--brand);font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .driver-col-hdr span{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--ink2)}
 .day-row{display:flex;border-bottom:1px solid var(--line)}
@@ -153,7 +153,7 @@ canvas{width:100%;height:150px;border:1.5px solid var(--line2);border-radius:9px
 .day-dow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .day-label-today .day-num{background:var(--brand);color:#071006;border-radius:6px;padding:0 4px}
 .day-label-today{color:var(--brand)}
-.driver-col{flex:1;min-width:160px;padding:6px 8px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.driver-col{flex:1;min-width:180px;padding:6px 8px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
 .cal-job{display:flex;flex-direction:column;gap:2px;padding:6px 8px;border-radius:8px;border:1.5px solid var(--brand-dim);background:rgba(61,214,104,.06);border-left:3px solid var(--brand);text-align:left;cursor:pointer;transition:all .15s;width:100%}
 .cal-job:hover{border-color:var(--brand);box-shadow:0 4px 12px rgba(0,0,0,.3);transform:translateY(-1px)}
 .cal-job.col{border-left-color:var(--amber);border-color:rgba(245,200,66,.3);background:rgba(245,200,66,.06)}
@@ -3955,7 +3955,7 @@ function renderCalendar(){
       const dels=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Delivery'&&_csf.includes(t.status));
       const coll=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Collection'&&_csf.includes(t.status));
       const totPlt=[...dels,...coll].reduce((s,t)=>s+(t.totalQty||0),0);
-      const jobBtn=t=>{const sc=t.status.toLowerCase().replace(/ /g,''),isCol=t.type==='Collection';return`<button class="cal-job ${isCol?'col':''} ${sc==='completed'?'completed':''}" data-vid="${t.id}"><span class="cal-job-awb">${esc(t.awb)}</span><span class="cal-job-co">${esc(t.companyName||'')}${t.city?' · '+esc(t.city):''}</span><span class="cal-job-meta">${t.totalQty||0} plt${t.timeFrom?' \u00b7 '+t.timeFrom:''}</span>${stChip(t.status)}</button>`;};
+      const jobBtn=t=>{const sc=t.status.toLowerCase().replace(/ /g,''),isCol=t.type==='Collection';return`<button class="cal-job ${isCol?'col':''} ${sc==='completed'?'completed':''}" data-vid="${t.id}"><span class="cal-job-awb">${esc(t.awb)}</span><span class="cal-job-co">${esc(t.companyName||'')}${t.city&&t.city!=='-'?' · '+esc(t.city):''}</span><span class="cal-job-meta">${t.totalQty||0} plt${t.timeFrom?' \u00b7 '+t.timeFrom:''}</span>${stChip(t.status)}</button>`;};
       const sum=(dels.length||coll.length)?`<div class="cal-day-summary">${dels.length} del \u00b7 ${coll.length} col \u00b7 ${totPlt} plt</div>`:'';
       const dH=dels.length?`<div class="cal-section-lbl del">Deliveries</div>${dels.map(jobBtn).join('')}`:'';
       const cH=coll.length?`<div class="cal-section-lbl col">Collections</div>${coll.map(jobBtn).join('')}`:'';
@@ -3998,7 +3998,7 @@ function renderCalendar(){
     cont.querySelectorAll('[onclick]');
     return;
   }
-  cont.innerHTML=toolbar+`<div class="day-cal-wrap" style="min-width:${64+drivers.length*160}px">${header}<div>${rows}</div></div>`;
+  cont.innerHTML=toolbar+`<div class="day-cal-wrap" style="min-width:${64+drivers.length*180}px">${header}<div>${rows}</div></div>`;
   cont.querySelectorAll('[data-vid]').forEach(btn=>{btn.onclick=()=>viewOrder(btn.dataset.vid);});
   bindCalToolbar(drvOpts);
 }
