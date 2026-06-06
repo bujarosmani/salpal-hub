@@ -6772,8 +6772,8 @@ function plannerMobMove(orderId,fromColId,toColId,sel){
 
 function plannerPrevDay(){const d=new Date(window.plannerDate||localIso(new Date()));d.setDate(d.getDate()-1);window.plannerDate=localIso(d);renderPlanner();}
 function plannerNextDay(){const d=new Date(window.plannerDate||localIso(new Date()));d.setDate(d.getDate()+1);window.plannerDate=localIso(d);renderPlanner();}
-function plannerPrevWeek(){const d=new Date(window.plannerWeekStart||localIso(new Date()));d.setDate(d.getDate()-7);window.plannerWeekStart=localIso(d);renderPlanner();}
-function plannerNextWeek(){const d=new Date(window.plannerWeekStart||localIso(new Date()));d.setDate(d.getDate()+7);window.plannerWeekStart=localIso(d);renderPlanner();}
+function plannerPrevWeek(){const d=new Date(window.plannerWeekStart||localIso(new Date()));d.setDate(d.getDate()-1);window.plannerWeekStart=localIso(d);renderPlanner();}
+function plannerNextWeek(){const d=new Date(window.plannerWeekStart||localIso(new Date()));d.setDate(d.getDate()+1);window.plannerWeekStart=localIso(d);renderPlanner();}
 
 function plannerMoveCard(orderId,colId,dir){
   const date=window.plannerDate;if(!S.plans?.[date])return;
