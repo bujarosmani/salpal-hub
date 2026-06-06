@@ -6664,10 +6664,10 @@ function plannerCard(j,idx,colId,colLen){
       <div style="margin-top:4px">${stChip(j.status)}</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:2px;margin-right:4px">
-      <button style="background:var(--panel);border:1px solid var(--line2);border-radius:5px;color:${idx===0?'var(--ink3)':'var(--ink)'};cursor:${idx===0?'default':'pointer'};font-size:11px;padding:2px 6px;line-height:1;opacity:${idx===0?'0.3':'1'}" ${idx===0?'disabled':''} onclick="event.stopPropagation();plannerMoveCard('${j.id}','${colId}',-1)" title="Move up">▲</button>
-      <button style="background:var(--panel);border:1px solid var(--line2);border-radius:5px;color:${idx===colLen-1?'var(--ink3)':'var(--ink)'};cursor:${idx===colLen-1?'default':'pointer'};font-size:11px;padding:2px 6px;line-height:1;opacity:${idx===colLen-1?'0.3':'1'}" ${idx===colLen-1?'disabled':''} onclick="event.stopPropagation();plannerMoveCard('${j.id}','${colId}',1)" title="Move down">▼</button>
+      <button style="background:var(--panel);border:1px solid var(--line2);border-radius:5px;color:${idx===0?'var(--ink3)':'var(--ink)'};cursor:${idx===0?'default':'pointer'};font-size:11px;padding:2px 6px;line-height:1;opacity:${idx===0?'0.3':'1'}" ${idx===0?'disabled':''} onclick="event.stopPropagation();event.preventDefault();plannerMoveCard('${j.id}','${colId}',-1)" ontouchend="event.stopPropagation();event.preventDefault();plannerMoveCard('${j.id}','${colId}',-1)" title="Move up">▲</button>
+      <button style="background:var(--panel);border:1px solid var(--line2);border-radius:5px;color:${idx===colLen-1?'var(--ink3)':'var(--ink)'};cursor:${idx===colLen-1?'default':'pointer'};font-size:11px;padding:2px 6px;line-height:1;opacity:${idx===colLen-1?'0.3':'1'}" ${idx===colLen-1?'disabled':''} onclick="event.stopPropagation();event.preventDefault();plannerMoveCard('${j.id}','${colId}',1)" ontouchend="event.stopPropagation();event.preventDefault();plannerMoveCard('${j.id}','${colId}',1)" title="Move down">▼</button>
     </div>
-    <button style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0" onclick="event.stopPropagation();plannerRemove('${j.id}','${colId}')" title="Remove">✕</button>
+    <button style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0" onclick="event.stopPropagation();event.preventDefault();plannerRemove('${j.id}','${colId}')" ontouchend="event.stopPropagation();event.preventDefault();plannerRemove('${j.id}','${colId}')" title="Remove">✕</button>
   </div>`;
 }
 
