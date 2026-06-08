@@ -2432,8 +2432,8 @@ function renderOrdTable(){
   if(ordF.statuses)list=list.filter(j=>ordF.statuses.includes(j.status));
   if(ordF.drivers)list=list.filter(j=>ordF.drivers.includes(j.driverId));
   if(ordF.company)list=list.filter(j=>(j.companyName||'').toLowerCase().includes(ordF.company.toLowerCase()));
-  if(ordF.dateFrom)list=list.filter(j=>j.orderDate>=ordF.dateFrom);
-  if(ordF.dateTo)list=list.filter(j=>j.orderDate<=ordF.dateTo);
+  if(ordF.dateFrom)list=list.filter(j=>(j.deliveryDate||j.orderDate)>=ordF.dateFrom);
+  if(ordF.dateTo)list=list.filter(j=>(j.deliveryDate||j.orderDate)<=ordF.dateTo);
   if(ordF.search){
     const q=ordF.search.toLowerCase();
     list=list.filter(j=>
