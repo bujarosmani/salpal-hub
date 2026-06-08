@@ -6234,7 +6234,7 @@ async function exportOrdersPDF(){
   }
   if(ordF.dateFrom)orders=orders.filter(j=>(j.deliveryDate||j.orderDate||'')>=ordF.dateFrom);
   if(ordF.dateTo)orders=orders.filter(j=>(j.deliveryDate||j.orderDate||'')<=ordF.dateTo);
-  if(ordF.search){const q=ordF.search.toLowerCase();orders=orders.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q)||(j.orderRef||'').toLowerCase().includes(q));}
+  if(ordF.search){const q=ordF.search.toLowerCase();orders=orders.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q)||(j.orderRef||'').toLowerCase().includes(q)||(j.city||'').toLowerCase().includes(q)||(j.deliveryCompany||'').toLowerCase().includes(q)||(uname(j.driverId)||'').toLowerCase().includes(q)||(j.whBy||'').toLowerCase().includes(q)||(j.notes||'').toLowerCase().includes(q));}
   orders=orders.slice().sort((a,b)=>ordSortAsc?a.awb.localeCompare(b.awb):b.awb.localeCompare(a.awb));
   if(!orders.length){toast('No orders match current filters — clear filters to export all','err');return;}
 
