@@ -3231,10 +3231,14 @@ function renderDisTodoResults(){
     return 0;
   });
   if(!todo.length){results.innerHTML='<div class="empty" style="padding:30px;text-align:center">✓ Nothing to load!</div>';return;}
+  let _disLastDate=null;
   results.innerHTML=todo.map(j=>{
     const canLoad=isSup&&!isViewer();
     const driver=j.driverId?uname(j.driverId):j.driver||'—';
     const isOverdue=j.deliveryDate&&j.deliveryDate<today;
+    const _jd=j.deliveryDate||j.orderDate||'';
+    const _dlbl=_jd===today?'Today':_jd===tomorrow?'Tomorrow':(_jd?fd(_jd):'No Date');
+    const dateHdr=_jd!==_disLastDate?(_disLastDate=_jd,'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:'+(isOverdue?'var(--red)':'var(--ink3)')+';padding:12px 0 6px;border-bottom:1px solid var(--line2);margin-bottom:8px">'+(isOverdue?'⚠ OVERDUE — ':'')+' '+_dlbl+'</div>'):'';
     return dateHdr+`<div style="background:var(--panel);border:1.5px solid ${isOverdue?'rgba(245,107,107,.4)':'var(--line)'};border-left:4px solid ${isOverdue?'var(--red)':'var(--amber)'};border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
         <div>
