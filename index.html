@@ -3201,6 +3201,7 @@ function renderDisTodo(){
   if(filtersDiv){
     filtersDiv.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
       <input class="inp" id="dis-todo-search" placeholder="🔍 Search AWB, company, driver..." autocomplete="off" style="flex:1;font-size:13px" oninput="renderDisTodoResults()"/>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink3);white-space:nowrap;cursor:pointer"><input type="checkbox" id="dis-show-all" onchange="renderDisTodoResults()"> Show all dates</label>
       <select class="inp" style="width:auto;padding:7px 10px;font-size:13px" onchange="disTodoSort=this.value;renderDisTodoResults()">
         <option value="date" ${disTodoSort==='date'?'selected':''}>📅 Sort: Date</option>
         <option value="company" ${disTodoSort==='company'?'selected':''}>🏢 Sort: Company</option>
@@ -3214,7 +3215,11 @@ function renderDisTodoResults(){
   const results=document.getElementById('dis-todo-results');if(!results)return;
   const isSup=ME&&(ME.role==='Supervisor'||ME.role==='Admin'||ME.role==='Manager');
   const q=(document.getElementById('dis-todo-search')?.value||'').toLowerCase();
+  const showAll=document.getElementById('dis-show-all')?.checked;
+  const today=localIso(new Date());
+  const tomorrow=localIso(new Date(Date.now()+86400000));
   let todo=(S.orders||[]).filter(j=>j.type==='Delivery'&&j.status==='Open');
+  if(!showAll)todo=todo.filter(j=>!j.deliveryDate||j.deliveryDate<=tomorrow);
   if(q)todo=todo.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q)||(j.driverId?uname(j.driverId).toLowerCase():'').includes(q)||(j.orderRef||'').toLowerCase().includes(q));
   todo=todo.sort((a,b)=>{
     if(disTodoSort==='date')return(a.deliveryDate||'').localeCompare(b.deliveryDate||'')||(a.companyName||'').localeCompare(b.companyName||'');
@@ -3222,7 +3227,6 @@ function renderDisTodoResults(){
     if(disTodoSort==='driver')return(a.driverId?uname(a.driverId):'').localeCompare(b.driverId?uname(b.driverId):'');
     return 0;
   });
-  const today=localIso(new Date());
   if(!todo.length){results.innerHTML='<div class="empty" style="padding:30px;text-align:center">✓ Nothing to load!</div>';return;}
   results.innerHTML=todo.map(j=>{
     const canLoad=isSup&&!isViewer();
@@ -3260,6 +3264,7 @@ function renderRecTodo(){
   if(filtersDiv){
     filtersDiv.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
       <input class="inp" id="rec-todo-search" placeholder="🔍 Search AWB, company, driver..." autocomplete="off" style="flex:1;font-size:13px" oninput="renderRecTodoResults()"/>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink3);white-space:nowrap;cursor:pointer"><input type="checkbox" id="rec-show-all" onchange="renderRecTodoResults()"> Show all dates</label>
       <select class="inp" style="width:auto;padding:7px 10px;font-size:13px" onchange="recTodoSort=this.value;renderRecTodoResults()">
         <option value="date" ${recTodoSort==='date'?'selected':''}>📅 Sort: Date</option>
         <option value="company" ${recTodoSort==='company'?'selected':''}>🏢 Sort: Company</option>
@@ -3273,7 +3278,11 @@ function renderRecTodoResults(){
   const results=document.getElementById('rec-todo-results');if(!results)return;
   const isSup=ME&&(ME.role==='Supervisor'||ME.role==='Admin'||ME.role==='Manager');
   const q=(document.getElementById('rec-todo-search')?.value||'').toLowerCase();
+  const showAll=document.getElementById('rec-show-all')?.checked;
+  const today=localIso(new Date());
+  const tomorrow=localIso(new Date(Date.now()+86400000));
   let todo=(S.orders||[]).filter(j=>(j.type==='Collection'||j.type==='Drop-off')&&j.status!=='Completed'&&j.status!=='Pending Sort');
+  if(!showAll)todo=todo.filter(j=>!j.deliveryDate||j.deliveryDate<=tomorrow);
   if(q)todo=todo.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q)||(j.driverId?uname(j.driverId).toLowerCase():'').includes(q)||(j.orderRef||'').toLowerCase().includes(q));
   todo=todo.sort((a,b)=>{
     if(recTodoSort==='date')return(a.deliveryDate||'').localeCompare(b.deliveryDate||'')||(a.companyName||'').localeCompare(b.companyName||'');
