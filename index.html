@@ -6629,23 +6629,16 @@ function renderPlanner(){
   const allOrders=(S.orders||[]).filter(j=>allowedStatuses.includes(j.status)&&j.deliveryDate===date);
   const drivers=drvs();
 
-  // Reconcile plan with order.driverId — remote changes (calendar/edit) take precedence
+  // Add new orders not yet in plan to correct column based on driverId
+  const allPlannedIds=new Set([...(plan.unassigned||[]),...Object.values(plan.drivers).flat()]);
   allOrders.forEach(j=>{
-    const correctCol=j.driverId&&drivers.find(d=>d.id===j.driverId)?j.driverId:'unassigned';
-    // Remove from wrong column if already planned
-    let foundIn=null;
-    if((plan.unassigned||[]).includes(j.id))foundIn='unassigned';
-    else Object.keys(plan.drivers).forEach(did=>{if((plan.drivers[did]||[]).includes(j.id))foundIn=did;});
-    if(foundIn&&foundIn!==correctCol){
-      // Move to correct column
-      if(foundIn==='unassigned')plan.unassigned=plan.unassigned.filter(id=>id!==j.id);
-      else plan.drivers[foundIn]=(plan.drivers[foundIn]||[]).filter(id=>id!==j.id);
-      if(correctCol==='unassigned'){if(!plan.unassigned)plan.unassigned=[];plan.unassigned.push(j.id);}
-      else{if(!plan.drivers[correctCol])plan.drivers[correctCol]=[];plan.drivers[correctCol].push(j.id);}
-    } else if(!foundIn){
-      // Not in plan yet — add to correct column
-      if(correctCol==='unassigned'){if(!plan.unassigned)plan.unassigned=[];plan.unassigned.push(j.id);}
-      else{if(!plan.drivers[correctCol])plan.drivers[correctCol]=[];plan.drivers[correctCol].push(j.id);}
+    if(allPlannedIds.has(j.id))return; // already in plan, don't move
+    if(j.driverId&&drivers.find(d=>d.id===j.driverId)){
+      if(!plan.drivers[j.driverId])plan.drivers[j.driverId]=[];
+      plan.drivers[j.driverId].push(j.id);
+    } else {
+      if(!plan.unassigned)plan.unassigned=[];
+      plan.unassigned.push(j.id);
     }
   });
 
