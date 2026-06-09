@@ -317,6 +317,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     <button class="sb-btn" data-p="users"><span class="ic">👥</span>Users</button>
     <button class="sb-btn" data-p="companies"><span class="ic">🏢</span>Companies</button>
     <button class="sb-btn" data-p="fleet"><span class="ic">🚛</span>Fleet & HR<span class="nav-badge" id="nav-badge-fleet" style="display:none"></span></button>
+    <button class="sb-btn" data-p="products"><span class="ic">📦</span>Products</button>
     <button class="sb-btn" data-p="bin"><span class="ic">🗑</span>Recycle Bin</button>
   </div>
   <div class="sb-sec" id="nav-driver" style="display:none">
@@ -748,6 +749,19 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
     </div>
     <div class="mfoot"><button class="btn btn-ghost" onclick="closeM('m-service')">Cancel</button><button class="btn btn-primary" onclick="saveService()">✓ Log &amp; Book Next</button></div>
   </div>
+</div>
+
+<div class="page" id="page-products">
+  <div class="phdr">
+    <div><div class="ptitle">Products</div><div class="psub">Manage pallet classes — active &amp; inactive</div></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink3);cursor:pointer">
+        <input type="checkbox" id="prod-show-inactive" onchange="renderProductsPage()"> Show inactive
+      </label>
+      <button class="btn btn-primary btn-sm" onclick="openProductModal()">+ Add Product</button>
+    </div>
+  </div>
+  <div id="products-page-body"></div>
 </div>
 
 <div class="page" id="page-bin">
