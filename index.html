@@ -6629,6 +6629,15 @@ function renderPlanner(){
   const allOrders=(S.orders||[]).filter(j=>allowedStatuses.includes(j.status)&&j.deliveryDate===date);
   const drivers=drvs();
 
+  // Deduplicate plan arrays first
+  plan.unassigned=[...new Set(plan.unassigned||[])];
+  Object.keys(plan.drivers).forEach(did=>{plan.drivers[did]=[...new Set(plan.drivers[did]||[])];});
+  // Remove order IDs from plan if they belong to wrong driver column
+  const allOrderIds=new Set(allOrders.map(j=>j.id));
+  plan.unassigned=plan.unassigned.filter(id=>allOrderIds.has(id));
+  Object.keys(plan.drivers).forEach(did=>{
+    plan.drivers[did]=(plan.drivers[did]||[]).filter(id=>allOrderIds.has(id));
+  });
   // Add new orders not yet in plan to correct column based on driverId
   const allPlannedIds=new Set([...(plan.unassigned||[]),...Object.values(plan.drivers).flat()]);
   allOrders.forEach(j=>{
