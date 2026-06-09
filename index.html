@@ -2547,7 +2547,7 @@ function renderOrdTable(){
     const whn=(j.whChanges||[]).length?(j.whChanges||[]).map(c=>`${c.label}: ${c.value}`).join(' \u00b7 '):'\u2014';
     return`<tr>
       <td style="font-size:13px;white-space:nowrap">${esc(j.awb)}</td>
-      ${col('orderRef')?`<td style="font-size:12px;color:var(--ink2)">${esc(j.orderRef||'\u2014')}</td>`:''}
+      ${col('orderRef')?`<td style="font-size:12px;color:var(--ink2);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${esc(j.orderRef||'')}">${esc(j.orderRef||'\u2014')}</td>`:''}
       ${col('type')?`<td>${typeChip(j.type)}</td>`:''}
       ${col('company')?`<td><div>${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td>`:''}
       ${col('date')?`<td>${fd(j.deliveryDate)}</td>`:''}
