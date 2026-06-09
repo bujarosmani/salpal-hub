@@ -630,7 +630,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       <button class="btn btn-ghost btn-sm" onclick="plannerNextWeek()">›</button>
     </div>
   </div>
-  <div id="planner-filters" style="display:flex;gap:8px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap"><span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px">Status:</span><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="pf-open" checked onchange="renderPlanner()"> Open</label><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="pf-loaded" checked onchange="renderPlanner()"> Loaded</label><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="pf-transit" checked onchange="renderPlanner()"> In Transit</label><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="pf-completed" onchange="renderPlanner()"> Completed</label></div>
+  <div id="planner-filters" style="display:flex;gap:8px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap"><span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px">Status:</span><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="pf-open" checked onchange="renderPlanner()"> Open</label><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="pf-loaded" checked onchange="renderPlanner()"> Loaded</label><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="pf-transit" checked onchange="renderPlanner()"> In Transit</label><label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" id="pf-completed" onchange="renderPlanner()"> Completed</label><button class="btn btn-ghost btn-sm" style="margin-left:auto;font-size:11px" onclick="clearPlannerDay()" title="Reset plan for this day">↺ Reset Day</button></div>
   <div id="planner-body"></div>
 </div>
 
@@ -6894,6 +6894,15 @@ function plannerMobMove(orderId,fromColId,toColId,sel){
 
 function plannerPrevDay(){const d=new Date(window.plannerDate||localIso(new Date()));d.setDate(d.getDate()-1);window.plannerDate=localIso(d);renderPlanner();}
 function plannerNextDay(){const d=new Date(window.plannerDate||localIso(new Date()));d.setDate(d.getDate()+1);window.plannerDate=localIso(d);renderPlanner();}
+function clearPlannerDay(){
+  const date=window.plannerDate;
+  if(!confirm('Reset planner for '+fd(date)+'?\nRebuilds from each order\'s assigned driver.'))return;
+  if(S.plans&&S.plans[date])delete S.plans[date];
+  pushRecord('sp_stock','__plans',S.plans||{});
+  persist();
+  renderPlanner();
+  toast('Planner reset for '+fd(date));
+}
 function plannerPrevWeek(){const d=new Date(window.plannerWeekStart||localIso(new Date()));d.setDate(d.getDate()-1);window.plannerWeekStart=localIso(d);renderPlanner();}
 function plannerNextWeek(){const d=new Date(window.plannerWeekStart||localIso(new Date()));d.setDate(d.getDate()+1);window.plannerWeekStart=localIso(d);renderPlanner();}
 
