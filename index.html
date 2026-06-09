@@ -6935,7 +6935,9 @@ function reorderInCol(colId,orderId,toIdx,date){
 }
 
 function dropToColAt(toCol,orderId,fromCol,toIdx,date){
-  if(!S.plans?.[date])return;
+  if(!S.plans)S.plans={};
+  if(!S.plans[date])S.plans[date]={unassigned:[],drivers:{}};
+
   const plan=S.plans[date];
   // Remove from source
   if(fromCol==='unassigned')plan.unassigned=(plan.unassigned||[]).filter(id=>id!==orderId);
@@ -6954,7 +6956,10 @@ function dropToColAt(toCol,orderId,fromCol,toIdx,date){
 }
 
 function plannerDrop(toCol,orderId,fromCol){
-  const date=window.plannerDate;if(!S.plans?.[date])return;
+  const date=window.plannerDate;
+  if(!S.plans)S.plans={};
+  if(!S.plans[date])S.plans[date]={unassigned:[],drivers:{}};
+
   if(toCol===fromCol)return;
   const plan=S.plans[date];
   // Remove from source col
