@@ -7037,9 +7037,12 @@ function plannerDrop(toCol,orderId,fromCol){
   // Update order driver assignment
   const order=(S.orders||[]).find(j=>j.id===orderId);
   if(order){
-    const prevDriverName=uname(order.driverId)||'Unassigned';
-    const newDriverName=toCol==='unassigned'?'Unassigned':(uname(toCol)||toCol);
-    order.driverId=toCol==='unassigned'?'':toCol;
+    const prevDriverId=order.driverId||'';
+    const newDriverId=toCol==='unassigned'?'':toCol;
+    if(prevDriverId===newDriverId)return; // no change, skip
+    const prevDriverName=uname(prevDriverId)||'Unassigned';
+    const newDriverName=newDriverId?(uname(newDriverId)||newDriverId):'Unassigned';
+    order.driverId=newDriverId;
     order.updatedAt=new Date().toISOString();
     addTL(order,`Driver assigned: ${prevDriverName} → ${newDriverName}`,'edit');
   }
