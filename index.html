@@ -6632,14 +6632,15 @@ function renderPlanner(){
   const allOrders=(S.orders||[]).filter(j=>allowedStatuses.includes(j.status)&&j.deliveryDate===date);
   const drivers=drvs();
 
-  // Build fresh plan from order.driverId — single source of truth
-  plan.unassigned=[];
-  Object.keys(plan.drivers).forEach(did=>{plan.drivers[did]=[];});
+  // Add new orders not yet in plan to correct column based on driverId
+  const allPlannedIds=new Set([...(plan.unassigned||[]),...Object.values(plan.drivers).flat()]);
   allOrders.forEach(j=>{
+    if(allPlannedIds.has(j.id))return;
     if(j.driverId&&drivers.find(d=>d.id===j.driverId)){
       if(!plan.drivers[j.driverId])plan.drivers[j.driverId]=[];
       plan.drivers[j.driverId].push(j.id);
     } else {
+      if(!plan.unassigned)plan.unassigned=[];
       plan.unassigned.push(j.id);
     }
   });
