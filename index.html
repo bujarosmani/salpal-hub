@@ -6955,6 +6955,8 @@ function dropToColAt(toCol,orderId,fromCol,toIdx,date){
   const order=(S.orders||[]).find(j=>j.id===orderId);
   if(order){order.driverId=toCol==='unassigned'?'':toCol;order.updatedAt=new Date().toISOString();}
   drvs().forEach(d=>{(plan.drivers[d.id]||[]).forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planDate=date;j.planSeq=i+1;j.driverId=d.id;}});});
+  (plan.unassigned||[]).forEach(id=>{const j=(S.orders||[]).find(x=>x.id===id);if(j)j.driverId='';});
+  const movedOrd=(S.orders||[]).find(j=>j.id===orderId);if(movedOrd)syncOrder(movedOrd).catch(e=>console.error('syncOrder failed',e));
   pushRecord('sp_stock','__plans',S.plans||{});
   persist();renderPlanner();
 }
@@ -6978,10 +6980,17 @@ function plannerDrop(toCol,orderId,fromCol){
     order.updatedAt=new Date().toISOString();
     addTL(order,`Driver assigned: ${prevDriverName} → ${newDriverName}`,'edit');
   }
-  // Update planSeq
+  // Update planSeq and driverId for all orders in plan
   drvs().forEach(d=>{(plan.drivers[d.id]||[]).forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planDate=date;j.planSeq=i+1;j.driverId=d.id;}});});
-  // Sync the moved order
-  const movedOrder=(S.orders||[]).find(j=>j.id===orderId);if(movedOrder)syncOrder(movedOrder);
+  // Clear driverId for unassigned orders
+  (plan.unassigned||[]).forEach(id=>{const j=(S.orders||[]).find(x=>x.id===id);if(j)j.driverId='';});
+  // Save plan to Supabase
+  pushRecord('sp_stock','__plans',S.plans||{});
+  // Sync the moved order to Supabase
+  const movedOrder=(S.orders||[]).find(j=>j.id===orderId);
+  if(movedOrder){
+    syncOrder(movedOrder).catch(e=>console.error('syncOrder failed',e));
+  }
   persist();renderPlanner();
 }
 
