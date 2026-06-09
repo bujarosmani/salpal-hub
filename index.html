@@ -1266,8 +1266,8 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 
 <script>
 const DEFAULT_SKUS=['A','B','C','EW 120x80','EW 120x100','Color 120x80','Unsorted','Defected Euro','Defected K'];
-function getSKUSAll(){return(S&&S.products&&S.products.length?S.products:DEFAULT_SKUS);}
-function getSKUS(){const all=getSKUSAll();return all.filter(p=>!(S.inactiveProducts||[]).includes(p));}
+function getSKUSAll(){return(S&&S.products&&S.products.length?[...S.products]:DEFAULT_SKUS);}
+function getSKUS(){return getSKUSAll().filter(p=>!(S.inactiveProducts||[]).includes(p));}
 const SKU_C={'A':{bg:'rgba(61,214,104,.12)',c:'#3dd668'},'B':{bg:'rgba(91,156,246,.12)',c:'#5b9cf6'},'C':{bg:'rgba(245,200,66,.12)',c:'#f5c842'},'EW 120x80':{bg:'rgba(167,139,250,.12)',c:'#a78bfa'},'EW 120x100':{bg:'rgba(56,189,248,.12)',c:'#38bdf8'},'Color 120x80':{bg:'rgba(251,146,60,.12)',c:'#fb923c'}};
 const SUPERVISORS=['Idi','Cristian'];
 const DEFAULT_WORKERS=['Mohamed','Agim','Fidan','Nazz','Manu','Bairam'];
@@ -1593,8 +1593,8 @@ async function loadCloud(){
     const otpR=stock.find(r=>r.id==='__ordTablePrefs');if(otpR&&otpR.data)S.ordTablePrefs=otpR.data;
     const ltpR=stock.find(r=>r.id==='__ledTablePrefs');if(ltpR&&ltpR.data)S.ledTablePrefs=ltpR.data;
     const phR=stock.find(r=>r.id==='__productHistory');if(phR&&phR.data)S.productHistory=phR.data;
-    const ipR=stock.find(r=>r.id==='__inactiveProducts');if(ipR&&Array.isArray(ipR.data))S.inactiveProducts=ipR.data;
-    const idR=stock.find(r=>r.id==='__ignoredDupes');if(idR&&idR.data)S.ignoredDupes=idR.data;}
+    const idR=stock.find(r=>r.id==='__ignoredDupes');if(idR&&idR.data)S.ignoredDupes=idR.data;
+    const ipR=stock.find(r=>r.id==='__inactiveProducts');if(ipR&&Array.isArray(ipR.data))S.inactiveProducts=ipR.data;}
     if(products&&products.length){
       const pr=products.find(r=>r.id==='__products');
       if(pr&&pr.data){
@@ -2127,7 +2127,7 @@ function renderProductsPage(){
   const showInactive=document.getElementById('prod-show-inactive')?.checked;
   const inactive=S.inactiveProducts||[];
   const all=getSKUSAll();
-  if(!all||!all.length){body.innerHTML='<div class="empty" style="padding:32px">Loading...</div>';setTimeout(renderProductsPage,500);return;}
+  if(!all.length){body.innerHTML='<div class="empty" style="padding:32px">No products. Add one above.</div>';return;}
   const list=showInactive?all:all.filter(p=>!inactive.includes(p));
   const inactiveCount=all.filter(p=>inactive.includes(p)).length;
   body.innerHTML='<div style="margin-bottom:12px;font-size:13px;color:var(--ink3)">'+all.length+' total · '+(all.length-inactiveCount)+' active · '+inactiveCount+' inactive</div>'
@@ -2135,8 +2135,7 @@ function renderProductsPage(){
     +list.map(cls=>{
       const isInactive=inactive.includes(cls);
       return '<div style="background:var(--panel);border:1.5px solid '+(isInactive?'rgba(127,127,127,.3)':'var(--line)')+';border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;opacity:'+(isInactive?'0.5':'1')+'">'
-        +'<div style="display:flex;align-items:center;gap:10px">'+skuBadge(cls,true)
-        +(isInactive?'<span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px"> Inactive</span>':'')+'</div>'
+        +'<div style="display:flex;align-items:center;gap:10px">'+skuBadge(cls,true)+(isInactive?'<span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px"> Inactive</span>':'')+'</div>'
         +'<div style="display:flex;gap:6px">'
         +'<button class="btn btn-ghost btn-sm" onclick="editProduct(\''+esc(cls)+'\')" >Rename</button>'
         +'<button class="btn btn-sm" style="background:'+(isInactive?'rgba(61,214,104,.15)':'rgba(127,127,127,.15)')+';color:'+(isInactive?'var(--brand)':'var(--ink3)')+'" onclick="toggleProductActive(\''+esc(cls)+'\')">'+(isInactive?'✓ Activate':'Deactivate')+'</button>'
