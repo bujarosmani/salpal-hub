@@ -6173,7 +6173,7 @@ function openStockOrders(cls,dir){
   document.getElementById('stock-orders-title').textContent=`${isIncoming?'Incoming':'Outgoing'} orders — ${cls}`;
   const rows=orders.map((j,i)=>{
     const qty=(j.pallets||[]).find(p=>p.cls===cls)?.qty||0;
-    return `<tr style="border-bottom:1px solid var(--line2);cursor:pointer" onclick="closeM('m-stock-orders');viewOrder('${j.id}')" onmouseenter="this.style.background='var(--panel2)'" onmouseleave="this.style.background=''">`
+    return `<tr style="border-bottom:1px solid var(--line2);cursor:pointer" onclick="viewOrder('${j.id}')" onmouseenter="this.style.background='var(--panel2)'" onmouseleave="this.style.background=''">`
       +`<td style="padding:8px 10px;font-size:12px;color:var(--blue)">${esc(j.awb)}</td>`
       +`<td style="padding:8px 10px;font-weight:500">${esc(j.companyName||'—')}${j.city?' · '+esc(j.city):''}</td>`
       +`<td style="padding:8px 10px;color:var(--ink3)">${fd(j.deliveryDate||j.orderDate)}</td>`
