@@ -1197,6 +1197,13 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
   </div>
 </div>
 
+<div class="mbackdrop" id="m-stock-orders">
+  <div class="mbox" style="max-width:700px">
+    <div class="mhdr"><span class="mtitle" id="stock-orders-title">Orders</span><button class="mclose" onclick="closeM('m-stock-orders')">✕</button></div>
+    <div id="stock-orders-body" style="padding:16px;max-height:70vh;overflow-y:auto"></div>
+  </div>
+</div>
+
 <div class="mbackdrop" id="m-stock-adj">
   <div class="mbox">
     <div class="mhdr"><span class="mtitle">Adjust Stock</span><button class="mclose" onclick="closeM('m-stock-adj')">✕</button></div>
@@ -6147,6 +6154,36 @@ function renderStock(){
   }).join('');
   document.getElementById('btn-adj-stock').style.display=isAdmin()?'':'none';
   document.querySelectorAll('[onclick*="openProductModal"]').forEach(b=>b.style.display=isAdmin()?'':'none');
+}
+
+function openStockOrders(cls,dir){
+  const isIncoming=dir==='incoming';
+  const orders=isIncoming
+    ?(S.orders||[]).filter(j=>j.type==='Collection'&&j.status!=='Completed'&&j.status!=='Pending Sort'&&(j.pallets||[]).some(p=>p.cls===cls))
+    :(S.orders||[]).filter(j=>j.type==='Delivery'&&j.status==='Open'&&(j.pallets||[]).some(p=>p.cls===cls));
+  document.getElementById('stock-orders-title').textContent=`${isIncoming?'Incoming':'Outgoing'} orders — ${cls}`;
+  const rows=orders.map((j,i)=>{
+    const qty=(j.pallets||[]).find(p=>p.cls===cls)?.qty||0;
+    return `<tr style="border-bottom:1px solid var(--line2);cursor:pointer" onclick="closeM('m-stock-orders');viewOrder('${j.id}')" onmouseenter="this.style.background='var(--panel2)'" onmouseleave="this.style.background=''">`
+      +`<td style="padding:8px 10px;font-size:12px;color:var(--blue)">${esc(j.awb)}</td>`
+      +`<td style="padding:8px 10px;font-weight:500">${esc(j.companyName||'—')}${j.city?' · '+esc(j.city):''}</td>`
+      +`<td style="padding:8px 10px;color:var(--ink3)">${fd(j.deliveryDate||j.orderDate)}</td>`
+      +`<td style="padding:8px 10px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:${isIncoming?'var(--blue)':'var(--amber)'}">${qty}</td>`
+      +`<td style="padding:8px 10px">${stChip(j.status)}</td>`
+      +`<td style="padding:8px 10px;color:var(--ink3);font-size:12px">${esc(uname(j.driverId)||'—')}</td>`
+      +'</tr>';
+  }).join('');
+  document.getElementById('stock-orders-body').innerHTML=orders.length
+    ?`<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:2px solid var(--line)">`
+      +`<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--ink3)">AWB</th>`
+      +`<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--ink3)">Company</th>`
+      +`<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--ink3)">Date</th>`
+      +`<th style="text-align:right;padding:8px 10px;font-size:11px;color:var(--ink3)">Qty</th>`
+      +`<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--ink3)">Status</th>`
+      +`<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--ink3)">Driver</th>`
+      +`</tr></thead><tbody>${rows}</tbody></table>`
+    :'<div class="empty" style="padding:24px">No orders found</div>';
+  openM('m-stock-orders');
 }
 
 function openStockAdjModal(){
