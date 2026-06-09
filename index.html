@@ -1266,7 +1266,8 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 
 <script>
 const DEFAULT_SKUS=['A','B','C','EW 120x80','EW 120x100','Color 120x80','Unsorted','Defected Euro','Defected K'];
-function getSKUS(){return S&&S.products&&S.products.length?S.products:DEFAULT_SKUS;}
+function getSKUSAll(){return(S&&S.products&&S.products.length?S.products:DEFAULT_SKUS);}
+function getSKUS(){const all=getSKUSAll();return all.filter(p=>!(S.inactiveProducts||[]).includes(p));}
 const SKU_C={'A':{bg:'rgba(61,214,104,.12)',c:'#3dd668'},'B':{bg:'rgba(91,156,246,.12)',c:'#5b9cf6'},'C':{bg:'rgba(245,200,66,.12)',c:'#f5c842'},'EW 120x80':{bg:'rgba(167,139,250,.12)',c:'#a78bfa'},'EW 120x100':{bg:'rgba(56,189,248,.12)',c:'#38bdf8'},'Color 120x80':{bg:'rgba(251,146,60,.12)',c:'#fb923c'}};
 const SUPERVISORS=['Idi','Cristian'];
 const DEFAULT_WORKERS=['Mohamed','Agim','Fidan','Nazz','Manu','Bairam'];
@@ -1592,6 +1593,7 @@ async function loadCloud(){
     const otpR=stock.find(r=>r.id==='__ordTablePrefs');if(otpR&&otpR.data)S.ordTablePrefs=otpR.data;
     const ltpR=stock.find(r=>r.id==='__ledTablePrefs');if(ltpR&&ltpR.data)S.ledTablePrefs=ltpR.data;
     const phR=stock.find(r=>r.id==='__productHistory');if(phR&&phR.data)S.productHistory=phR.data;
+    const ipR=stock.find(r=>r.id==='__inactiveProducts');if(ipR&&Array.isArray(ipR.data))S.inactiveProducts=ipR.data;
     const idR=stock.find(r=>r.id==='__ignoredDupes');if(idR&&idR.data)S.ignoredDupes=idR.data;}
     if(products&&products.length){
       const pr=products.find(r=>r.id==='__products');
@@ -2119,6 +2121,34 @@ function goTo(page){
   const pg=document.getElementById('page-'+page);if(pg)pg.classList.add('on');
   document.querySelectorAll(`.sb-btn[data-p="${page}"]`).forEach(b=>b.classList.add('on'));
   closeMob();renderPage(page);
+}
+function renderProductsPage(){
+  const body=document.getElementById('products-page-body');if(!body)return;
+  const showInactive=document.getElementById('prod-show-inactive')?.checked;
+  const inactive=S.inactiveProducts||[];
+  const all=getSKUSAll();
+  if(!all||!all.length){body.innerHTML='<div class="empty" style="padding:32px">Loading...</div>';setTimeout(renderProductsPage,500);return;}
+  const list=showInactive?all:all.filter(p=>!inactive.includes(p));
+  const inactiveCount=all.filter(p=>inactive.includes(p)).length;
+  body.innerHTML='<div style="margin-bottom:12px;font-size:13px;color:var(--ink3)">'+all.length+' total · '+(all.length-inactiveCount)+' active · '+inactiveCount+' inactive</div>'
+    +'<div style="display:grid;gap:8px">'
+    +list.map(cls=>{
+      const isInactive=inactive.includes(cls);
+      return '<div style="background:var(--panel);border:1.5px solid '+(isInactive?'rgba(127,127,127,.3)':'var(--line)')+';border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;opacity:'+(isInactive?'0.5':'1')+'">'
+        +'<div style="display:flex;align-items:center;gap:10px">'+skuBadge(cls,true)
+        +(isInactive?'<span style="font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px"> Inactive</span>':'')+'</div>'
+        +'<div style="display:flex;gap:6px">'
+        +'<button class="btn btn-ghost btn-sm" onclick="editProduct(\''+esc(cls)+'\')" >Rename</button>'
+        +'<button class="btn btn-sm" style="background:'+(isInactive?'rgba(61,214,104,.15)':'rgba(127,127,127,.15)')+';color:'+(isInactive?'var(--brand)':'var(--ink3)')+'" onclick="toggleProductActive(\''+esc(cls)+'\')">'+(isInactive?'✓ Activate':'Deactivate')+'</button>'
+        +'</div></div>';
+    }).join('')+'</div>';
+}
+function toggleProductActive(cls){
+  if(!S.inactiveProducts)S.inactiveProducts=[];
+  if(S.inactiveProducts.includes(cls)){S.inactiveProducts=S.inactiveProducts.filter(p=>p!==cls);toast('✓ '+cls+' activated');}
+  else{S.inactiveProducts.push(cls);toast(cls+' deactivated');}
+  pushRecord('sp_stock','__inactiveProducts',S.inactiveProducts);
+  persist();renderProductsPage();renderStock();
 }
 function renderPage(p){if(p==='hub')renderHub();else if(p==='dashboard')renderDash();else if(p==='orders')renderOrders();else if(p==='dispatch'){const pane=document.getElementById('dis-pane-todo');if(pane)pane.innerHTML='';renderDisTodo();if(document.getElementById('dis-pane-all')?.classList.contains('on'))renderDispatch();}else if(p==='receiving'){const pane=document.getElementById('rec-pane-todo');if(pane)pane.innerHTML='';renderRecTodo();if(document.getElementById('rec-pane-all')?.classList.contains('on'))renderReceiving();}else if(p==='repairs')renderRepairs();else if(p==='sorting')renderSorting();else if(p==='stock')renderStock();else if(p==='calendar')renderCalendar();else if(p==='users')renderUsers();else if(p==='companies')renderCompanies();else if(p==='products')renderProductsPage();else if(p==='bin')renderBin();else if(p==='planner')renderPlanner();else if(p==='fleet')renderFleet();else if(p==='stocktake')renderStocktake();else if(p==='driver')renderDriver();}
 document.querySelectorAll('.sb-btn[data-p]').forEach(btn=>{btn.onclick=()=>goTo(btn.dataset.p);});
