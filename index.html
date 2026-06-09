@@ -6153,8 +6153,8 @@ function renderStock(){
     return`<tr>
       <td>${skuBadge(cls,true)}</td>
       <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800">${onHand}</span></td>
-      <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--blue)">${incoming}</span></td>
-      <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--amber)">${outgoing}</span></td>
+      <td class="right">${incoming>0?`<span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--blue);cursor:pointer;text-decoration:underline;text-underline-offset:3px" onclick="openStockOrders('${esc(cls)}','incoming')">${incoming}</span>`:`<span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--blue)">${incoming}</span>`}</td>
+      <td class="right">${outgoing>0?`<span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--amber);cursor:pointer;text-decoration:underline;text-underline-offset:3px" onclick="openStockOrders('${esc(cls)}','outgoing')">${outgoing}</span>`:`<span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--amber)">${outgoing}</span>`}</td>
       <td class="right"><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:${freeColor}">${free}</span></td>
       <td class="right" style="white-space:nowrap">
         ${isAdminRow?`<button class="btn btn-ghost btn-sm" onclick="openMergeProduct('${esc(cls)}')">⟳ Merge</button> <button class="btn btn-ghost btn-sm" onclick="editProduct('${esc(cls)}')">Edit</button> ${canDelete()?`<button class="btn btn-danger btn-sm" onclick="deleteProductDirect('${esc(cls)}')" ${inUse?'title="In use by orders" style="opacity:.35;cursor:not-allowed" disabled':''}>Delete</button>`:""}`:''}
