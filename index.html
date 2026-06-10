@@ -2598,6 +2598,7 @@ function renderOrdTable(){
       ${col('type')?`<td>${typeChip(j.type)}</td>`:''}
       ${col('company')?`<td><div>${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td>`:''}
       ${col('date')?`<td>${fd(j.deliveryDate)}</td>`:''}
+      ${col('createdAt')?`<td style="font-size:11px;color:var(--ink3);white-space:nowrap">${j.createdAt?fdt(j.createdAt):'—'}</td>`:''}
       ${col('pallets')?`<td style="font-size:12px">${esc(ps)}</td>`:''}
       ${col('driver')?`<td style="font-size:12px">${j.driverId?uname(j.driverId):j.driver||'\u2014'}</td>`:''}
       ${col('whBy')?`<td style="font-size:12px;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td>`:''}
