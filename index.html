@@ -599,8 +599,8 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
         <button class="btn btn-ghost btn-sm" onclick="exportAdjExcel()">⬇ Excel</button>
       </div>
       <div class="tbl-wrap">
-        <table><thead><tr>
-          <th>Date</th><th>Product</th><th class="right">Qty</th><th>Reference</th><th>Comment</th><th>By</th>
+        <table id="adj-table"><thead><tr>
+          <th onclick="sortAdjTable('date')" style="cursor:pointer">Date ↕</th><th onclick="sortAdjTable('cls')" style="cursor:pointer">Product ↕</th><th class="right" onclick="sortAdjTable('qty')" style="cursor:pointer">Qty ↕</th><th onclick="sortAdjTable('ref')" style="cursor:pointer">Reference ↕</th><th onclick="sortAdjTable('note')" style="cursor:pointer">Comment ↕</th><th onclick="sortAdjTable('by')" style="cursor:pointer">By ↕</th>
         </tr></thead><tbody id="adj-tbody"></tbody></table>
       </div>
     </div>
@@ -5751,11 +5751,26 @@ async function applyRecalc(){
   toast(`✓ Stock updated — ${applied} product${applied!==1?'s':''} set to ledger values`);
 }
 
+let _adjSortCol='date', _adjSortAsc=false;
+function sortAdjTable(col){
+  if(_adjSortCol===col)_adjSortAsc=!_adjSortAsc;
+  else{_adjSortCol=col;_adjSortAsc=true;}
+  renderAdjTab();
+}
 function renderAdjTab(){
   const tb=document.getElementById('adj-tbody');if(!tb)return;
   // Read from ledger (type = Manual Adjustment) — includes all adjustment methods
-  const adjs=(S.ledger||[]).filter(e=>e.type==='Manual Adjustment')
+  let adjs=(S.ledger||[]).filter(e=>e.type==='Manual Adjustment')
     .map(e=>({date:e.date,cls:e.cls,qty:e.dir==='in'?e.qty:-e.qty,ref:e.ref,note:e.notes,by:e.by}));
+  adjs.sort((a,b)=>{
+    const av=a[_adjSortCol]??'', bv=b[_adjSortCol]??'';
+    const cmp=typeof av==='number'?av-bv:String(av).localeCompare(String(bv));
+    return _adjSortAsc?cmp:-cmp;
+  });
+  // Update header indicators
+  const ths=document.querySelectorAll('#adj-table thead th');
+  const cols=['date','cls','qty','ref','note','by'];
+  ths.forEach((th,i)=>th.textContent=(['Date','Product','Qty','Reference','Comment','By'][i])+(_adjSortCol===cols[i]?(_adjSortAsc?' ▲':' ▼'):' ↕'));
   if(!adjs.length){tb.innerHTML='<tr><td colspan="6" class="empty">No adjustments yet</td></tr>';return;}
   tb.innerHTML=adjs.map(a=>`<tr>
     <td style="font-size:12px;color:var(--ink3);white-space:nowrap">${fdt(a.date)}</td>
