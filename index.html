@@ -415,8 +415,8 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
         <th id="th-orderRef" data-col="orderRef" onclick="thClick('ord-table','orderRef',renderOrdTable)" style="cursor:pointer">Order Ref</th>
         <th id="th-type" data-col="type" onclick="thClick('ord-table','type',renderOrdTable)" style="cursor:pointer">Type</th>
         <th id="th-company" data-col="companyName" onclick="thClick('ord-table','companyName',renderOrdTable)" style="cursor:pointer">Company</th>
-        <th id="th-date" data-col="deliveryDate" onclick="thClick('ord-table','deliveryDate',renderOrdTable)" style="cursor:pointer">Delivery Date</th>
         <th id="th-createdAt" data-col="createdAt" onclick="thClick('ord-table','createdAt',renderOrdTable)" style="cursor:pointer">Created</th>
+        <th id="th-date" data-col="deliveryDate" onclick="thClick('ord-table','deliveryDate',renderOrdTable)" style="cursor:pointer">Delivery Date</th>
         <th id="th-pallets" data-col="totalQty" onclick="thClick('ord-table','totalQty',renderOrdTable)" style="cursor:pointer">Pallets</th>
         <th id="th-driver" data-col="driverId" onclick="thClick('ord-table','driverId',renderOrdTable)" style="cursor:pointer">Driver</th>
         <th id="th-whBy" data-col="whBy" onclick="thClick('ord-table','whBy',renderOrdTable)" style="cursor:pointer">WH By</th>
@@ -2597,8 +2597,8 @@ function renderOrdTable(){
       ${col('orderRef')?`<td style="font-size:12px;color:var(--ink2);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${esc(j.orderRef||'')}">${esc(j.orderRef||'\u2014')}</td>`:''}
       ${col('type')?`<td>${typeChip(j.type)}</td>`:''}
       ${col('company')?`<td><div>${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td>`:''}
-      ${col('date')?`<td>${fd(j.deliveryDate)}</td>`:''}
       ${col('createdAt')?`<td style="font-size:11px;color:var(--ink3);white-space:nowrap">${j.createdAt?fdt(j.createdAt):'—'}</td>`:''}
+      ${col('date')?`<td>${fd(j.deliveryDate)}</td>`:''}
       ${col('pallets')?`<td style="font-size:12px">${esc(ps)}</td>`:''}
       ${col('driver')?`<td style="font-size:12px">${j.driverId?uname(j.driverId):j.driver||'\u2014'}</td>`:''}
       ${col('whBy')?`<td style="font-size:12px;color:${j.whBy?'var(--brand)':'var(--ink3)'}">${esc(j.whBy||'\u2014')}</td>`:''}
