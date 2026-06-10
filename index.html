@@ -5753,7 +5753,9 @@ async function applyRecalc(){
 
 function renderAdjTab(){
   const tb=document.getElementById('adj-tbody');if(!tb)return;
-  const adjs=S.adjustments||[];
+  // Read from ledger (type = Manual Adjustment) — includes all adjustment methods
+  const adjs=(S.ledger||[]).filter(e=>e.type==='Manual Adjustment')
+    .map(e=>({date:e.date,cls:e.cls,qty:e.dir==='in'?e.qty:-e.qty,ref:e.ref,note:e.notes,by:e.by}));
   if(!adjs.length){tb.innerHTML='<tr><td colspan="6" class="empty">No adjustments yet</td></tr>';return;}
   tb.innerHTML=adjs.map(a=>`<tr>
     <td style="font-size:12px;color:var(--ink3);white-space:nowrap">${fdt(a.date)}</td>
