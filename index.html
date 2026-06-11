@@ -2907,6 +2907,17 @@ function saveOrder(force){
     if(forcedStatus){addTL(order,`Status force-overridden to: ${forcedStatus}`,'edit');document.getElementById('of-status-value').dataset.forcedVal='';}
     if(changes.length)addTL(order,'Order edited','edit',changes);
     const i=(S.orders||[]).findIndex(x=>x.id===eid);if(i>=0)S.orders[i]=order;
+    // Keep planner in sync if driver changed for an already-planned order
+    if(ex.driverId!==driverId&&ex.deliveryDate===ddate&&S.plans&&S.plans[ddate]){
+      const plan=S.plans[ddate];
+      const oldCol=ex.driverId||'unassigned';
+      if(oldCol==='unassigned')plan.unassigned=(plan.unassigned||[]).filter(id=>id!==order.id);
+      else if(plan.drivers[oldCol])plan.drivers[oldCol]=plan.drivers[oldCol].filter(id=>id!==order.id);
+      const newCol=driverId||'unassigned';
+      if(newCol==='unassigned'){if(!plan.unassigned)plan.unassigned=[];plan.unassigned.push(order.id);}
+      else{if(!plan.drivers[newCol])plan.drivers[newCol]=[];plan.drivers[newCol].push(order.id);}
+      pushRecord('sp_stock','__plans',S.plans);
+    }
     toast('Order updated');
   }
   syncOrder(order);clearDirty('m-order');forceCloseM('m-order');renderOrders();renderDash();
@@ -7124,12 +7135,13 @@ function plannerDrop(toCol,orderId,fromCol){
   if(order){
     const prevDriverId=order.driverId||'';
     const newDriverId=toCol==='unassigned'?'':toCol;
-    if(prevDriverId===newDriverId)return; // no change, skip
-    const prevDriverName=uname(prevDriverId)||'Unassigned';
-    const newDriverName=newDriverId?(uname(newDriverId)||newDriverId):'Unassigned';
-    order.driverId=newDriverId;
-    order.updatedAt=new Date().toISOString();
-    addTL(order,`Driver assigned: ${prevDriverName} → ${newDriverName}`,'edit');
+    if(prevDriverId!==newDriverId){
+      const prevDriverName=uname(prevDriverId)||'Unassigned';
+      const newDriverName=newDriverId?(uname(newDriverId)||newDriverId):'Unassigned';
+      order.driverId=newDriverId;
+      order.updatedAt=new Date().toISOString();
+      addTL(order,`Driver assigned: ${prevDriverName} → ${newDriverName}`,'edit');
+    }
   }
   // Update planSeq and driverId for all orders in plan
   drvs().forEach(d=>{(plan.drivers[d.id]||[]).forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planDate=date;j.planSeq=i+1;j.driverId=d.id;}});});
