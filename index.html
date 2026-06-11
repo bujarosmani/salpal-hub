@@ -2621,6 +2621,7 @@ function openOrderModal(){
   document.getElementById('order-modal-title').textContent='New Order';
   document.getElementById('of-edit-id').value='';
   document.getElementById('of-del-btn').style.display='none';
+  const _cb=document.getElementById('of-cancel-btn');if(_cb)_cb.style.display='none';
   document.getElementById('of-awb').value=makeAWB();
   document.getElementById('of-ref').value='';
   document.getElementById('of-type').value='';
@@ -2675,7 +2676,15 @@ function editOrder(id){
   document.getElementById('of-edit-id').value=id;
   document.getElementById('of-del-btn').style.display=canDelete()?'':'none';
   const _cancelBtn=document.getElementById('of-cancel-btn');
-  if(_cancelBtn)_cancelBtn.style.display=(ME&&ME.role==='Admin'&&j&&!['Completed','Cancelled'].includes(j.status))?'':'none';
+  console.log('cancelBtn check: ME=',ME?.role,'j.status=',j?.status);
+  if(_cancelBtn){
+    if(ME&&ME.role==='Admin'&&j&&j.status&&!['Completed','Cancelled'].includes(j.status)){
+      _cancelBtn.style.display='';
+      _cancelBtn.style.visibility='visible';
+    } else {
+      _cancelBtn.style.display='none';
+    }
+  }
   document.getElementById('of-awb').value=j.awb;
   document.getElementById('of-ref').value=j.orderRef||'';
   document.getElementById('of-type').value=j.type||'';
