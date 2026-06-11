@@ -6300,6 +6300,7 @@ function renderStock(){
 }
 
 function openStockOrders(cls,dir){
+  forceCloseM('m-detail');
   const isIncoming=dir==='incoming';
   const orders=isIncoming
     ?(S.orders||[]).filter(j=>j.type==='Collection'&&j.status!=='Completed'&&j.status!=='Pending Sort'&&(j.pallets||[]).some(p=>p.cls===cls))
