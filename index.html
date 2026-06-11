@@ -561,7 +561,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       </div>
       <div class="tbl-wrap">
         <table><thead><tr>
-          <th id="led-th-date">Date</th><th id="led-th-type">Type</th><th id="led-th-ref">Reference</th><th id="led-th-product">Product</th><th id="led-th-in" class="right">In</th><th id="led-th-out" class="right">Out</th><th id="led-th-balance" class="right">Balance After</th><th id="led-th-by">By</th><th id="led-th-notes">Notes</th>
+          <th id="led-th-date" style="cursor:pointer" onclick="sortLedger('date')">Date ↕</th><th id="led-th-type" style="cursor:pointer" onclick="sortLedger('type')">Type ↕</th><th id="led-th-ref" style="cursor:pointer" onclick="sortLedger('ref')">Reference ↕</th><th id="led-th-product" style="cursor:pointer" onclick="sortLedger('product')">Product ↕</th><th id="led-th-in" class="right" style="cursor:pointer" onclick="sortLedger('in')">In ↕</th><th id="led-th-out" class="right" style="cursor:pointer" onclick="sortLedger('out')">Out ↕</th><th id="led-th-balance" class="right" style="cursor:pointer" onclick="sortLedger('balance')">Balance After ↕</th><th id="led-th-by" style="cursor:pointer" onclick="sortLedger('by')">By ↕</th><th id="led-th-notes">Notes</th>
         </tr></thead><tbody id="ledger-tbody"></tbody></table>
       </div>
       <div id="ledger-pagination" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 0;font-size:13px"></div>
@@ -5973,7 +5973,7 @@ function getLines(cid){
   return Array.from(document.querySelectorAll(`#${cid} .plt-line`)).map(row=>({cls:row.querySelector('select').value,qty:parseInt(row.querySelector('input').value)||0})).filter(p=>p.qty>0&&p.cls);
 }
 
-let ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null,sort:'newest'};
+let ledgerFilter={cls:null,dateFrom:'',dateTo:'',search:'',type:null,dir:null,sort:'newest',sortCol:'date',sortAsc:false};
 let ledgerPage=1;
 const LEDGER_PAGE_SIZE=25;
 function renderLedger(){
@@ -6053,6 +6053,19 @@ function renderLedgerPagination(page,total,count){
   el.innerHTML=btn('←',page-1,page===1,false)+pages+btn('→',page+1,page===total,false)+`<span style="color:var(--ink3);font-size:11px;margin-left:6px">Page ${page} of ${total} · ${count} entries</span>`;
 }
 
+function sortLedger(col){
+  if(ledgerFilter.sortCol===col)ledgerFilter.sortAsc=!ledgerFilter.sortAsc;
+  else{ledgerFilter.sortCol=col;ledgerFilter.sortAsc=true;}
+  ledgerPage=1;
+  // Update header indicators
+  const cols=['date','type','ref','product','in','out','balance','by'];
+  const lbls=['Date','Type','Reference','Product','In','Out','Balance After','By'];
+  cols.forEach((c,i)=>{
+    const th=document.getElementById('led-th-'+c);
+    if(th)th.textContent=lbls[i]+(ledgerFilter.sortCol===c?(ledgerFilter.sortAsc?' ▲':' ▼'):' ↕');
+  });
+  renderLedgerTable();
+}
 async function renderLedgerTable(){
   const ledCol=k=>{const el=document.getElementById(`led-col-${k}`);return!el||el.checked!==false;};
   ['date','type','ref','product','in','out','balance','by','notes'].forEach(k=>{const th=document.getElementById(`led-th-${k}`);if(th)th.style.display=ledCol(k)?'':'none';});
@@ -6069,6 +6082,8 @@ async function renderLedgerTable(){
   if(ledgerFilter.search)params.set('search',ledgerFilter.search);
   if(ledgerFilter.dateFrom)params.set('dateFrom',ledgerFilter.dateFrom);
   if(ledgerFilter.dateTo)params.set('dateTo',ledgerFilter.dateTo);
+  params.set('sortCol',ledgerFilter.sortCol||'date');
+  params.set('sortAsc',ledgerFilter.sortAsc?'1':'0');
   let list=[], totalPages=1, totalCount=0;
   try{
     const r=await fetch(`${API_URL}/api/ledger?${params}`,{headers:apiHeaders()});
