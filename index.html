@@ -2507,6 +2507,8 @@ function renderOrdTable(){
     if(ordF.source.includes('dropoff')&&!ordF.source.includes('driver'))list=list.filter(j=>j.driver==='Customer Drop Off'||j.source==='dropoff');
     else if(ordF.source.includes('driver')&&!ordF.source.includes('dropoff'))list=list.filter(j=>j.driver!=='Customer Drop Off'&&j.source!=='dropoff');
   }
+  // Compute statusAt for sorting
+  list=list.map(j=>({...j,statusAt:j.completedAt||j.loadedAt||j.pendingSortAt||((j.history||[]).filter(e=>e.type==='status').sort((a,b)=>b.at>a.at?1:-1)[0]?.at)||''}));
   list=sortList(list,'ord-table','awb',false);
 
   // Update stats with filtered counts
