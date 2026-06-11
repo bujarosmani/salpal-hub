@@ -3009,7 +3009,19 @@ function initColResize(th){
     const startX=e.clientX;
     const startW=th.offsetWidth;
     const onMove=ev=>{const newW=Math.max(40,startW+(ev.clientX-startX));th.style.width=newW+'px';};
-    const onUp=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
+    const onUp=()=>{
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+      // Auto-save widths after resize
+      if(!S.ordTablePrefs)S.ordTablePrefs={};
+      if(!S.ordTablePrefs.widths)S.ordTablePrefs.widths={};
+      document.querySelectorAll('#ord-table th').forEach(h=>{
+        const c=h.dataset.col||h.id?.replace('th-','');
+        if(c&&h.offsetWidth>0)S.ordTablePrefs.widths[c]=h.offsetWidth;
+      });
+      pushRecord('sp_stock','__ordTablePrefs',S.ordTablePrefs);
+      persist();
+    };
     document.addEventListener('mousemove',onMove);
     document.addEventListener('mouseup',onUp);
   };
