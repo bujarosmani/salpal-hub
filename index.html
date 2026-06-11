@@ -6781,6 +6781,27 @@ function renderPlanner(){
   Object.keys(plan.drivers).forEach(did=>{
     plan.drivers[did]=[...new Set((plan.drivers[did]||[]).filter(id=>validIds.has(id)))];
   });
+  // Reconcile column membership with each order's driverId (source of truth) —
+  // self-heals if the plan board fell out of sync with the order's actual driver
+  const driverIds=new Set(drivers.map(d=>d.id));
+  const byId=new Map(allOrders.map(j=>[j.id,j]));
+  plan.unassigned=plan.unassigned.filter(id=>{
+    const j=byId.get(id);
+    if(j.driverId&&driverIds.has(j.driverId)){
+      (plan.drivers[j.driverId]=plan.drivers[j.driverId]||[]).push(id);
+      return false;
+    }
+    return true;
+  });
+  Object.keys(plan.drivers).forEach(did=>{
+    plan.drivers[did]=plan.drivers[did].filter(id=>{
+      const j=byId.get(id);
+      if(j.driverId===did)return true;
+      if(j.driverId&&driverIds.has(j.driverId))(plan.drivers[j.driverId]=plan.drivers[j.driverId]||[]).push(id);
+      else plan.unassigned.push(id);
+      return false;
+    });
+  });
   // Add new orders not yet in plan
   const allPlannedIds=new Set([...plan.unassigned,...Object.values(plan.drivers).flat()]);
   allOrders.forEach(j=>{
