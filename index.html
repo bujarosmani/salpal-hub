@@ -2676,7 +2676,6 @@ function editOrder(id){
   document.getElementById('of-edit-id').value=id;
   document.getElementById('of-del-btn').style.display=canDelete()?'':'none';
   const _cancelBtn=document.getElementById('of-cancel-btn');
-  console.log('cancelBtn check: ME=',ME?.role,'j.status=',j?.status);
   if(_cancelBtn){
     if(ME&&ME.role==='Admin'&&j&&j.status&&!['Completed','Cancelled'].includes(j.status)){
       _cancelBtn.style.display='';
