@@ -2675,7 +2675,7 @@ function editOrder(id){
   document.getElementById('of-edit-id').value=id;
   document.getElementById('of-del-btn').style.display=canDelete()?'':'none';
   const _cancelBtn=document.getElementById('of-cancel-btn');
-  if(_cancelBtn)_cancelBtn.style.display=(isAdmin()&&ex&&!['Completed','Cancelled'].includes(ex.status))?'':'none';
+  if(_cancelBtn)_cancelBtn.style.display=(isAdmin()&&j&&!['Completed','Cancelled'].includes(j.status))?'':'none';
   document.getElementById('of-awb').value=j.awb;
   document.getElementById('of-ref').value=j.orderRef||'';
   document.getElementById('of-type').value=j.type||'';
