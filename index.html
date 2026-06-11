@@ -416,6 +416,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
         <th id="th-type" data-col="type" onclick="thClick('ord-table','type',renderOrdTable)" style="cursor:pointer">Type</th>
         <th id="th-company" data-col="companyName" onclick="thClick('ord-table','companyName',renderOrdTable)" style="cursor:pointer">Company</th>
         <th id="th-createdAt" data-col="createdAt" onclick="thClick('ord-table','createdAt',renderOrdTable)" style="cursor:pointer">Created</th>
+        <th id="th-statusAt" data-col="statusAt" onclick="thClick('ord-table','statusAt',renderOrdTable)" style="cursor:pointer">Status Changed</th>
         <th id="th-date" data-col="deliveryDate" onclick="thClick('ord-table','deliveryDate',renderOrdTable)" style="cursor:pointer">Delivery Date</th>
         <th id="th-pallets" data-col="totalQty" onclick="thClick('ord-table','totalQty',renderOrdTable)" style="cursor:pointer">Pallets</th>
         <th id="th-driver" data-col="driverId" onclick="thClick('ord-table','driverId',renderOrdTable)" style="cursor:pointer">Driver</th>
@@ -2403,7 +2404,7 @@ function renderOrders(){
   const savedCols=prefs.cols||{};
   const savedSize=prefs.pageSize||25;
   if(typeof ORD_PAGE_SIZE!=='undefined')window._ordPageSizeVar=savedSize;
-  const colDefs=[{k:'orderRef',l:'Order Ref'},{k:'type',l:'Type'},{k:'company',l:'Company'},{k:'date',l:'Date'},{k:'pallets',l:'Pallets'},{k:'driver',l:'Driver'},{k:'whBy',l:'WH By'},{k:'whNotes',l:'WH Notes'},{k:'status',l:'Status'},{k:'checked',l:'✓ Checked'}];
+  const colDefs=[{k:'orderRef',l:'Order Ref'},{k:'type',l:'Type'},{k:'company',l:'Company'},{k:'createdAt',l:'Created'},{k:'statusAt',l:'Status Changed'},{k:'date',l:'Delivery Date'},{k:'pallets',l:'Pallets'},{k:'driver',l:'Driver'},{k:'whBy',l:'WH By'},{k:'whNotes',l:'WH Notes'},{k:'status',l:'Status'},{k:'checked',l:'✓ Checked'}];
   if(toggles){
     toggles.innerHTML=colDefs.map(c=>{
       const defaultOn=c.k!=='whNotes'&&c.k!=='checked';
@@ -2598,6 +2599,7 @@ function renderOrdTable(){
       ${col('type')?`<td>${typeChip(j.type)}</td>`:''}
       ${col('company')?`<td><div>${esc(j.companyName||'\u2014')}</div><div style="font-size:11px;color:var(--ink3)">${esc([j.city,j.postcode].filter(Boolean).join(', '))}</div></td>`:''}
       ${col('createdAt')?`<td style="font-size:11px;color:var(--ink3);white-space:nowrap">${j.createdAt?fdt(j.createdAt):'—'}</td>`:''}
+      ${col('statusAt')?`<td style="font-size:11px;color:var(--ink3);white-space:nowrap">${(()=>{const d=j.completedAt||j.loadedAt||j.pendingSortAt||((j.history||[]).filter(e=>e.type==='status').sort((a,b)=>b.at>a.at?1:-1)[0]?.at);return d?fdt(d):'—';})()}</td>`:''}
       ${col('date')?`<td>${fd(j.deliveryDate)}</td>`:''}
       ${col('pallets')?`<td style="font-size:12px">${esc(ps)}</td>`:''}
       ${col('driver')?`<td style="font-size:12px">${j.driverId?uname(j.driverId):j.driver||'\u2014'}</td>`:''}
@@ -2957,7 +2959,7 @@ function applyOrdTableWidth(val){
 }
 
 function saveOrdColPrefs(){
-  const colDefs=['orderRef','type','company','date','pallets','driver','whBy','whNotes','status','checked'];
+  const colDefs=['orderRef','type','company','createdAt','statusAt','date','pallets','driver','whBy','whNotes','status','checked'];
   const cols={};
   colDefs.forEach(k=>{const el=document.getElementById('col-'+k);if(el)cols[k]=el.checked;});
   const ps=parseInt(document.getElementById('ord-page-size')?.value||'25');
