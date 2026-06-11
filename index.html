@@ -1483,10 +1483,10 @@ function scheduleRetry(){
 // ─────────────────────────────────────────────
 // Save an order immediately
 function syncOrder(order){
-  if(!order||!order.id)return;
+  if(!order||!order.id)return Promise.resolve();
   const clean={...order};delete clean._pendingSync;
   persist();
-  pushRecord('sp_orders',order.id,clean);
+  return pushRecord('sp_orders',order.id,clean);
 }
 
 // Save a repair immediately  
