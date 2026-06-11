@@ -1802,6 +1802,28 @@ function closeM(id){
   }
   modal.classList.remove('open');
   modal._dirty=false;modal._saved=false;modal._snapshot=null;
+  reopenReturnModal(id);
+}
+// Stack of modals temporarily hidden while a child modal (e.g. order detail
+// opened from the stock-orders list) is shown on top of them.
+window._modalReturnStack=window._modalReturnStack||[];
+function pauseModalFor(pausedId,childId){
+  const modal=document.getElementById(pausedId);if(!modal)return;
+  modal.classList.remove('open');
+  window._modalReturnStack.push({id:pausedId,closesWith:childId});
+}
+function reopenReturnModal(closedId){
+  const stack=window._modalReturnStack;
+  if(stack.length&&stack[stack.length-1].closesWith===closedId){
+    const ret=stack.pop();
+    document.getElementById(ret.id)?.classList.add('open');
+  }
+}
+// Drop a pending return-modal entry without reopening it — used when
+// closeM(id) is immediately followed by navigating to a different modal/page.
+function discardReturnModal(closedId){
+  const stack=window._modalReturnStack;
+  if(stack.length&&stack[stack.length-1].closesWith===closedId)stack.pop();
 }
 function forceCloseM(id){
   const modal=document.getElementById(id);if(!modal)return;
@@ -2805,7 +2827,7 @@ function setOrdStatus(id,status){
     syncOrder(j);
   }
   toast(`${j.awb} → ${status}`);
-  closeM('m-detail');renderOrders();renderDash();
+  discardReturnModal('m-detail');closeM('m-detail');renderOrders();renderDash();
   if(j.type==='Delivery')renderDispatch();else renderReceiving();
 }
 
@@ -3088,8 +3110,8 @@ function viewOrder(id){
   const isSup=ME&&(ME.role==='Admin'||ME.role==='Supervisor'||ME.role==='Manager')&&!isViewer();
   let foot=`<button class="btn btn-ghost" onclick="closeM('m-detail')">Close</button>`;
 
-  if(isSup&&isD&&j.status==='Open')foot+=` <button class="btn btn-amber" onclick="closeM('m-detail');openLoadModal('${j.id}')">📦 Mark Loaded</button>`;
-  if(isSup&&!isD){if(j.status==='Collected')foot+=` <button class="btn btn-ghost" onclick="setOrdStatus('${j.id}','Delivered')">🏭 At Warehouse</button>`;if(j.status==='Delivered')foot+=` <button class="btn btn-primary" onclick="closeM('m-detail');openCompleteRecModal('${j.id}')">✓ Complete</button>`;}
+  if(isSup&&isD&&j.status==='Open')foot+=` <button class="btn btn-amber" onclick="discardReturnModal('m-detail');closeM('m-detail');openLoadModal('${j.id}')">📦 Mark Loaded</button>`;
+  if(isSup&&!isD){if(j.status==='Collected')foot+=` <button class="btn btn-ghost" onclick="setOrdStatus('${j.id}','Delivered')">🏭 At Warehouse</button>`;if(j.status==='Delivered')foot+=` <button class="btn btn-primary" onclick="discardReturnModal('m-detail');closeM('m-detail');openCompleteRecModal('${j.id}')">✓ Complete</button>`;}
   document.getElementById('det-foot').innerHTML=foot;
   openM('m-detail');
 }
@@ -4233,16 +4255,16 @@ function viewDrvTask(id){
   }
   document.getElementById('det-foot').innerHTML=foot;openM('m-detail');
 }
-function startDelivery(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Started delivery','status');syncOrder(j);toast('Delivery started 🚛');closeM('m-detail');renderDriver();}
-function startCollect(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Left to collect','status');syncOrder(j);toast('Left to collect 🚛');closeM('m-detail');renderDriver();}
+function startDelivery(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Started delivery','status');syncOrder(j);toast('Delivery started 🚛');discardReturnModal('m-detail');closeM('m-detail');renderDriver();}
+function startCollect(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='In Transit';j.updatedAt=new Date().toISOString();addTL(j,'Left to collect','status');syncOrder(j);toast('Left to collect 🚛');discardReturnModal('m-detail');closeM('m-detail');renderDriver();}
 function markReturnArrived(id){
   const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;
   j.status='Delivered';j.updatedAt=new Date().toISOString();
   addTL(j,'Driver arrived at WH with returned pallets','status');
-  syncOrder(j);toast('WH notified — pallets arriving');closeM('m-detail');renderDriver();
+  syncOrder(j);toast('WH notified — pallets arriving');discardReturnModal('m-detail');closeM('m-detail');renderDriver();
 }
 
-function markCollected(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Collected';j.updatedAt=new Date().toISOString();addTL(j,'Pallets collected — returning to warehouse','status');syncOrder(j);toast('Pallets collected');closeM('m-detail');renderDriver();}
+function markCollected(id){const j=(S.orders||[]).find(x=>x.id===id);if(!j)return;j.status='Collected';j.updatedAt=new Date().toISOString();addTL(j,'Pallets collected — returning to warehouse','status');syncOrder(j);toast('Pallets collected');discardReturnModal('m-detail');closeM('m-detail');renderDriver();}
 
 /* ── WHATSAPP FORMS ── */
 let _waMsg='';
@@ -4301,7 +4323,7 @@ function openPartialModal(taskId){
     </div>`).join('');
   lines.innerHTML+=`<div id="partial-summary" style="background:var(--panel);border:1.5px solid var(--line);border-radius:9px;padding:10px 14px;font-size:13px"></div>`;
   updatePartialSummary(taskId);
-  closeM('m-detail');openM('m-partial');
+  discardReturnModal('m-detail');closeM('m-detail');openM('m-partial');
 }
 
 function updatePartialSummary(taskId){
@@ -4384,7 +4406,7 @@ function submitPartial(){
   toast(`✓ Partial delivery recorded — ${totalRefused} pallets returning to WH`);
   closeM('m-partial');renderDriver();renderDash();
 }
-function openProofModal(taskId){const j=(S.orders||[]).find(x=>x.id===taskId);document.getElementById('prf-task-id').value=taskId;document.getElementById('prf-co').value=j?j.companyName:'';document.getElementById('prf-name').value='';document.getElementById('prf-err').textContent='';closeM('m-detail');openM('m-proof');}
+function openProofModal(taskId){const j=(S.orders||[]).find(x=>x.id===taskId);document.getElementById('prf-task-id').value=taskId;document.getElementById('prf-co').value=j?j.companyName:'';document.getElementById('prf-name').value='';document.getElementById('prf-err').textContent='';discardReturnModal('m-detail');closeM('m-detail');openM('m-proof');}
 function submitProof(){
   const id=document.getElementById('prf-task-id').value;
   const name=document.getElementById('prf-name').value.trim();
@@ -6218,7 +6240,7 @@ function viewLedgerEntry(id){
         ['Notes',e.notes||'\u2014'],
       ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700">${l}</span><span>${v}</span></div>`).join('')}
     </div></div>
-    ${linkedOrder?`<div style="margin-top:4px"><button class="btn btn-ghost btn-sm" onclick="closeM('m-detail');viewOrder('${linkedOrder.id}')">📋 View Order ${esc(linkedOrder.awb)}</button></div>`:''}
+    ${linkedOrder?`<div style="margin-top:4px"><button class="btn btn-ghost btn-sm" onclick="discardReturnModal('m-detail');closeM('m-detail');viewOrder('${linkedOrder.id}')">📋 View Order ${esc(linkedOrder.awb)}</button></div>`:''}
   `;
   document.getElementById('det-foot').innerHTML=`<button class="btn btn-ghost" onclick="closeM('m-detail')">Close</button>`;
   openM('m-detail');
@@ -6319,7 +6341,7 @@ function openStockOrders(cls,dir){
   document.getElementById('stock-orders-title').textContent=`${isIncoming?'Incoming':'Outgoing'} orders — ${cls}`;
   const rows=orders.map((j,i)=>{
     const qty=(j.pallets||[]).find(p=>p.cls===cls)?.qty||0;
-    return `<tr style="border-bottom:1px solid var(--line2);cursor:pointer" onclick="closeM('m-stock-orders');viewOrder('${j.id}')" onmouseenter="this.style.background='var(--panel2)'" onmouseleave="this.style.background=''">`
+    return `<tr style="border-bottom:1px solid var(--line2);cursor:pointer" onclick="pauseModalFor('m-stock-orders','m-detail');viewOrder('${j.id}')" onmouseenter="this.style.background='var(--panel2)'" onmouseleave="this.style.background=''">`
       +`<td style="padding:8px 10px;font-size:12px;color:var(--blue)">${esc(j.awb)}</td>`
       +`<td style="padding:8px 10px;font-weight:500">${esc(j.companyName||'—')}${j.city?' · '+esc(j.city):''}</td>`
       +`<td style="padding:8px 10px;color:var(--ink3)">${fd(j.deliveryDate||j.orderDate)}</td>`
