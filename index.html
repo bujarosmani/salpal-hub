@@ -893,6 +893,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
       </div>
     </div>
     <div class="mfoot">
+      <button class="btn btn-sm" id="of-cancel-btn" style="display:none;margin-right:auto;background:rgba(127,127,127,.15);color:var(--ink3);border:1px solid var(--line2)" onclick="cancelOrder(document.getElementById('of-id').value)">✕ Cancel Order</button>
       <button class="btn btn-danger btn-sm" id="of-del-btn" style="display:none;margin-right:auto" onclick="document.getElementById('of-del-confirm').style.display='block'">Delete</button>
       <button class="btn btn-ghost" onclick="closeOrderModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveOrder()">Save Order ✓</button>
@@ -2673,6 +2674,8 @@ function editOrder(id){
   persist();
   document.getElementById('of-edit-id').value=id;
   document.getElementById('of-del-btn').style.display=canDelete()?'':'none';
+  const _cancelBtn=document.getElementById('of-cancel-btn');
+  if(_cancelBtn)_cancelBtn.style.display=(isAdmin()&&ex&&!['Completed','Cancelled'].includes(ex.status))?'':'none';
   document.getElementById('of-awb').value=j.awb;
   document.getElementById('of-ref').value=j.orderRef||'';
   document.getElementById('of-type').value=j.type||'';
@@ -3049,7 +3052,7 @@ function cancelOrder(id){
   j.cancelledAt=new Date().toISOString();
   j.updatedAt=new Date().toISOString();
   syncOrder(j);persist();
-  closeM('m-detail');
+  forceCloseM('m-order');
   renderOrders();renderDash();
   toast('Order cancelled');
 }
@@ -3065,7 +3068,7 @@ function viewOrder(id){
   document.getElementById('det-body').innerHTML=`${prog}<div style="display:flex;gap:8px;margin-bottom:14px">${typeChip(j.type)} ${stChip(j.status)}</div><div class="card" style="margin-bottom:12px"><div class="card-body" style="display:grid;gap:7px">${[[pl,j.companyName||'\u2014'],['Address',(j.deliveryCompany?j.deliveryCompany+', ':'')+([j.companyAddress,j.city,j.postcode].filter(Boolean).join(', '))||'\u2014'],['Order Ref',j.orderRef||'\u2014'],['Date',fd(j.deliveryDate)],['Window',j.timeFrom&&j.timeTo?j.timeFrom+'\u2013'+j.timeTo:'Any time'],['Driver',j.driverId?uname(j.driverId):j.driver||'\u2014'],['WH By',j.whBy||'\u2014'],['Notes',j.driverNotes||'\u2014']].map(([l,v])=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;flex-shrink:0">${l}</span><span style="font-weight:600;text-align:right;font-size:13px">${esc(v)}</span></div>`).join('')}</div></div><div class="sec-title" style="margin-bottom:8px">Pallets</div><div class="card" style="margin-bottom:12px"><div class="card-body">${pr}<div style="display:flex;justify-content:space-between;padding:8px 0 0"><strong>TOTAL</strong><span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--brand)">${j.totalQty}</span></div></div></div>${renderChangesBox(j)}${renderSortingBox(j)}${j.proof?`<div class="card" style="margin-bottom:12px;background:rgba(61,214,104,.05);border-color:var(--brand-dim)"><div class="card-body"><div style="color:var(--brand);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px">\u2713 Delivered</div><div style="font-weight:600;margin-top:4px">${esc(j.proof.recipientName)} \u00b7 ${esc(j.proof.companyName)}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">${fdt(j.proof.completedAt)}</div></div></div>`:''}  <div class="sec-title" style="margin-bottom:10px">Timeline</div>${renderTL(j)}`;
   const isSup=ME&&(ME.role==='Admin'||ME.role==='Supervisor'||ME.role==='Manager')&&!isViewer();
   let foot=`<button class="btn btn-ghost" onclick="closeM('m-detail')">Close</button>`;
-  if(isAdmin()&&j.status!=='Cancelled'&&j.status!=='Completed')foot+=` <button class="btn btn-sm" style="background:rgba(127,127,127,.15);color:var(--ink3);border:1px solid var(--line2)" onclick="cancelOrder('${j.id}')">✕ Cancel Order</button>`;
+
   if(isSup&&isD&&j.status==='Open')foot+=` <button class="btn btn-amber" onclick="closeM('m-detail');openLoadModal('${j.id}')">📦 Mark Loaded</button>`;
   if(isSup&&!isD){if(j.status==='Collected')foot+=` <button class="btn btn-ghost" onclick="setOrdStatus('${j.id}','Delivered')">🏭 At Warehouse</button>`;if(j.status==='Delivered')foot+=` <button class="btn btn-primary" onclick="closeM('m-detail');openCompleteRecModal('${j.id}')">✓ Complete</button>`;}
   document.getElementById('det-foot').innerHTML=foot;
