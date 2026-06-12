@@ -1286,6 +1286,29 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <div id="toast"></div>
 
 <script>
+// Bump this string on every deploy. Used to detect when a newer build is
+// live so long-running mobile sessions get prompted to refresh.
+const BUILD_ID='2026-06-12T21:00:00Z';
+function checkForUpdate(){
+  fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
+    .then(r=>r.text())
+    .then(html=>{
+      const m=html.match(/BUILD_ID='([^']+)'/);
+      if(m&&m[1]&&m[1]!==BUILD_ID)showUpdateBanner();
+    }).catch(()=>{});
+}
+function showUpdateBanner(){
+  if(document.getElementById('update-banner'))return;
+  const b=document.createElement('div');
+  b.id='update-banner';
+  b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#3dd668;color:#08120a;padding:10px 14px;text-align:center;font-weight:700;font-size:13px;cursor:pointer';
+  b.textContent='🔄 A new version of SalPal Hub is available — tap to update';
+  b.onclick=()=>location.reload();
+  document.body.appendChild(b);
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkForUpdate();});
+setInterval(checkForUpdate,5*60000);
+checkForUpdate();
 const DEFAULT_SKUS=['A','B','C','EW 120x80','EW 120x100','Color 120x80','Unsorted','Defected Euro','Defected K'];
 function getSKUS(){return S&&S.products&&S.products.length?S.products:DEFAULT_SKUS;}
 const SKU_C={'A':{bg:'rgba(61,214,104,.12)',c:'#3dd668'},'B':{bg:'rgba(91,156,246,.12)',c:'#5b9cf6'},'C':{bg:'rgba(245,200,66,.12)',c:'#f5c842'},'EW 120x80':{bg:'rgba(167,139,250,.12)',c:'#a78bfa'},'EW 120x100':{bg:'rgba(56,189,248,.12)',c:'#38bdf8'},'Color 120x80':{bg:'rgba(251,146,60,.12)',c:'#fb923c'}};
