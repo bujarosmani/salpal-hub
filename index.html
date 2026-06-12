@@ -6362,9 +6362,10 @@ function renderStock(){
 function openStockOrders(cls,dir){
   forceCloseM('m-detail');
   const isIncoming=dir==='incoming';
-  const orders=isIncoming
+  const orders=(isIncoming
     ?(S.orders||[]).filter(j=>j.type==='Collection'&&j.status!=='Completed'&&j.status!=='Pending Sort'&&(j.pallets||[]).some(p=>p.cls===cls))
-    :(S.orders||[]).filter(j=>j.type==='Delivery'&&j.status==='Open'&&(j.pallets||[]).some(p=>p.cls===cls));
+    :(S.orders||[]).filter(j=>j.type==='Delivery'&&j.status==='Open'&&(j.pallets||[]).some(p=>p.cls===cls)))
+    .slice().sort((a,b)=>(a.deliveryDate||a.orderDate||'').localeCompare(b.deliveryDate||b.orderDate||''));
   document.getElementById('stock-orders-title').textContent=`${isIncoming?'Incoming':'Outgoing'} orders — ${cls}`;
   const rows=orders.map((j,i)=>{
     const qty=(j.pallets||[]).find(p=>p.cls===cls)?.qty||0;
