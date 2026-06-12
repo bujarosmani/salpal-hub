@@ -2623,7 +2623,7 @@ function renderOrdTable(){
   const wSlider=document.getElementById('ord-tbl-width');
   const wLbl=document.getElementById('ord-tbl-width-lbl');
   const cardSaved=document.getElementById('ord-table-card');
-  if(cardSaved){if(savedTblWidth){cardSaved.style.maxWidth=savedTblWidth+'px';cardSaved.style.width=savedTblWidth+'px';}else{cardSaved.style.maxWidth='';cardSaved.style.width='';}} if(wSlider)wSlider.value=savedTblWidth||600;if(wLbl)wLbl.textContent=savedTblWidth?savedTblWidth+'px':'Auto';
+  if(cardSaved){if(savedTblWidth&&window.innerWidth>=768){cardSaved.style.maxWidth=savedTblWidth+'px';cardSaved.style.width=savedTblWidth+'px';}else{cardSaved.style.maxWidth='';cardSaved.style.width='';}} if(wSlider)wSlider.value=savedTblWidth||600;if(wLbl)wLbl.textContent=savedTblWidth?savedTblWidth+'px':'Auto';
   // Apply saved column widths
   const savedWidths=(S.ordTablePrefs&&S.ordTablePrefs.widths)||{};
   const allThs=document.querySelectorAll('#ord-table th');
