@@ -3701,6 +3701,7 @@ function saveQuickEntry(createOnly){
     // Atomic save — order + stock + ledger together
     const hasUnsorted=pallets.some(p=>p.cls&&p.cls.toLowerCase().includes('unsorted'));
     j.status=type==='Delivery'?'Loaded':(hasUnsorted?'Pending Sort':'Completed');
+    if(hasUnsorted)j.completedAt=null;
     fetch(API_URL+'/api/action/quickentry',{method:'POST',headers:apiHeaders(),body:JSON.stringify({order:j,type})})
     .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Server error');});return r.json();})
     .then(result=>{
