@@ -1291,7 +1291,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-13T06:30:00Z';
+const BUILD_ID='2026-06-13T06:45:00Z';
 let _updateAvailable=false;
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
@@ -4260,7 +4260,10 @@ function renderDrvTab(name){
   }
   if(name==='upcoming'){
     const uj=mj.filter(j=>j.deliveryDate>tod()&&!['Completed','In Transit','Collected'].includes(j.status)).sort((a,b)=>{
-      return a.deliveryDate.localeCompare(b.deliveryDate);
+      const dc=a.deliveryDate.localeCompare(b.deliveryDate);
+      if(dc!==0)return dc;
+      const as=a.planSeq||999,bs=b.planSeq||999;
+      return as-bs;
     });
     const byD={};uj.forEach(j=>{if(!byD[j.deliveryDate])byD[j.deliveryDate]=[];byD[j.deliveryDate].push(j);});
     document.getElementById('drv-upcoming').innerHTML=Object.keys(byD).length?Object.keys(byD).sort().map(d=>`<div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brand);font-weight:700;padding:10px 0 6px">${fd(d)}</div>${byD[d].map(j=>drvCard(j,tod())).join('')}`).join(''):'<div class="empty">No upcoming tasks</div>';
