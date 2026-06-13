@@ -1291,7 +1291,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-13T07:25:00Z';
+const BUILD_ID='2026-06-13T07:30:00Z';
 let _updateAvailable=false;
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
@@ -4231,7 +4231,7 @@ function bindCalToolbar(drvOpts){
 function drvTab(name,btn){const page=document.getElementById('page-driver');page.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');page.querySelectorAll('.tpane').forEach(p=>p.classList.remove('on'));document.getElementById(`drv-${name}`).classList.add('on');renderDrvTab(name);}
 function renderDriver(){
   if(!ME||ME.role!=='Driver')return;
-  document.getElementById('drv-date').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('drv-date').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})+' · v'+BUILD_ID.slice(11,16);
   const mj=(S.orders||[]).filter(j=>j.driverId===ME.id);
   document.getElementById('drv-stats').innerHTML=`<div class="stat-box"><div class="stat-num" style="color:var(--blue)">${mj.filter(j=>j.status==='Loaded').length}</div><div class="stat-lbl">Ready</div></div><div class="stat-box"><div class="stat-num" style="color:var(--purple)">${mj.filter(j=>j.status==='In Transit'||j.status==='Collected').length}</div><div class="stat-lbl">In Progress</div></div><div class="stat-box"><div class="stat-num">${mj.filter(j=>j.status==='Completed'&&isToday(j.updatedAt)).length}</div><div class="stat-lbl">Done Today</div></div>`;
   renderDrvTab('today');
