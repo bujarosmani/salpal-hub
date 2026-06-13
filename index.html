@@ -1291,7 +1291,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-13T07:20:00Z';
+const BUILD_ID='2026-06-13T07:25:00Z';
 let _updateAvailable=false;
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
@@ -1595,7 +1595,7 @@ async function loadCloud(){
   try{
     setSS('syncing');
     if(!API_TOKEN){setSS('error');return;}
-    const r=await fetch(API_URL+'/api/data',{headers:apiHeaders()});
+    const r=await fetch(API_URL+'/api/data?_cb='+Date.now(),{headers:apiHeaders(),cache:'no-store'});
     if(r.status===401){handleExpiredToken();return;}
     if(!r.ok){setSS('error');return;}
     const d=await r.json();
