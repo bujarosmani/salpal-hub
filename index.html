@@ -1291,7 +1291,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-13T17:48:00Z';
+const BUILD_ID='2026-06-13T17:55:00Z';
 let _updateAvailable=false;
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
@@ -6317,8 +6317,8 @@ function getStock(){
   const result={};
   getSKUS().forEach(cls=>{
     const onHand=S.stock[cls]||0;
-    // Incoming: Collection orders not yet received (exclude Pending Sort and Completed — stock already added)
-    const incoming=(S.orders||[]).filter(j=>j.type==='Collection'&&j.status!=='Completed'&&j.status!=='Pending Sort')
+    // Incoming: Collection orders not yet received (exclude Pending Sort, Completed and Cancelled — stock already added or never coming)
+    const incoming=(S.orders||[]).filter(j=>j.type==='Collection'&&j.status!=='Completed'&&j.status!=='Pending Sort'&&j.status!=='Cancelled')
       .reduce((s,j)=>{const p=(j.pallets||[]).find(p=>p.cls===cls);return s+(p?p.qty:0);},0);
     // Outgoing: only Open Delivery orders (Loaded/In Transit already physically left — deducted from On Hand by stock actions)
     const outgoing=(S.orders||[]).filter(j=>j.type==='Delivery'&&j.status==='Open')
