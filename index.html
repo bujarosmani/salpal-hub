@@ -1291,7 +1291,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-13T13:25:00Z';
+const BUILD_ID='2026-06-13T17:28:00Z';
 let _updateAvailable=false;
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
@@ -2484,7 +2484,7 @@ function renderOrders(){
   const ords=S.orders||[];
   document.getElementById('ord-stats').innerHTML=`<div class="stat-box"><div class="stat-num">${ords.length}</div><div class="stat-lbl">Total</div></div><div class="stat-box"><div class="stat-num" style="color:var(--amber)">${ords.filter(j=>j.status!=='Completed').length}</div><div class="stat-lbl">Active</div></div><div class="stat-box"><div class="stat-num" style="color:var(--brand)">${ords.filter(j=>j.type==='Delivery').length}</div><div class="stat-lbl">Deliveries</div></div><div class="stat-box"><div class="stat-num" style="color:var(--blue)">${ords.filter(j=>j.type==='Collection').length}</div><div class="stat-lbl">Collections</div></div>`;
   const typeOpts=[{value:'Delivery',label:'Delivery'},{value:'Collection',label:'Collection'}];
-  const statOpts=['Open','Loaded','In Transit','Collected','Delivered','Completed'].map(s=>({value:s,label:s}));
+  const statOpts=['Open','Loaded','In Transit','Collected','Delivered','Completed','Cancelled'].map(s=>({value:s,label:s}));
   const drvOpts=drvs().map(d=>({value:d.id,label:`${d.firstName} ${d.lastName}`}));
   const dlabel=ordF.dateFrom&&ordF.dateTo?`${fd(ordF.dateFrom)}–${fd(ordF.dateTo)}`:ordF.dateFrom?fd(ordF.dateFrom):'All Dates';
   const sourceOpts=[{value:'driver',label:'Driver orders'},{value:'dropoff',label:'Drop-offs'}];
