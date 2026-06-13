@@ -1291,7 +1291,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-13T06:50:00Z';
+const BUILD_ID='2026-06-13T07:00:00Z';
 let _updateAvailable=false;
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
@@ -7116,6 +7116,22 @@ function plannerRemove(orderId,colId){
   const plan=S.plans[date];
   if(colId==='unassigned')plan.unassigned=(plan.unassigned||[]).filter(id=>id!==orderId);
   else plan.drivers[colId]=(plan.drivers[colId]||[]).filter(id=>id!==orderId);
+  // Send back to unassigned so the order isn't left dangling, and clear its driver
+  if(!plan.unassigned)plan.unassigned=[];
+  if(!plan.unassigned.includes(orderId))plan.unassigned.push(orderId);
+  const order=(S.orders||[]).find(j=>j.id===orderId);
+  if(order&&order.driverId){
+    const prevDriverName=uname(order.driverId)||'Unassigned';
+    order.driverId='';
+    order.planSeq=null;
+    order.updatedAt=new Date().toISOString();
+    addTL(order,`Driver assigned: ${prevDriverName} → Unassigned`,'edit');
+    syncOrder(order).catch(e=>console.error('syncOrder failed',e));
+  }
+  // Renumber remaining orders in the source driver column
+  if(colId!=='unassigned'){
+    (plan.drivers[colId]||[]).forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planSeq=i+1;syncOrder(j);}});
+  }
   pushRecord('sp_stock','__plans',S.plans||{});
   persist();renderPlanner();
 }
