@@ -1291,7 +1291,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-13T07:10:00Z';
+const BUILD_ID='2026-06-13T07:20:00Z';
 let _updateAvailable=false;
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
@@ -6893,6 +6893,13 @@ function renderPlanner(){
       if(!plan.unassigned)plan.unassigned=[];
       plan.unassigned.push(j.id);
     }
+  });
+  // Self-heal: keep each order's planSeq in sync with its position in the driver's column
+  Object.keys(plan.drivers).forEach(did=>{
+    plan.drivers[did].forEach((id,i)=>{
+      const j=byId.get(id);
+      if(j&&j.planSeq!==i+1){j.planSeq=i+1;syncOrder(j);}
+    });
   });
 
   const body=document.getElementById('planner-body');
