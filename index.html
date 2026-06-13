@@ -1291,7 +1291,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-13T06:45:00Z';
+const BUILD_ID='2026-06-13T06:50:00Z';
 let _updateAvailable=false;
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
@@ -4159,8 +4159,9 @@ function renderCalendar(){
     const dow=dows[new Date(date).getDay()],dn=parseInt(date.split('-')[2],10),isT=date===ts;
     const _csf=window.calStatusFilter||['Open','Loaded','In Transit','Collected','Delivered'];
     const driverIds=new Set(drivers.map(d=>d.id));
-    const unassDels=(S.orders||[]).filter(t=>t.deliveryDate===date&&!t.driverId&&t.type==='Delivery'&&_csf.includes(t.status));
-    const unassColl=(S.orders||[]).filter(t=>t.deliveryDate===date&&!t.driverId&&t.type==='Collection'&&_csf.includes(t.status));
+    const byPlanSeq=(a,b)=>(a.planSeq||999)-(b.planSeq||999);
+    const unassDels=(S.orders||[]).filter(t=>t.deliveryDate===date&&!t.driverId&&t.type==='Delivery'&&_csf.includes(t.status)).sort(byPlanSeq);
+    const unassColl=(S.orders||[]).filter(t=>t.deliveryDate===date&&!t.driverId&&t.type==='Collection'&&_csf.includes(t.status)).sort(byPlanSeq);
     const unassTot=[...unassDels,...unassColl].reduce((s,t)=>s+(t.totalQty||0),0);
     const jobBtn=t=>{const sc=t.status.toLowerCase().replace(/ /g,''),isCol=t.type==='Collection';return`<button class="cal-job ${isCol?'col':''} ${sc==='completed'?'completed':''}" data-vid="${t.id}"><span class="cal-job-awb">${esc(t.awb)}</span><span class="cal-job-co">${esc(t.companyName||'')}${t.city&&t.city!=='-'?' · '+esc(t.city):''}</span><span class="cal-job-meta">${t.totalQty||0} plt${t.timeFrom?' \u00b7 '+t.timeFrom:''}</span>${stChip(t.status)}</button>`;};
     const unassCol=(showUnassigned?(()=>{
@@ -4172,8 +4173,8 @@ function renderCalendar(){
     })():'');
     const cols=drivers.map(dr=>{
       const _csf=window.calStatusFilter||['Open','Loaded','In Transit','Collected','Delivered'];
-      const dels=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Delivery'&&_csf.includes(t.status));
-      const coll=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Collection'&&_csf.includes(t.status));
+      const dels=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Delivery'&&_csf.includes(t.status)).sort((a,b)=>(a.planSeq||999)-(b.planSeq||999));
+      const coll=(S.orders||[]).filter(t=>t.deliveryDate===date&&t.driverId===dr.id&&t.type==='Collection'&&_csf.includes(t.status)).sort((a,b)=>(a.planSeq||999)-(b.planSeq||999));
       const totPlt=[...dels,...coll].reduce((s,t)=>s+(t.totalQty||0),0);
       const sum=(dels.length||coll.length)?`<div class="cal-day-summary">${dels.length} del \u00b7 ${coll.length} col \u00b7 ${totPlt} plt</div>`:'';
       const dH=dels.length?`<div class="cal-section-lbl del">Deliveries</div>${dels.map(jobBtn).join('')}`:'';
