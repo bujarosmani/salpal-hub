@@ -1291,14 +1291,29 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-13T05:50:00Z';
+const BUILD_ID='2026-06-13T06:08:00Z';
+let _updateAvailable=false;
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
     .then(r=>r.text())
     .then(html=>{
       const m=html.match(/BUILD_ID='([^']+)'/);
-      if(m&&m[1]&&m[1]!==BUILD_ID)showUpdateBanner();
+      if(m&&m[1]&&m[1]!==BUILD_ID){_updateAvailable=true;tryShowUpdateBanner();}
     }).catch(()=>{});
+}
+// Only surface the update once it's safe: nothing left to sync to the
+// server, and the user isn't in the middle of filling out a form.
+function isSafeToReload(){
+  if(typeof _pendingCount!=='undefined'&&_pendingCount>0)return false;
+  if(typeof _retryQueue!=='undefined'&&_retryQueue.length>0)return false;
+  if(document.querySelector('.mbackdrop.open'))return false;
+  return true;
+}
+function tryShowUpdateBanner(){
+  if(!_updateAvailable)return;
+  if(document.getElementById('update-banner'))return;
+  if(!isSafeToReload())return;
+  showUpdateBanner();
 }
 function showUpdateBanner(){
   if(document.getElementById('update-banner'))return;
@@ -1309,8 +1324,11 @@ function showUpdateBanner(){
   b.onclick=()=>location.reload();
   document.body.appendChild(b);
 }
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkForUpdate();});
-setInterval(checkForUpdate,5*60000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){checkForUpdate();tryShowUpdateBanner();}});
+setInterval(()=>{checkForUpdate();tryShowUpdateBanner();},5*60000);
+// Re-check readiness frequently once an update is known to be pending,
+// so the banner appears as soon as sync finishes / forms are closed.
+setInterval(()=>{if(_updateAvailable)tryShowUpdateBanner();},10000);
 checkForUpdate();
 const DEFAULT_SKUS=['A','B','C','EW 120x80','EW 120x100','Color 120x80','Unsorted','Defected Euro','Defected K'];
 function getSKUS(){return S&&S.products&&S.products.length?S.products:DEFAULT_SKUS;}
