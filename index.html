@@ -1291,7 +1291,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-13T07:00:00Z';
+const BUILD_ID='2026-06-13T07:10:00Z';
 let _updateAvailable=false;
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
@@ -6998,6 +6998,13 @@ function bindMobPlannerDnd(date){
     to.splice(Math.max(0,Math.min(targetIdx,to.length)),0,dragOrderId);
     const order=(S.orders||[]).find(j=>j.id===dragOrderId);
     if(order){const prevDriver=order.driverId;order.driverId=targetColId==='unassigned'?null:targetColId;order.updatedAt=new Date().toISOString();const dName=targetColId==='unassigned'?'Unassigned':(uname(targetColId)||targetColId);addTL(order,`Driver assigned: ${dName}`,'edit');syncOrder(order);}
+    // Renumber plan sequence for affected driver columns so drivers see jobs in the planned order
+    const plan=S.plans[date];
+    [dragCol,targetColId].forEach(colId=>{
+      if(colId==='unassigned')return;
+      (plan.drivers[colId]||[]).forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planSeq=i+1;syncOrder(j);}});
+    });
+    pushRecord('sp_stock','__plans',S.plans||{});
     persist();renderPlanner();
   }
 
@@ -7076,7 +7083,13 @@ function plannerMobMove(orderId,fromColId,toColId,sel){
   else{if(!plan.drivers[toColId])plan.drivers[toColId]=[];plan.drivers[toColId].push(orderId);}
   // Update order driverId if moved to a driver column
   const order=(S.orders||[]).find(j=>j.id===orderId);
-  if(order){order.driverId=toColId==='unassigned'?null:toColId;syncOrder(order);}
+  if(order){order.driverId=toColId==='unassigned'?null:toColId;order.updatedAt=new Date().toISOString();syncOrder(order);}
+  // Renumber plan sequence for affected driver columns so drivers see jobs in the planned order
+  [fromColId,toColId].forEach(colId=>{
+    if(colId==='unassigned')return;
+    (plan.drivers[colId]||[]).forEach((id,i)=>{const j=(S.orders||[]).find(x=>x.id===id);if(j){j.planSeq=i+1;syncOrder(j);}});
+  });
+  pushRecord('sp_stock','__plans',S.plans||{});
   persist();renderPlanner();
 }
 
