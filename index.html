@@ -1291,7 +1291,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-13T07:30:00Z';
+const BUILD_ID='2026-06-13T07:55:00Z';
 let _updateAvailable=false;
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
@@ -1321,7 +1321,7 @@ function showUpdateBanner(){
   b.id='update-banner';
   b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#3dd668;color:#08120a;padding:10px 14px;text-align:center;font-weight:700;font-size:13px;cursor:pointer';
   b.textContent='🔄 A new version of SalPal Hub is available — tap to update';
-  b.onclick=()=>location.reload();
+  b.onclick=()=>{location.href=location.pathname+'?_cb='+Date.now();};
   document.body.appendChild(b);
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){checkForUpdate();tryShowUpdateBanner();}});
