@@ -1291,7 +1291,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-13T07:55:00Z';
+const BUILD_ID='2026-06-13T13:25:00Z';
 let _updateAvailable=false;
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
@@ -3164,7 +3164,8 @@ function renderDispatch(){
   if(todoPane&&todoPane.classList.contains('on')){renderDisTodo();return;}
   const today=localIso(new Date());
   const isSupervisor=ME&&ME.role==='Supervisor';
-  const dis=(S.orders||[]).filter(j=>j.type==='Delivery'&&(!isSupervisor||(j.status!=='Completed'||j.deliveryDate>=today)));
+  const isAdmin=ME&&ME.role==='Admin';
+  const dis=(S.orders||[]).filter(j=>j.type==='Delivery'&&(isAdmin||j.status!=='Cancelled')&&(!isSupervisor||(j.status!=='Completed'||j.deliveryDate>=today)));
   const isMob=currentView==='mobile'||window.innerWidth<768;
   const statOpts=['Open','Loaded','In Transit','Completed'].map(s=>({value:s,label:s}));
   const dl=disF.dateFrom&&disF.dateTo?`${fd(disF.dateFrom)}\u2013${fd(disF.dateTo)}`:disF.dateFrom?fd(disF.dateFrom):'All Dates';
@@ -3520,7 +3521,8 @@ function renderReceiving(){
   if(todoPane&&todoPane.classList.contains('on')){renderRecTodo();return;}
   const today=localIso(new Date());
   const isSupervisor=ME&&ME.role==='Supervisor';
-  const cols=(S.orders||[]).filter(j=>j.type==='Collection'&&(!isSupervisor||(j.status!=='Completed'||j.deliveryDate>=today)));
+  const isAdmin=ME&&ME.role==='Admin';
+  const cols=(S.orders||[]).filter(j=>j.type==='Collection'&&(isAdmin||j.status!=='Cancelled')&&(!isSupervisor||(j.status!=='Completed'||j.deliveryDate>=today)));
   const isMob=currentView==='mobile'||window.innerWidth<768;
   const statOpts=['Open','In Transit','Collected','Delivered','Completed'].map(s=>({value:s,label:s}));
   const dl=recF.dateFrom&&recF.dateTo?`${fd(recF.dateFrom)}\u2013${fd(recF.dateTo)}`:recF.dateFrom?fd(recF.dateFrom):'All Dates';
@@ -4242,7 +4244,7 @@ function renderDrvTab(name){
   if(name==='today'){
     const today=tod();
     const tj=mj.filter(j=>{
-      if(j.status==='Completed'||j.status==='Pending Sort')return false;
+      if(j.status==='Completed'||j.status==='Pending Sort'||j.status==='Cancelled')return false;
       // Include overdue (past date) + today + active in-progress
       if(j.type==='Delivery')return j.deliveryDate<=today||j.status==='Loaded'||j.status==='In Transit';
       return j.deliveryDate<=today||['Open','In Transit','Collected'].includes(j.status);
@@ -4260,7 +4262,7 @@ function renderDrvTab(name){
     document.getElementById('drv-today').innerHTML=tj.length?tj.map(j=>drvCard(j,today)).join(''):'<div class="empty">No active tasks</div>';
   }
   if(name==='upcoming'){
-    const uj=mj.filter(j=>j.deliveryDate>tod()&&!['Completed','In Transit','Collected'].includes(j.status)).sort((a,b)=>{
+    const uj=mj.filter(j=>j.deliveryDate>tod()&&!['Completed','In Transit','Collected','Cancelled'].includes(j.status)).sort((a,b)=>{
       const dc=a.deliveryDate.localeCompare(b.deliveryDate);
       if(dc!==0)return dc;
       const as=a.planSeq||999,bs=b.planSeq||999;
