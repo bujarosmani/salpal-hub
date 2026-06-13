@@ -1291,7 +1291,7 @@ input[type=number].no-spin::-webkit-outer-spin-button,input[type=number].no-spin
 <script>
 // Bump this string on every deploy. Used to detect when a newer build is
 // live so long-running mobile sessions get prompted to refresh.
-const BUILD_ID='2026-06-12T21:53:00Z';
+const BUILD_ID='2026-06-13T05:50:00Z';
 function checkForUpdate(){
   fetch(location.pathname+'?_cb='+Date.now(),{cache:'no-store'})
     .then(r=>r.text())
@@ -3341,6 +3341,15 @@ let disTodoSort='date';
 let recTodoSort='date';
 let disF={statuses:null,drivers:null,dateFrom:'',dateTo:'',search:''};
 
+// On Fri/Sat/Sun, "tomorrow" falls on a non-working day — extend the
+// To Do cutoff to the following Monday so weekend prep is visible.
+function todoCutoffDate(){
+  const d=new Date();
+  d.setDate(d.getDate()+1);
+  while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1);
+  return localIso(d);
+}
+
 function renderDisTodo(){
   const pane=document.getElementById('dis-pane-todo');if(!pane)return;
   if(!document.getElementById('dis-todo-search')){
@@ -3369,7 +3378,7 @@ function renderDisTodoResults(){
   const today=localIso(new Date());
   const tomorrow=localIso(new Date(Date.now()+86400000));
   let todo=(S.orders||[]).filter(j=>j.type==='Delivery'&&j.status==='Open');
-  if(!showAll)todo=todo.filter(j=>!j.deliveryDate||j.deliveryDate<=tomorrow);
+  if(!showAll)todo=todo.filter(j=>!j.deliveryDate||j.deliveryDate<=todoCutoffDate());
   if(q)todo=todo.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q)||(j.driverId?uname(j.driverId).toLowerCase():'').includes(q)||(j.orderRef||'').toLowerCase().includes(q));
   todo=todo.sort((a,b)=>{
     if(disTodoSort==='date')return(a.deliveryDate||'').localeCompare(b.deliveryDate||'')||(a.companyName||'').localeCompare(b.companyName||'');
@@ -3436,7 +3445,7 @@ function renderRecTodoResults(){
   const today=localIso(new Date());
   const tomorrow=localIso(new Date(Date.now()+86400000));
   let todo=(S.orders||[]).filter(j=>(j.type==='Collection'||j.type==='Drop-off')&&j.status!=='Completed'&&j.status!=='Pending Sort');
-  if(!showAll)todo=todo.filter(j=>!j.deliveryDate||j.deliveryDate<=tomorrow);
+  if(!showAll)todo=todo.filter(j=>!j.deliveryDate||j.deliveryDate<=todoCutoffDate());
   if(q)todo=todo.filter(j=>(j.awb||'').toLowerCase().includes(q)||(j.companyName||'').toLowerCase().includes(q)||(j.driverId?uname(j.driverId).toLowerCase():'').includes(q)||(j.orderRef||'').toLowerCase().includes(q));
   todo=todo.sort((a,b)=>{
     if(recTodoSort==='date')return(a.deliveryDate||'').localeCompare(b.deliveryDate||'')||(a.companyName||'').localeCompare(b.companyName||'');
